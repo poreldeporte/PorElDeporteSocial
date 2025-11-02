@@ -1,0 +1,41 @@
+name: 'Monorepo Integrity'
+
+on:
+  pull_request:
+    branches:
+      - '**'
+  push:
+    branches:
+      - main
+
+jobs:
+  monorepo-integrity:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Install
+        uses: ./.github/actions/install
+
+      - name: Check for duplicate dependencies in lock file (run `yarn dedupe` to fix)
+        run: yarn dedupe --check
+
+      - name: Check for yarn constraints
+        run: yarn constraints
+
+      - name: Check for conflicting dependency versions across the monorepo
+        run: yarn check-deps
+
+      - name: Check for circular imports across the monorepo
+        run: |
+          chmod +x ./scripts/check-circular-deps.sh 
+          yarn check-circular-deps
+
+      - name: Check the linting using `sherif`
+        run: yarn lint-sherif

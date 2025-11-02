@@ -1,10 +1,5 @@
 # AI Programming Assistant Rules
 
-## Repo-Specific Notes
-- Prefer `useUser().isLoading` over destructuring a non-existent `isPending` property; guard UI on authenticated state explicitly.
-- When wiring the create modal, pass the boolean from `Dialog.onOpenChange` through the global store instead of toggling blindly.
-- Surface Supabase storage/auth errors via the toast system and abort on failure; `console.log` alone is not acceptable feedback.
-
 ## Core Philosophy
 - **Pesudocode**: Write the code that looks like the pseudocode.
 - **Concise expression**: Write the code that most concicely expresses the idea.
