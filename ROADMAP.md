@@ -1,114 +1,94 @@
-# Por El Deporte — Implementation & Architecture Plan (Dev A / Dev B)
-
-0) Objectives
-	•	Ship a mobile-first MVP with an admin web in <3 weeks.
-	•	Keep one coherent stack: Expo + Next.js + Tamagui (Takeout/Bento) + Supabase.
-	•	Eliminate refactors by enforcing contracts-first (types → hooks → UI).
+Sure thing — here’s the entire plan reformatted cleanly in Markdown, ready to drop into your repo (README.md or /docs/plan.md).
 
 ⸻
 
-1) Team Topology & Responsibilities
+🏟️ Por El Deporte — Product & Technical Plan
 
-Dev A — Platform / Data / Admin
-	•	Supabase: schema, indexes, RLS, seeds
-	•	Edge/tRPC: queues, draft, payments, results, push
-	•	React Query hooks in packages/api
-	•	Admin web (Next.js) screens
-	•	CI for migrations, Edge deploys, red-team RLS tests
-
-Dev B — Mobile / UI / DX
-	•	Expo app (React Native) with Tamagui + Bento
-	•	packages/ui (PED-wrapped components) + theme picker
-	•	Zustand stores: auth, ui, draft
-	•	Mobile screens & flows; push token handling
-	•	CI for EAS builds; a11y & UX polish
-
-Golden rules
-	1.	Contracts before code: Zod in packages/models → hook signatures in packages/api → screens.
-	2.	No fetch in screens: only consume hooks + UI components.
-	3.	Deny-all RLS → allow-list with red-team tests per PR.
-	4.	Explicit invalidations for every realtime event.
+(Supabase + Takeout / Dev A + Dev B Edition)
 
 ⸻
 
-2) Monorepo Layout (Takeout style)
+0. Goals
+	•	Ship fast without future rewrites: one monorepo, shared UI, one backend.
+	•	Keep culture: gated community, fair queues/drafts, transparent results & payments.
+	•	Operate simply: RLS at the data layer; minimal custom servers; type-safe API surface.
+
+⸻
+
+1. Core Stack
+
+Layer	Tech	Owner
+Mobile	Expo (RN, TypeScript) + Tamagui (+ Bento)	Dev B
+Web Admin	Next.js (App Router) + Tamagui	Dev A
+Backend	Supabase (Auth, Postgres, Storage, Realtime, Edge Functions + Cron)	Dev A
+Data/State	React Query (server state) + Zustand (UI/session/draft) + Zod (runtime validation)	Shared
+API glue	tRPC / Edge Functions (queues, draft, payments, results)	Dev A
+Payments	Stripe Checkout + Webhooks (Edge)	Dev A
+Push	Expo Push + Edge trigger	A (sender) / B (client)
+Analytics	PostHog + Sentry	Shared
+
+
+⸻
+
+2. Monorepo Layout
 
 ped/
   apps/
-    expo/              # mobile client
-    web/               # admin (Next.js)
+    expo/        # mobile client — Dev B
+    web/         # admin (Next.js) — Dev A
   packages/
-    ui/                # PED-wrapped Bento/Tamagui components
-    theme/             # tokens, light/dark, picker
-    models/            # Zod schemas + TS types (contracts)
-    api/               # React Query hooks + minimal clients
-    store/             # Zustand stores (auth/ui/draft)
+    ui/          # PED-wrapped Bento/Tamagui components — Dev B
+    theme/       # tokens, light/dark, picker — Dev B
+    models/      # Zod schemas + TS types (contracts) — Dev A (owner)
+    api/         # React Query hooks + minimal clients — Dev A
+    store/       # Zustand: auth/ui/draft — Dev B
   supabase/
-    migrations/        # SQL schema/indexes/RLS
-    seed/              # seed scripts
-    functions/         # Edge Functions (queues/draft/payments/results/push)
-  .github/workflows/   # CI (typecheck, RLS red-team, Edge deploy, EAS trigger)
+    migrations/  # SQL schema/indexes/RLS — Dev A
+    seed/        # seed scripts — Dev A
+    functions/   # Edge Functions — Dev A
+  .github/workflows/
+                 # CI: typecheck, RLS red-team, Edge deploy, EAS — shared
 
 
 ⸻
 
-3) Core Architecture
+3. MVP Scope & Responsibilities
 
-Backend (Supabase)
-	•	Postgres with Row-Level Security as primary guard
-	•	Realtime → invalidate React Query keys
-	•	Storage for avatars/media
-	•	Edge Functions + Cron:
-	•	queues.join/leave (FCFS + waitlist promote + push)
-	•	draft.start/pick/lock
-	•	payments.checkout (+ Stripe webhook idempotent)
-	•	results.confirm (+ leaderboard cache)
-	•	push.send (quiet hours, receipts)
+3.1 Auth & Profile
+	•	Supabase Auth (email magic link + OAuth) — A config / B flow
+	•	Profile edit + avatar (Storage) — B
+	•	Session persisted (SecureStore); authStore — B
+	•	Zod validation (inputs) — B (using A’s schemas)
 
-Client Data Layer
-	•	React Query for all networked/server state
-	•	Zustand (light):
-	•	authStore (session, user) — persisted
-	•	uiStore (toasts, sheets, theme)
-	•	draftStore (ephemeral pick state)
-	•	Zod at boundaries (API responses, forms, persisted hydration)
+3.2 Games / Queues / Draft
+	•	Games CRUD (admin web) — A
+	•	Games list/detail (mobile) — B
+	•	Queue (FCFS + auto-promote + push) — A (Edge/RLS) / B (UI)
+	•	Draft (start / pick / lock) — A (Edge/hooks) / B (UI + draftStore)
+	•	T-24 hr reminder (cron → push) — A (cron) / B (client display)
 
-UI System
-	•	Tamagui + Bento via packages/ui (wrapped & re-exported)
-	•	Tokens in packages/theme (Apple-ish; accent #007AFF, border #E5E5EA)
-	•	Mobile expo-router or React Navigation; web Next App Router
+3.3 Chat
+	•	Tables + hooks + RLS — A
+	•	UI (MessageBubble / Composer / media) — B
 
-⸻
+3.4 Results / Stats / Leaderboard
+	•	Edge results.confirm + cache job — A
+	•	Dashboard & leaderboard UI — B
 
-4) Contracts (single source of truth)
+3.5 Payments
+	•	Stripe Checkout + Webhook → Ledger — A
+	•	Wallet UI (transactions) — B
 
-packages/models (Dev A owns, Dev B reviews)
-
-Zod schemas: Profile, Game, QueueItem, Roster, DraftPick, Thread, Message, MessageRead, Result, Transaction, Ledger.
-
-packages/api hooks (Dev A publishes)
-
-Reads:
-	•	useMe(), useGames(), useGame(gameId)
-	•	useQueue(gameId), useThreads(scope), useMessages(threadId)
-	•	useRoster(gameId), useDraft(gameId)
-	•	useResults(gameId), useLeaderboard(), useTransactions()
-
-Writes (mutations):
-	•	useJoinQueue(), useLeaveQueue()
-	•	useDraftStart(), useDraftPick(), useDraftLock()
-	•	useCheckout() (Stripe), webhook is server-only
-	•	useConfirmResult()
-
-Invalidation Map (must be maintained)
-	•	messages.insert|delete → ['messages', threadId], maybe ['threads']
-	•	game_queue.insert|delete|promote → ['queue', gameId], ['game', gameId]
-	•	draft_picks.insert → ['draft', gameId], ['roster', gameId]
-	•	results.upsert → ['results', gameId], ['leaderboard'], ['me']
+3.6 Merch
+	•	Shopify webview/deeplink — B
 
 ⸻
 
-5) Data Model (Supabase tables & key indexes)
+4. Data Model (Supabase) — Dev A
+
+<details>
+<summary>Click to expand schema</summary>
+
 
 Identity & Access
 	•	profiles(user_id PK, name, avatar_url, bio, role)
@@ -116,133 +96,185 @@ Identity & Access
 
 Games & Participation
 	•	games(id, community_id, starts_at, ends_at, location, cost_cents, spots, created_by)
-	•	game_queue(id, game_id, user_id, joined_at, status)
-idx: (game_id, joined_at)
+	•	game_queue(id, game_id, user_id, joined_at, status) → (game_id, joined_at)
 	•	draft_picks(id, game_id, pick_no, captain_team, user_id)
-	•	rosters(id, game_id, team, user_id)
-idx: (game_id, team)
+	•	rosters(id, game_id, team, user_id) → (game_id, team)
 
 Chat
-	•	threads(id, scope_type, scope_id) idx: (scope_type, scope_id)
+	•	threads(id, scope_type, scope_id) → (scope_type, scope_id)
 	•	thread_members(thread_id, user_id, role, muted)
-	•	messages(id, thread_id, author_id, text, media_url, created_at)
-idx: (thread_id, created_at)
+	•	messages(id, thread_id, author_id, text, media_url, created_at) → (thread_id, created_at)
 	•	message_reads(message_id, user_id, read_at)
 
 Results & Stats
-	•	results(game_id PK, teamA_score, teamB_score, confirmed_by, confirmed_at) idx: (confirmed_at)
+	•	results(game_id PK, teamA_score, teamB_score, confirmed_by, confirmed_at) → (confirmed_at)
 	•	leaderboard_cache(user_id PK, games_played, wins, losses, win_pct, updated_at)
 
 Payments
-	•	transactions(id, user_id, game_id, amount_cents, currency, status, provider_ref, created_at)
-idx: (user_id, created_at), unique (provider_ref)
+	•	transactions(id, user_id, game_id, amount_cents, currency, status, provider_ref, created_at) → (user_id, created_at) + unique (provider_ref)
 	•	ledgers(id, game_id, user_id, debit_cents, credit_cents, reason, created_at)
 
 Ops
 	•	audit_logs(id, actor_id, action, entity, entity_id, meta, created_at)
 	•	notifications(id, user_id, type, payload, sent_at)
 
-RLS (deny-all → allow)
-	•	Profiles: user select/update own; admins select all
-	•	Games: select if in community; insert/update admins
-	•	Queue: user can manage own queue row; admins manage all
-	•	Threads/Messages: select if member; write if member & not muted
-	•	Draft/Rosters: captains/admins write; members read
-	•	Results: captains/admins write; members read
-	•	Transactions/Ledgers: user reads own; admins read all; writes only via service role
+</details>
+
+
 
 ⸻
 
-6) Milestones & Day-by-Day Handoffs (2½ weeks)
+5. RLS Policy Sketch — Dev A
 
-Phase 0 (Day 0–1) — Foundations
-	•	Dev A
-	•	Supabase project; initial migrations (profiles, games, memberships) + deny-all RLS
-	•	Seed script (3 users, 2 games)
-	•	Dev B
-	•	Takeout up; PED tokens; install Bento; packages/ui wrappers (Button/Input/Card/Dialog/Sheet/Toast/ListItem/Avatar/Tabs)
-	•	Expo/Next shells; theme picker working
+Table	Policy Summary
+profiles	user can select/update own; admins select all
+games	visible to community members; write = admins
+game_queue	user manage own; admins manage all
+rosters / draft_picks	captains/admins write; members read
+threads / messages	select if in thread_members; write if not muted
+results	captains/admins write; members read
+transactions / ledgers	user reads own; admins read all; writes via Edge (service role)
 
-Contract PR: Commit Profile|Game|QueueItem schemas + stub hooks (useMe/useGames/useGame/useQueue) returning mocks.
-
-Phase 1 (Day 2–4) — Auth & Games
-	•	Dev A: Implement hooks with Supabase; RLS for base tables; invalidations doc
-	•	Dev B: Auth flow (magic link), Profile screen, Games list/detail using hooks
-
-Phase 2 (Day 5–7) — Queue + Push
-	•	Dev A: Table game_queue; Edge queues.join/leave (FCFS + promote + push); hook mutations wired
-	•	Dev B: Join/Leave UI (Sheet/Toast), device push token registration; verify invalidations
-
-Phase 3 (Day 8–10) — Draft + Chat
-	•	Dev A: Tables threads/thread_members/messages/message_reads, draft_picks/rosters; hooks useThreads/useMessages/useDraft/useRoster; Edge draft.start/pick/lock
-	•	Dev B: Chat UI (MessageBubble/Composer + media upload), Draft UI (Segmented + pick list) with draftStore
-
-Phase 4 (Day 11–13) — Payments + Results + Leaderboard
-	•	Dev A: Tables transactions/ledgers, Edge payments.checkout + Stripe webhook (idempotent), results.confirm + leaderboard cache; admin web: Transactions, Results
-	•	Dev B: Wallet screen; result confirm UI; leaderboard screen
-
-Phase 5 (Day 14–16) — Hardening & Ship
-	•	Dev A: RLS red-team script; unit tests (queue promotion, draft order, webhook idempotency); cron T-24h reminders; push.send
-	•	Dev B: UX polish (skeletons, toasts, haptics), FlashList in chat, EAS/TestFlight + Vercel deploy
 
 ⸻
 
-7) Definition of Ready / Done
+6. Server Logic (Edge / tRPC) — Dev A
 
-Ready
-	•	Zod schema merged; hook signature stubbed; RLS rule drafted; invalidation entry added
+Function	Purpose
+queues.join/leave	validate spots → insert/delete → promote waitlist → push
+draft.start/pick/lock	enforce turn order → write draft_picks → populate rosters
+payments.checkout + webhook	create Stripe session; on success → write transactions + ledgers
+results.confirm	validate roles → write results → update leaderboard_cache
+push.send	centralized Expo push with quiet-hours and receipts
 
-Done
-	•	Types pass; hooks implemented; invalidations verified live
-	•	RLS policy + red-team SQL test pass
-	•	Screens wired with packages/ui; no fetch in screens
-	•	Error states + toasts + basic a11y labels
-	•	Demo script updated (auth → join → draft → chat → result → wallet)
 
 ⸻
 
-8) CI / Quality Gates
-	•	Root typecheck & build (pnpm -w typecheck build)
-	•	RLS red-team script (attempt cross-team read/write) runs in CI
-	•	Edge unit tests (draft rules, queue promotion, webhook idempotency)
-	•	EAS preview build on main; Vercel preview for web
-	•	Lint + Prettier + commit hooks
+7. Client Data Layer
 
-CODEOWNERS
+React Query hooks (packages/api) — Dev A
 
-/packages/models  @DevA @DevB
-/packages/api     @DevA
+['me'], ['games'], ['game', gameId],
+['queue', gameId], ['threads', scope],
+['messages', threadId],
+['results', gameId], ['leaderboard'], ['transactions']
+
+Zustand stores (packages/store) — Dev B
+
+authStore: { user, session, setUser, logout }
+uiStore:   { sheetOpen, toast, theme }
+draftStore:{ picks[], currentTeam, makePick() }
+
+Zod → validate Edge responses / forms / persisted state.
+Realtime events trigger invalidations from INVALIDATIONS.md.
+
+⸻
+
+8. UI System — Dev B
+	•	Theme: Apple-style; accent #007AFF, border #E5E5EA, textSubtle #6E6E73
+	•	Tokens: radii 10–14 (cards), 8–10 (controls); space 4/8/12/16/24
+	•	Components (packages/ui):
+Button, Input, Card, Dialog, Sheet, NavbarBlur, Segmented, Toast, ListItem, Avatar
+Custom: MessageBubble, Composer, TransactionCard
+	•	Motion: Reanimated springs; Haptics on join/pick/pay
+
+⸻
+
+9. App UX
+
+Mobile (Expo) — Dev B
+	1.	Games (list → detail → queue/draft/chat)
+	2.	Chat (community + per-game threads)
+	3.	Wallet (history + credits)
+	4.	Profile (edit avatar/bio, logout)
+
+Web Admin (Next.js) — Dev A
+	•	Games CRUD + calendar
+	•	Members (roles/invites)
+	•	Payments (transactions/ledgers)
+	•	Leaderboards / Results
+	•	Audit logs
+
+⸻
+
+10. Timeline (3 Weeks → TestFlight + Admin Live)
+
+Week	Milestones	Owner
+1	Takeout setup + branding + CISupabase schema + RLS (deny-all→allow)Auth + ProfileGames list/detail + create (admin)	A+B
+2	Queue join/leave (Edge + Realtime + push)Game chat + media + read receiptsDraft start/pick/lock (UI + Edge)	A+B
+3	Stripe Checkout + webhook → ledgerResults confirm + W/L + leaderboard cachePolish (toasts, empty states), seedersTestFlight + Vercel launch	A+B
+
+
+⸻
+
+11. Risks & Mitigations
+
+Risk	Mitigation
+RLS mistakes	deny-all default; red-team SQL tests in CI
+Schema drift	require migrations + models + hooks in same PR
+Realtime bursts	paginate; index FK; FlashList on mobile
+Payments dupes	Stripe idempotency + unique constraint
+Push failures	Expo receipts + retry + quiet hours
+Legal (double-fee)	feature flag; disable if unapproved
+
+
+⸻
+
+12. Immediate Task Board
+
+Infra
+	•	Init Takeout repo + Bento install + envs
+	•	Supabase project + Storage + SMTP + Expo push keys
+	•	Stripe keys + Edge webhook URL
+
+Data/Security
+	•	Create tables & indexes (as above)
+	•	Implement RLS policies (deny-all → allow)
+	•	Seed: sample users/games/threads
+
+Mobile
+	•	Tabs + theme picker + auth flow
+	•	Games list/detail + join/leave
+	•	Chat with media + read receipts
+	•	Draft flow (UI + mutations)
+
+Web Admin
+	•	Auth + role gating
+	•	Games CRUD + calendar
+	•	Members & payments dashboards
+
+Edge/tRPC
+	•	queues.join/leave
+	•	draft.start/pick/lock
+	•	payments.checkout + webhook
+	•	results.confirm
+	•	push.send
+
+⸻
+
+13. CI / Quality
+	•	ESLint + Prettier + typecheck
+	•	RLS red-team tests
+	•	Edge unit tests (queue promotion, draft order, webhook idempotency)
+	•	EAS preview build + Vercel preview
+	•	CODEOWNERS
+
 /supabase         @DevA
+/packages/api     @DevA
 /apps/web         @DevA
 /packages/ui      @DevB
 /packages/store   @DevB
 /apps/expo        @DevB
+/packages/models  @DevA @DevB
 
 
 ⸻
 
-9) Technical Blocking List (must clear before parallel sprint)
-	•	Supabase project + initial migrations (profiles/games/memberships) + deny-all RLS
-	•	packages/models initial Zod (Profile, Game, QueueItem) merged
-	•	packages/api hook stubs compile (useMe/useGames/useGame/useQueue)
-	•	Takeout/Bento installed; PED tokens; packages/ui base wrappers live
-	•	CI green: typecheck + seed + RLS red-team script
+✅ TL;DR
 
-⸻
+Use Takeout as the base.
+Dev A → Supabase / Edge / Admin / Hooks.
+Dev B → Expo / UI / Zustand / Screens.
 
-10) Risk Controls (real ones that bite)
-	•	RLS leaks → deny-all default; PR adds allow rules + red-team test
-	•	Schema drift → models+migrations+hooks in same PR; root typecheck blocks merge
-	•	Realtime storms → paginate; index FK columns; FlashList for chat
-	•	Webhook dupes → Stripe idempotency + unique provider_ref; test
-	•	Push delivery → receipts + retry with backoff; quiet hours preference
-	•	Legal (double-fee) → feature flag; disable pending approval
-
-⸻
-
-11) What “great synergy” looks like daily
-	•	10-minute async stand-up: Dev A posts changed types/hooks & invalidations; Dev B posts UI gaps.
-	•	Tue/Thu 45-min contracts pairing (walk new Zod + hooks).
-	•	Fri 30-min integration run: Auth → Join → Draft → Chat → Result → Wallet.
-
-⸻
+Both share Zod models and React Query hooks for perfect type-safe parallel work.
+Three weeks to a working MVP: TestFlight mobile + Vercel admin live.
