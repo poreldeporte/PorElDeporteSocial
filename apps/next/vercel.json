@@ -1,0 +1,4 @@
+{
+  "installCommand": "yarn set version 4.1.0 && yarn install",
+  "buildCommand": "yarn build:ci"
+}

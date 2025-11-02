@@ -1,0 +1,43 @@
+{
+  "name": "storybook-rn-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "generate": "sb-rn-get-stories",
+    "sb:watch": "sb-rn-watcher",
+    "start": "cross-env EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start",
+    "ios": "cross-env EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --ios -c",
+    "android": "cross-env EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --android -c"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
+    "@gorhom/bottom-sheet": "^5.1.6",
+    "@my/ui": "*",
+    "@react-native-community/datetimepicker": "8.3.0",
+    "app": "*",
+    "expo": "53.0.9",
+    "expo-constants": "~17.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.2",
+    "react-native-web": "~0.20.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/plugin-transform-class-static-block": "^7.27.1",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/slider": "4.5.6",
+    "@storybook/addon-actions": "8.6.4",
+    "@storybook/addon-controls": "8.6.4",
+    "@storybook/addon-ondevice-actions": "8.6.4",
+    "@storybook/addon-ondevice-controls": "8.6.4",
+    "@storybook/react-native": "8.6.4",
+    "@storybook/testing-library": "^0.2.2",
+    "babel-loader": "^8.3.0",
+    "cross-env": "^7.0.3",
+    "react-native-safe-area-context": "5.4.0",
+    "storybook": "8.6.4",
+    "typescript": "~5.8.3"
+  }
+}

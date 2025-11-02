@@ -1,0 +1,28 @@
+diff --git a/node_modules/react-native-reanimated/lib/module/hook/useAnimatedStyle.js b/node_modules/react-native-reanimated/lib/module/hook/useAnimatedStyle.js
+index b28f37c..ebeacee 100644
+--- a/node_modules/react-native-reanimated/lib/module/hook/useAnimatedStyle.js
++++ b/node_modules/react-native-reanimated/lib/module/hook/useAnimatedStyle.js
+@@ -160,6 +160,9 @@ function styleUpdater(viewDescriptors, updater, state, animationsActive, isAnima
+            * states, causing abrupt transitions or 'jumps' in animation states.
+            */
+           if (Array.isArray(updates[propName])) {
++            if (!last[propName] || typeof last[propName] !== 'object') {
++              last[propName] = {};
++            }
+             updates[propName].forEach(obj => {
+               for (const prop in obj) {
+                 last[propName][prop] = obj[prop];
+diff --git a/node_modules/react-native-reanimated/src/hook/useAnimatedStyle.ts b/node_modules/react-native-reanimated/src/hook/useAnimatedStyle.ts
+index dce24a4..dca6ef3 100644
+--- a/node_modules/react-native-reanimated/src/hook/useAnimatedStyle.ts
++++ b/node_modules/react-native-reanimated/src/hook/useAnimatedStyle.ts
+@@ -257,6 +257,9 @@ function styleUpdater(
+            * states, causing abrupt transitions or 'jumps' in animation states.
+            */
+           if (Array.isArray(updates[propName])) {
++            if (!last[propName] || typeof last[propName] !== 'object') {
++              last[propName] = {};
++            }
+             updates[propName].forEach((obj: StyleProps) => {
+               for (const prop in obj) {
+                 last[propName][prop] = obj[prop];

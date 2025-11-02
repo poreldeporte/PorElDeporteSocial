@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+THUMBS_DB
+dist/
+types/
+

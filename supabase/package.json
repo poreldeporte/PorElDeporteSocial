@@ -1,0 +1,37 @@
+{
+  "name": "@my/supabase",
+  "version": "0.0.0",
+  "files": [
+    "./types.ts"
+  ],
+  "scripts": {
+    "_with-env": "dotenv -e ../.env -c -- ",
+    "_ensure-env": "[ -f \"../.env\" ] || cp \"../.env.example\" \"../.env\"",
+    "_link-project": "npx supabase@latest link --project-ref $NEXT_PUBLIC_SUPABASE_PROJECT_ID --workdir ../",
+    "link-project": "yarn _with-env yarn _link-project",
+    "_generate:remote": "npx supabase gen types typescript --project-id $NEXT_PUBLIC_SUPABASE_PROJECT_ID --schema public > ./types.ts",
+    "generate:remote": "yarn _with-env yarn _generate:remote",
+    "generate": "npx supabase gen types typescript --local --schema public > ./types.ts",
+    "g": "yarn generate",
+    "migration:diff": "npx supabase db diff -f ",
+    "migration:up": "npx supabase migration up",
+    "migration:new": "supabase migration new",
+    "start": "yarn _ensure-env && yarn _with-env npx supabase start",
+    "stop": "yarn _with-env npx supabase stop",
+    "stop:no-backup": "npx supabase stop --no-backup",
+    "reset": "npx supabase db reset && yarn start",
+    "status": "npx supabase status",
+    "_deploy": "yarn link-project && npx supabase db push",
+    "deploy": "yarn _with-env yarn _deploy",
+    "seed:init": "npx @snaplet/seed init",
+    "seed:post": "npx tsx seed.ts > seed.sql"
+  },
+  "devDependencies": {
+    "@snaplet/copycat": "^5.0.0",
+    "@snaplet/seed": "0.97.20",
+    "@types/pg": "^8.11.6",
+    "dotenv-cli": "^8.0.0",
+    "pg": "^8.12.0",
+    "supabase": "^2.22.12"
+  }
+}

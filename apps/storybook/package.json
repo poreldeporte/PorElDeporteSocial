@@ -1,0 +1,38 @@
+{
+  "name": "storybook-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "build-storybook": "storybook build -s public -o public-storybook",
+    "dev": "storybook dev -p 6006",
+    "chromatic": "npx chromatic --project-token=<YOUR_CHROMATIC_TOKEN>",
+    "serve-sb": "npx serve ./public-storybook"
+  },
+  "dependencies": {
+    "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
+    "@my/ui": "*",
+    "app": "*",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.2",
+    "react-native-web": "~0.20.0"
+  },
+  "devDependencies": {
+    "@babel/runtime": "^7.18.9",
+    "@storybook/addon-essentials": "8.6.4",
+    "@storybook/addon-interactions": "8.6.4",
+    "@storybook/addon-links": "8.6.4",
+    "@storybook/addon-react-native-web": "^0.0.21",
+    "@storybook/addon-styling": "^1.3.7",
+    "@storybook/blocks": "8.6.4",
+    "@storybook/jest": "^0.2.3",
+    "@storybook/nextjs": "8.6.4",
+    "@storybook/react": "8.6.4",
+    "@storybook/testing-library": "^0.2.2",
+    "chromatic": "^6.20.0",
+    "metro-react-native-babel-preset": "^0.77.0",
+    "storybook": "8.6.4",
+    "typescript": "~5.8.3"
+  }
+}
