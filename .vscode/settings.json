@@ -31,4 +31,24 @@
 		"tamagui",
 		"Unspaced"
 	],
+	"workbench.colorCustomizations": {
+		"activityBar.activeBackground": "#374946",
+		"activityBar.background": "#374946",
+		"activityBar.foreground": "#e7e7e7",
+		"activityBar.inactiveForeground": "#e7e7e799",
+		"activityBarBadge.background": "#150818",
+		"activityBarBadge.foreground": "#e7e7e7",
+		"commandCenter.border": "#e7e7e799",
+		"sash.hoverBorder": "#374946",
+		"statusBar.background": "#212c2a",
+		"statusBar.foreground": "#e7e7e7",
+		"statusBarItem.hoverBackground": "#374946",
+		"statusBarItem.remoteBackground": "#212c2a",
+		"statusBarItem.remoteForeground": "#e7e7e7",
+		"titleBar.activeBackground": "#212c2a",
+		"titleBar.activeForeground": "#e7e7e7",
+		"titleBar.inactiveBackground": "#212c2a99",
+		"titleBar.inactiveForeground": "#e7e7e799"
+	},
+	"peacock.color": "#212c2a",
 }

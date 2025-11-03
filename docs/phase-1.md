@@ -148,7 +148,6 @@ Success means an internal community can schedule and join games without database
 Each step should land in small PRs with tests to avoid large merges.
 
 ## 5. Dependencies
-- Phase 0 fixes merged and stable (loading guard, modal toggle, storage errors, SecureStore adapter).
 - Env secrets for Supabase, Expo, Next, PostHog, Sentry available in `.env` and Expo config.
 - Stripe not required yet; payments deferred to Phase 3.
 - Design tokens approved for Por El Deporte branding (colors, icons).
@@ -161,11 +160,11 @@ Each step should land in small PRs with tests to avoid large merges.
   - `POSTHOG_API_KEY`, `POSTHOG_HOST` (optional stub for dev).
   - `SENTRY_DSN` (staging).
 - Expo config (`apps/expo/app.config.js`) mirrors Supabase env values via `EXPO_PUBLIC_*`.
-- Ensure Supabase storage buckets `avatars`, `post-images` exist (Phase 0) and add `queue-assets` if we store location maps later.
+- Ensure Supabase storage buckets `avatars`, `post-images` exist (tracked in issues) and add `queue-assets` if we store location maps later.
 - Feature flag (Supabase table `feature_flags`) entry for `phase1_queue` to gate new UI if needed.
 
 ## 6. Risks & Mitigations
-- **Schema rollout**: migrations may break existing local data. Use `supabase db diff` previews and provide `yarn db:reset`.
+- **Schema rollout**: migrations may break existing local data. Use `supabase db diff` previews and document `yarn workspace @my/supabase reset` for a clean local stack.
 - **Queue race conditions**: multiple joins at the same time. Mitigate with Supabase row locks or `select for update` in Edge Function; add optimistic UI rollbacks.
 - **Observability noise**: instrumentation spam in dev. Guard analytics with `POSTHOG_API_KEY` presence and environment checks.
 - **Testing flake**: Expo E2E runs can be slow. Schedule nightly runs and keep critical component/unit tests in fast lane.

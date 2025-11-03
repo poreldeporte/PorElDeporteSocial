@@ -38,13 +38,13 @@ Success in each phase is measured by these criteria, not raw feature counts.
 - **Data & Auth**: Supabase migrations for `profiles`, `events`, `projects`, `posts`, etc. Auto trigger inserts profiles on sign-up. Generated types ensure end-to-end typing.
 - **Tooling**: Yarn 4 workspaces, Turbo task runner, React Query caching, SchemaForm (Zod + ts-react-form), tRPC context with Supabase auth, Storybook for UI review.
 
-### 4.3 Stack Shift vs. Original Spec
-The original roadmap assumed Firebase Auth, Socket.io, MongoDB, and custom Node services. We now rely on Expo/Next, Supabase (Postgres + auth + storage + realtime), and tRPC. Requirements stay the same, but delivery changes:
-- **Auth** → Supabase Auth + JWT; Expo uses SecureStore, Next uses cookies.
-- **Realtime chat & queue** → Supabase Realtime channels and Edge Functions instead of Socket.io.
-- **Database** → Postgres schema with RLS instead of Mongo collections.
-- **Payments** → Stripe Checkout + Supabase-led ledger tables (still honors double-fee rules).
-- **Notifications** → Expo Push + scheduled Edge Functions (cron) replacing FCM/Cloud Tasks.
+### 4.3 Stack Overview
+We deliver the product through a single Expo + Next monorepo backed by Supabase and tRPC:
+- **Auth** → Supabase Auth + JWT; Expo persists via SecureStore, Next relies on cookies.
+- **Realtime chat & queue** → Supabase Realtime channels and Edge Functions for server enforcement.
+- **Database** → Postgres schema with Row-Level Security and generated TypeScript types.
+- **Payments** → Stripe Checkout flowing into Supabase-led ledger tables (double-fee rule preserved).
+- **Notifications** → Expo Push plus scheduled Edge Functions (cron) for reminders and fallbacks.
 
 Mapping requirements to this stack is captured below.
 
@@ -58,7 +58,7 @@ Mapping requirements to this stack is captured below.
 | Settings | Theme toggle, logout, change email/password, legal links. | No notification preferences, community settings, or payments info. |
 | Supabase Schema | Tables: `profiles`, `events`, `posts`, `projects`, `achievements`, `categories`, `user_stats`, `referrals`. `events` already holds time/status; migrations seed minimal data. | No `game_queue`, `draft_picks`, `transactions`, `threads`, etc. `events` lacks capacity/location/cost; seeds commented out. |
 | API Layer | tRPC router only exposes `greeting.greet`; context sets up Supabase client with RLS. | Needs feature routers for games, queue, payments. |
-| Design System | `packages/ui` + `bento-bundle` include cards, toasts, dialogs, onboarding flows, form fields, nav shells; Storybook apps ready. | Requires Por El Deporte branding (colors, icons) and sports-specific components (GameCard, QueueList). |
+| Design System | `packages/ui` + `bento-bundle` include cards, toasts, dialogs, onboarding flows, form fields, nav shells; Storybook apps ready. | Requires Por El Deporte branding (colors, icons) and sports-specific components (GameCard, QueueList); current package also imports `@my/app` screens and needs decoupling to remain platform-agnostic. |
 | Testing & Tooling | Turbo commands, React Query set-up, SchemaForm, global providers, lint config. | No automated tests yet; instrumentation limited to console logs. |
 
 Takeout delivers a polished shell with working auth, profile, forms, and styling. However, most domain features (queue, drafts, payments, stats, notifications) are absent or placeholder, guiding the phase roadmap below.
@@ -67,32 +67,10 @@ Takeout delivers a polished shell with working auth, profile, forms, and styling
 
 | Phase | Timeline | Primary Goal | Release Channels |
 |-------|----------|--------------|------------------|
-| 0. Baseline | Weeks 0–2 | Stabilize Takeout defaults, remove starter bugs, add tests | Internal dev builds only |
 | 1. MVP – Community Core | Weeks 2–6 | Auth + profiles + game listings + basic queue | Friends & family beta |
 | 2. Competitive Play | Weeks 6–10 | Drafts, rosters, push notifications, analytics | Closed pilot league |
 | 3. Monetization | Weeks 10–14 | Stripe checkout, wallet, transactions dashboard | Broader beta + soft launch |
 | 4. Growth & Ops | Weeks 14+ | Admin tooling, reporting, automation, multi-community | Public launch |
-
-### Phase 0 – Baseline (Weeks 0–2)
-**Goals**
-- Patch known bugs (loading state, modal toggles, Supabase storage errors, SecureStore adapter).
-- Establish minimum automated tests (unit + component) and CI gates.
-- Document developer workflow (Supabase start, env vars, running apps).
-
-**Key Deliverables**
-- Fixes for:
-  - `useUser` loading guard (`packages/app/features/home/screen.tsx`).
-  - Create modal state handling (`packages/ui/src/components/CreateModal.tsx`, `packages/app/utils/global-store`).
-  - Event/Post create validation & error handling.
-  - SecureStore adapter promise returns (`packages/app/utils/supabase/client.native.ts`).
-  - React Query key scoping (`useEventQuery`, `usePostQuery`).
-- Test scaffolding: Vitest + React Testing Library for shared packages, Expo Router mocks, Next component tests (Playwright optional).
-- README update with “Getting started”, Supabase bucket requirements (`avatars`, `post-images`).
-
-**Exit Criteria**
-- All hot issues resolved with regression tests.
-- `yarn lint`, `yarn typecheck`, `yarn test` pass locally and in CI.
-- Devs can run mobile or web app against seeded Supabase without manual tweaks.
 
 ### Phase 1 – MVP: Community Core (Weeks 2–6)
 **Goals**
@@ -206,7 +184,7 @@ Takeout delivers a polished shell with working auth, profile, forms, and styling
 ## 6. Requirement Coverage Map
 | Requirement Area (from legacy spec) | Phase Coverage | Notes |
 |-------------------------------------|----------------|-------|
-| Authentication & Profiles | Phase 0 (stabilization), Phase 1 (MVP) | Supabase Auth replaces Firebase; profile flows shared across Expo/Next. |
+| Authentication & Profiles | Phase 1 (MVP) | Supabase Auth powers web and native flows through shared providers. |
 | Game Operations (create, queue) | Phase 1 | `games`, `game_queue`, `memberships` tables plus queue join Edge Functions. |
 | Draft & Roster Management | Phase 2 | Snake draft + roster locking implemented via Supabase functions and Realtime updates. |
 | Real-Time Chat | Phase 2 | Supabase Realtime channels + message tables; moderation tools follow Phase 2. |
@@ -214,7 +192,7 @@ Takeout delivers a polished shell with working auth, profile, forms, and styling
 | Payments & Incentives | Phase 3 | Stripe Checkout + ledger schema deliver double-fee rule and wallet history. |
 | Shopify Merch | Phase 4 | Implemented as deep link/webview surfaces in nav. |
 
-Items marked for later phases remain on the backlog until Phase 0–3 ship.
+Items marked for later phases remain on the backlog until Phases 1–3 ship.
 
 ## 7. Cross-Cutting Workstreams
 ### 7.1 Design System
@@ -238,7 +216,7 @@ Items marked for later phases remain on the backlog until Phase 0–3 ship.
 
 ### 7.4 Developer Experience
 - Scripts:
-  - `yarn db:start`, `yarn db:reset`, `yarn db:seed`.
+  - `yarn workspace @my/supabase start` / `reset` / `deploy` to manage the local Supabase stack.
   - `yarn web --tunnel` for mobile hitting local Next server.
   - `yarn native --lan` for Expo LAN mode.
 - Enforce `.env` sync via template + preflight script (fails fast if keys missing).
@@ -275,24 +253,11 @@ These ideas stay off the critical path until Phase 4 completes and data confirms
 - **Scalability**: queue/draft flows depend on Supabase Realtime—monitor performance for large lobbies.
 
 ## 11. Next Actions
-1. Finish Phase 0 stabilization (bug fixes + tests) and document outcomes.
-2. Socialize Phase 1 spec (`docs/phase-1.md`) with stakeholders; adjust scope if requirements shift.
-3. Prepare Supabase migration drafts for `games`, `game_queue`, `memberships`, and review RLS as a team.
-4. Align design on MVP UI states (home dashboard, game cards, queue CTA) and update tokens in `packages/ui`.
-5. Stand up observability plumbing (PostHog, Sentry) so Phase 1 telemetry is ready on day one.
-
-## 6. Risks & Mitigations
-- **Schema Drift**: migrations vs Supabase dashboard edits. Mitigation: forbid console edits; run all changes through SQL + review.
-- **Offline / Network Constraints**: mobile queue/draft flows require freshness. Mitigation: clarify offline requirements early; use optimistic UI but rely on server truth.
-- **Notifications Delivery**: Expo push quotas and receipt handling. Mitigation: central `notifications.send` that retries and stores receipts for reconciliation.
-- **Payment Compliance**: Stripe policies for tournaments/community funds. Mitigation: involve Stripe compliance early; log identity/accounting data.
-- **Team Bandwidth**: small team building broad surface. Mitigation: aggressively reuse components, avoid speculative features, schedule guard weeks for polish/QA.
-
-## 7. Next Actions
-1. Execute Phase 0 stabilization tasks (bugs + tests) and merge with proof (CI + test output).
-2. Draft Supabase migration plan for Phase 1 (games/queue) and review RLS with stakeholders.
-3. Align design + product on MVP UX (game list, queue join, admin create). Produce component inventory for design system updates.
-4. Schedule instrumentation work (Sentry/PostHog) before MVP development so we capture real usage data from the start.
+1. Close the open stabilization issues in `docs/issues.md`, land regression tests, and capture proof in CI (`yarn lint`, `yarn typecheck`, `yarn test`).
+2. Socialize the Phase 1 spec (`docs/phase-1.md`) with stakeholders; adjust scope if needed.
+3. Draft Supabase migrations for `games`, `game_queue`, `memberships`, and secure RLS sign-off from the team.
+4. Align design/product on MVP UX (game list, queue join, admin create), updating tokens in `packages/ui` and producing a reusable component inventory.
+5. Stand up observability plumbing (PostHog, Sentry) and schedule instrumentation work ahead of MVP development so telemetry is live on day one.
 
 ---
 
