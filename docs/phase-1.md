@@ -22,7 +22,7 @@ Success means an internal community can schedule and join games without database
 ### 3.1 Product/UI
 - Replace placeholder home cards with live data:
   - “Upcoming games” card uses shared hook to show next three `games` in the member’s community.
-  - Queue widget shows the user’s status (`confirmed`, `waiting`, `waitlisted`) with join/leave CTA.
+  - Queue widget shows the user’s status (`confirmed`, `waitlisted`, `removed`) with join/leave CTA.
   - Announcement slot pulls from `posts` filtered by category `announcement`.
 - Game index screen (web + mobile):
   - Filters: `status` (upcoming/live/past), date range, community (if multi-community arrives later).
@@ -54,9 +54,9 @@ Success means an internal community can schedule and join games without database
     - `created_by` (FK to `profiles`), `updated_at` (trigger that updates on change).
   - Create `memberships` table with `role` enum (`player`, `captain`, `admin`) and indexes on `(community_id, user_id)`.
   - Create `game_queue` table with:
-    - `position` (integer), `status` enum (`confirmed`, `waiting`, `removed`), `joined_at`.
+    - `position` (integer), `status` enum (`confirmed`, `waitlisted`, `removed`), `joined_at`.
     - Unique index on `(game_id, user_id)`, index on `(game_id, status)`.
-  - Write functions for queue promotion (e.g., `promote_next_waiting_player(game_id)`).
+  - Write functions for queue promotion (e.g., `promote_next_waitlisted_player(game_id)`).
 - Row Level Security:
   - `games`: allow `select` to any member; allow `insert/update/delete` to admins; allow captains to update limited fields (status?). Deny all others.
   - `memberships`: allow `select` to self and admins. Inserts/updates via service role (admin panel later).
@@ -65,20 +65,20 @@ Success means an internal community can schedule and join games without database
   - `games.list` (filters, pagination) and `games.byId`.
   - `queue.join`:
     - Checks membership, game status, existing queue entry.
-    - If capacity not reached: create row with status `confirmed`; if reached: `waiting`.
-    - Calls `promote_next_waiting_player` after removal events.
-  - `queue.leave`: remove user row; if they were confirmed, promote next waiting.
+    - If capacity not reached: create row with status `confirmed`; if reached: `waitlisted`.
+    - Calls `promote_next_waitlisted_player` after removal events.
+  - `queue.leave`: remove user row; if they were confirmed, promote next waitlisted.
   - Optional: `games.create` (admin only) to centralize validation rather than direct Supabase insert.
   - If renaming `events` → `games`, include migration steps to rename table, indexes, foreign keys, and update generated types + client imports in one PR.
 - Shared hooks:
   - `useGames` (list with filters), `useGame(gameId)`.
-  - `useGameQueue(gameId)` returning `confirmed`, `waiting`, `currentUserStatus`.
+  - `useGameQueue(gameId)` returning `confirmed`, `waitlisted`, `currentUserStatus`.
   - `useMembership()` to load member roles; used for gating admin UI.
 - Seeds (`supabase/seed.sql` or `seed.ts`):
   - Single `community` row (e.g., “Por El Deporte – Brickell”) until multi-community support in Phase 4.
   - Admin profile + membership plus 8–10 player profiles with avatars and bios.
-  - Three games (upcoming/live/past) with pre-populated queue rows covering `confirmed` and `waiting` cases.
-  - Announcement posts (category `announcement`) and sample `events` notes for dashboard content.
+  - Three games (upcoming/live/past) with pre-populated queue rows covering `confirmed` and `waitlisted` cases.
+  - Announcement posts (category `announcement`) and sample `games` notes for dashboard content.
 
 ### 3.3 Quality & Observability
 - **Testing infrastructure**
