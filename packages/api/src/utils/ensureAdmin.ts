@@ -1,0 +1,27 @@
+import { TRPCError } from '@trpc/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+import type { Database } from '@my/supabase/types'
+
+export const ensureAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: error.message,
+      cause: error,
+    })
+  }
+
+  if (data?.role !== 'admin') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Only admins can perform this action',
+    })
+  }
+}

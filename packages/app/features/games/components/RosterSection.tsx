@@ -1,0 +1,104 @@
+import { Button, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui'
+import type { QueueEntry } from '../types'
+import { StatusBadge } from './GameStatus'
+
+type Props = {
+  entries: QueueEntry[]
+  emptyLabel?: string
+  canManage?: boolean
+  removingId?: string | null
+  onRemovePlayer?: (queueId: string) => void
+}
+
+export const RosterSection = ({
+  entries,
+  emptyLabel = 'No players yet.',
+  canManage = false,
+  removingId,
+  onRemovePlayer,
+}: Props) => (
+  <Card bordered $platform-native={{ borderWidth: 0 }} px="$3" py="$2" gap="$2">
+    {entries.length === 0 ? (
+      <Paragraph theme="alt2">{emptyLabel}</Paragraph>
+    ) : (
+      <YStack gap="$2">
+        {entries.map((entry, index) => (
+          <PlayerRow
+            key={entry.id}
+            entry={entry}
+            index={index}
+            canRemove={canManage}
+            isRemoving={removingId === entry.id}
+            onRemove={() => onRemovePlayer?.(entry.id)}
+          />
+        ))}
+      </YStack>
+    )}
+  </Card>
+)
+
+const PlayerRow = ({
+  entry,
+  index,
+  canRemove,
+  isRemoving,
+  onRemove,
+}: {
+  entry: QueueEntry
+  index: number
+  canRemove?: boolean
+  isRemoving?: boolean
+  onRemove?: () => void
+}) => {
+  const confirmed = Boolean(entry.attendanceConfirmedAt)
+  const record = entry.record
+  const recent = record?.recent?.length ? record.recent.join(' ') : null
+  return (
+    <XStack ai="center" gap="$2" jc="space-between">
+      <Paragraph theme="alt2" minWidth={24}>
+        {index + 1}.
+      </Paragraph>
+      <YStack f={1} pr="$2" gap="$0.5">
+        <SizableText fontWeight="600">{entry.player.name ?? 'Anonymous Player'}</SizableText>
+        <Paragraph theme="alt2" size="$2">
+          #{entry.player.jerseyNumber ?? '—'} · {entry.player.position ?? 'No position'} · Record{' '}
+          {record ? `${record.wins}-${record.losses}` : '—'}
+        </Paragraph>
+        {recent ? (
+          <Paragraph theme="alt2" size="$2">
+            Last 5: {recent}
+          </Paragraph>
+        ) : null}
+      </YStack>
+      <XStack ai="center" gap="$1">
+        {entry.status === 'confirmed' ? (
+          <StatusBadge tone={confirmed ? 'success' : 'warning'} showIcon={false}>
+            {confirmed ? 'Confirmed' : 'Pending'}
+          </StatusBadge>
+        ) : null}
+        {canRemove ? (
+          <Button
+            size="$2"
+            variant="outlined"
+            theme="red"
+            disabled={isRemoving}
+            onPress={onRemove}
+          >
+            {isRemoving ? 'Removing…' : 'Remove'}
+          </Button>
+        ) : null}
+      </XStack>
+    </XStack>
+  )
+}
+
+export const getPlayerInitials = (name?: string | null) => {
+  if (!name) return '??'
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length === 0) return '??'
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
+  return `${parts[0]!.slice(0, 1)}${parts[1]!.slice(0, 1)}`.toUpperCase()
+}

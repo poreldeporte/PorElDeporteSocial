@@ -6,6 +6,7 @@ import { SplashScreen, Stack } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { LogBox, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { SizableText, useTheme } from '@my/ui'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -59,29 +60,22 @@ export default function HomeLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <Provider initialSession={initialSession}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen
-              name="(drawer)/(tabs)/index"
-              options={{
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="create"
-              options={{
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="settings/index"
-              options={{
-                headerShown: true,
-                headerBackTitle: 'Back',
-              }}
-            />
-          </Stack>
+          <AppStack />
         </Provider>
       </View>
     </GestureHandlerRootView>
+  )
+}
+
+const AppStack = () => {
+  const { color1 } = useTheme()
+  const headerBackground = color1?.val ?? '#fff'
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        headerStyle: { backgroundColor: headerBackground },
+      }}
+    />
   )
 }

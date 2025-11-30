@@ -9,37 +9,53 @@ import {
   useToastController,
 } from '@my/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { SchemaForm, formFields } from 'app/utils/SchemaForm'
+import { SchemaForm } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { createParam } from 'solito'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
-import { z } from 'zod'
 
 import { api } from '../../utils/api'
 import { UploadAvatar } from '../settings/components/upload-avatar'
+import {
+  profileUpdateFieldSchema,
+  POSITION_OPTIONS,
+  type ProfileUpdateFieldValues,
+} from './profile-field-schema'
 
-const { useParams } = createParam<{ edit_name?: '1'; edit_about?: '1' }>()
+const { useParams } = createParam<{ edit_name?: '1' }>()
 export const EditProfileScreen = () => {
   const { profile, user } = useUser()
 
   if (!profile || !user?.id) {
     return <FullscreenSpinner />
   }
-  return <EditProfileForm userId={user.id} initial={{ name: profile.name, about: profile.about }} />
+  return (
+    <EditProfileForm
+      userId={user.id}
+      initial={{
+        firstName: profile.first_name ?? '',
+        lastName: profile.last_name ?? '',
+        phone: profile.phone ?? '',
+        address: profile.address ?? '',
+        birthDate: profile.birth_date
+          ? { dateValue: new Date(profile.birth_date) }
+          : undefined,
+        jerseyNumber: profile.jersey_number ?? undefined,
+        position: profile.position ?? '',
+      }}
+    />
+  )
 }
 
-const ProfileSchema = z.object({
-  name: formFields.text.describe('Name // John Doe'),
-  about: formFields.textarea.describe('About // Tell us a bit about yourself'),
-})
+const ProfileSchema = profileUpdateFieldSchema
 
 const EditProfileForm = ({
   initial,
   userId,
 }: {
-  initial: { name: string | null; about: string | null }
+  initial: Partial<ProfileUpdateFieldValues>
   userId: string
 }) => {
   const { params } = useParams()
@@ -49,10 +65,19 @@ const EditProfileForm = ({
   const router = useRouter()
   const apiUtils = api.useUtils()
   const mutation = useMutation({
-    async mutationFn(data: z.infer<typeof ProfileSchema>) {
+    async mutationFn(data: ProfileUpdateFieldValues) {
       await supabase
         .from('profiles')
-        .update({ name: data.name, about: data.about })
+        .update({
+          first_name: data.firstName.trim(),
+          last_name: data.lastName.trim(),
+          phone: data.phone.trim(),
+          address: data.address?.trim() || null,
+          name: `${data.firstName} ${data.lastName}`.trim(),
+          birth_date: data.birthDate.dateValue.toISOString().slice(0, 10),
+          jersey_number: data.jerseyNumber,
+          position: data.position?.trim() || null,
+        })
         .eq('id', userId)
     },
 
@@ -69,16 +94,24 @@ const EditProfileForm = ({
       <SchemaForm
         schema={ProfileSchema}
         props={{
-          name: {
+          firstName: {
             autoFocus: !!params?.edit_name,
           },
-          about: {
-            autoFocus: !!params?.edit_about,
+          phone: {
+            inputMode: 'tel',
+          } as any,
+          position: {
+            options: POSITION_OPTIONS.map((option) => ({ name: option, value: option })),
           },
         }}
         defaultValues={{
-          name: initial.name ?? '',
-          about: initial.about ?? '',
+          firstName: initial.firstName,
+          lastName: initial.lastName,
+          phone: initial.phone,
+          address: initial.address,
+          birthDate: initial.birthDate,
+          jerseyNumber: initial.jerseyNumber,
+          position: initial.position ?? POSITION_OPTIONS[0],
         }}
         onSubmit={(values) => mutation.mutate(values)}
         renderAfter={({ submit }) => (

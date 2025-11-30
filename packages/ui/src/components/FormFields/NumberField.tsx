@@ -28,15 +28,14 @@ export const NumberField = (props: Pick<InputProps, 'size' | 'autoFocus'>) => {
             disabled={disabled}
             placeholderTextColor="$color10"
             inputMode="numeric"
-            value={field.value?.toString() || '0'}
+            value={field.value?.toString() ?? ''}
             onChangeText={(text) => {
-              const num = Number(text)
-              if (isNaN(num)) {
-                if (!field.value) {
-                  field.onChange(defaultValue || 0)
-                }
+              if (!text.trim()) {
+                field.onChange(undefined)
                 return
               }
+              const num = Number(text)
+              if (Number.isNaN(num)) return
               if (typeof maxValue !== 'undefined' && num > maxValue) {
                 field.onChange(maxValue)
                 return

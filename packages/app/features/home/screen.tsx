@@ -1,201 +1,75 @@
-import {
-  Banner,
-  Button,
-  Dialog,
-  EventCard,
-  FullscreenSpinner,
-  H4,
-  Paragraph,
-  ScrollView,
-  Text,
-  Theme,
-  TodoCard,
-  View,
-  XStack,
-  YStack,
-  isWeb,
-} from '@my/ui'
-import { Calendar, X } from '@tamagui/lucide-icons'
-import ScrollToTopTabBarContainer from 'app/utils/NativeScreenContainer'
-import useEventsQuery from 'app/utils/react-query/useEventQuery'
+import { FullscreenSpinner, ScrollView, View, YStack } from '@my/ui'
+import { api } from 'app/utils/api'
+import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
-import { useState } from 'react'
+import { useMemo } from 'react'
 
-import { AchievementsSection } from './components/achievements-section'
-import { Greetings } from './components/greetings'
-import { OverviewSection } from './components/overview-section'
-import { PostsSection } from './components/posts-section'
+import { HeroCard, PastGamesSection, QuickJoinCard, ScheduleTeaserCard, StatsCard } from './components'
+import { useMyStats } from './hooks/useMyStats'
+import { screenContentContainerStyle } from 'app/constants/layout'
 
 export function HomeScreen() {
-  const { user, isPending } = useUser()
+  const { user, isLoading, role } = useUser()
+  const { stats, isLoading: statsLoading } = useMyStats()
+  const gamesQuery = api.games.list.useQuery({ scope: 'upcoming' }, { enabled: Boolean(user) })
+  useGamesListRealtime(Boolean(user))
+  useStatsRealtime(Boolean(user))
 
-  if (isPending)
+  const myDraftGame = useMemo(() => {
+    if (!gamesQuery.data || !user?.id) return null
+    return gamesQuery.data.find(
+      (game) =>
+        game.draftStatus !== 'completed' &&
+        (role === 'admin' || game.captainIds?.includes(user.id))
+    )
+  }, [gamesQuery.data, role, user?.id])
+
+  const liveDraftGame = useMemo(
+    () => gamesQuery.data?.find((game) => game.draftStatus === 'in_progress') ?? null,
+    [gamesQuery.data]
+  )
+  const quickJoinGame = useMemo(() => {
+    if (!gamesQuery.data || !gamesQuery.data.length) return null
+    const scheduled = gamesQuery.data.filter((game) => game.status === 'scheduled')
+    if (!scheduled.length) return null
+    return scheduled.reduce((closest, current) => {
+      if (!closest) return current
+      return new Date(current.startTime).getTime() < new Date(closest.startTime).getTime()
+        ? current
+        : closest
+    }, scheduled[0])
+  }, [gamesQuery.data])
+
+  if (isLoading) {
     return (
       <View flex={1} height={'80vh' as any} ai="center" jc="center">
         <FullscreenSpinner />
       </View>
     )
+  }
 
   if (!user) return null
 
+  const draftCardGame = myDraftGame ?? liveDraftGame
+  const isMyDraftCard = Boolean(draftCardGame && myDraftGame && draftCardGame.id === myDraftGame.id)
+
   return (
-    <XStack maw={1480} als="center" f={1}>
-      <ScrollView f={4} fb={0}>
-        <ScrollToTopTabBarContainer>
-          <XStack ai="center" jc="space-between">
-            <Greetings />
-            {isWeb && <EventDrawer />}
-          </XStack>
-          <YStack gap="$7" pb="$10">
-            <AchievementsSection />
-            <OverviewSection />
-            <PostsSection />
-          </YStack>
-        </ScrollToTopTabBarContainer>
-      </ScrollView>
-
-      {isWeb && (
-        <View $lg={{ dsp: 'none' }}>
-          <EventCards />
-        </View>
-      )}
-    </XStack>
-  )
-}
-
-const EventDrawer = () => {
-  return (
-    <View $gtLg={{ dsp: 'none' }}>
-      <Dialog modal>
-        <Dialog.Trigger asChild>
-          <Button size="$3" mx="$5" icon={Calendar}>
-            Events
-          </Button>
-        </Dialog.Trigger>
-
-        <Dialog.Portal>
-          <Dialog.Overlay
-            key="overlay"
-            animation="slow"
-            opacity={0.5}
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
+    <ScrollView contentContainerStyle={screenContentContainerStyle}>
+      <YStack gap="$4">
+        <HeroCard />
+        <StatsCard stats={stats} isLoading={statsLoading} />
+        {draftCardGame ? (
+          <QuickJoinCard game={draftCardGame} variant='draft' />
+        ) : null}
+        <QuickJoinCard game={quickJoinGame} />
+        {!quickJoinGame ? (
+          <ScheduleTeaserCard
+            title="Full schedule"
+            description="Browse every drop-in, lock a roster spot, and keep the streak alive."
           />
-
-          <Dialog.Content
-            elevate
-            alignSelf="flex-end"
-            h="100%"
-            key="content"
-            animateOnly={['transform', 'opacity']}
-            animation={[
-              'lazy',
-              {
-                opacity: {
-                  overshootClamping: true,
-                },
-              },
-            ]}
-            enterStyle={{ x: 1000 }}
-            exitStyle={{ x: 1000 }}
-            gap="$2"
-            p="$0"
-            bg="$gray1"
-          >
-            <XStack pt="$4" px="$4" jc="space-between" ai="center">
-              <XStack gap="$2" ai="center" jc="center">
-                <Calendar size="$1" />
-                <Text fontWeight="bold">Events</Text>
-              </XStack>
-              <Dialog.Close asChild>
-                <Button size="$2" circular icon={X} />
-              </Dialog.Close>
-            </XStack>
-            <EventCards />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-    </View>
-  )
-}
-
-const EventCards = () => {
-  const { data = [], isPending } = useEventsQuery()
-
-  if (isPending) return null
-
-  return (
-    <ScrollView maxWidth={350}>
-      <YStack p="$3" gap="$3">
-        {data?.length ? (
-          data?.map((event) => (
-            <EventCard
-              br="$4"
-              bw={1.5}
-              borderColor="$borderColor"
-              key={event.id}
-              title={event.name}
-              description={event.description}
-              action={{
-                text: 'Show Event',
-                props: {
-                  href: `/event/${event.id}`,
-                  accessibilityRole: 'link',
-                  onPress: () => undefined,
-                },
-              }}
-              tags={[
-                { text: event.status, theme: 'green_alt2' },
-                {
-                  text: `${new Date(event.end_time).toLocaleDateString()} Remaining`,
-                  theme: 'blue_alt2',
-                },
-              ]}
-            />
-          ))
-        ) : (
-          <View h={400} miw="100%" ai="center" jc="center" f={1} background="$gray1">
-            <Text>No events yet?</Text>
-          </View>
-        )}
-
-        <Theme name="blue_alt1">
-          <Banner cur="pointer">
-            <H4>Upgrade Now!</H4>
-            <Paragraph size="$2" mt="$1">
-              Upgrade to access exclusive features and more!
-            </Paragraph>
-          </Banner>
-        </Theme>
-
-        <TodoList />
+        ) : null}
+        <PastGamesSection mode={role === 'admin' ? 'admin' : 'player'} />
       </YStack>
     </ScrollView>
   )
 }
-
-const TodoList = () => {
-  const [data, setData] = useState(todoData)
-
-  return (
-    <YStack borderRadius="$4" overflow="hidden">
-      {data.map((todo, index) => (
-        <TodoCard
-          onCheckedChange={(checked) => {
-            setData((prev) => prev.map((t, i) => (i === index ? { ...t, checked: !!checked } : t)))
-          }}
-          key={index}
-          label={todo.label}
-          checked={todo.checked}
-        />
-      ))}
-    </YStack>
-  )
-}
-
-const todoData = [
-  { label: 'Contribute to OSS', checked: false },
-  { label: 'Contribute to OSS', checked: true },
-  { label: 'Upgrade to the new Expo version', checked: false },
-  { label: 'Do the dishes', checked: false },
-]

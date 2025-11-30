@@ -8,7 +8,7 @@ export const getTemplates = (scheme: 'dark' | 'light') => {
   const bgIndex = 5
   const lighten = isLight ? -1 : 1
   const darken = -lighten
-  const borderColor = bgIndex + 3
+  const borderColor = isLight ? bgIndex + 3 : bgIndex + 1
 
   // templates use the palette and specify index
   // negative goes backwards from end so -1 is the last item

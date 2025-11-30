@@ -1,4 +1,3 @@
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useRef, useState } from 'react'
 import { ScrollView as RNScrollView } from 'react-native'
 import {
@@ -12,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'tamagui'
 
+import { useSafeAreaInsets } from '../hooks/useSafeAreaInsets'
 import { OnboardingProps } from './Onboarding'
 import { OnboardingControls } from './OnboardingControls'
 

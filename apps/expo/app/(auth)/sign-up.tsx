@@ -1,16 +1,26 @@
 import { SignUpScreen } from 'app/features/auth/sign-up-screen'
+import { getScreenLayout } from '@my/app/navigation/layouts'
+import { useHeaderHeight } from '@react-navigation/elements'
 import { Stack } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { View } from 'react-native'
+
+const layout = getScreenLayout('authSignUp')
 
 export default function Screen() {
+  const headerHeight = useHeaderHeight()
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <>
       <Stack.Screen
         options={{
-          title: 'Sign Up',
+          headerTitle: layout.title,
+          headerTintColor: '#fff',
+          headerShadowVisible: false,
+          headerTransparent: true,
         }}
       />
-      <SignUpScreen />
-    </SafeAreaView>
+      <View style={{ flex: 1, paddingTop: headerHeight }}>
+        <SignUpScreen />
+      </View>
+    </>
   )
 }

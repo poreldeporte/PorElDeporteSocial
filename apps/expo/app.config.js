@@ -1,35 +1,35 @@
 export default {
   expo: {
-    name: 'takeout demo',
-    slug: 'takeout-demo',
+    name: 'Por El Deporte',
+    slug: 'por-el-deporte',
     jsEngine: 'hermes',
-    scheme: 'myapp',
+    scheme: 'poreldeporte',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/icon.png',
+    icon: './assets/pixel-logo-ped.png',
     userInterfaceStyle: 'automatic',
     splash: {
-      image: './assets/splash.png',
+      image: './assets/pixel-logo-ped.png',
       contentFit: 'contain',
       backgroundColor: '#ffffff',
     },
     updates: {
       fallbackToCacheTimeout: 0,
-      url: 'https://u.expo.dev/your-project-id',
+      url: 'https://u.expo.dev/b5f02af2-6475-4d9e-81b3-664f89564580',
     },
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'dev.tamagui.takeoutdemo',
+      bundleIdentifier: 'com.poreldeporte.app',
       buildNumber: '6',
     },
     android: {
       softwareKeyboardLayoutMode: 'pan',
       adaptiveIcon: {
-        foregroundImage: './assets/adaptive-icon.png',
+        foregroundImage: './assets/pixel-logo-ped.png',
         backgroundColor: '#FFFFFF',
       },
-      package: 'dev.tamagui.takeoutdemo',
+      package: 'com.poreldeporte.app',
       permissions: ['android.permission.RECORD_AUDIO'],
       versionCode: 3,
     },
@@ -41,7 +41,7 @@ export default {
       [
         'expo-notifications',
         {
-          icon: './assets/icon.png',
+          icon: './assets/pixel-logo-ped.png',
           color: '#ffffff',
         },
       ],
@@ -74,6 +74,6 @@ export default {
     runtimeVersion: {
       policy: 'appVersion',
     },
-    owner: 'tamagui-team',
+    owner: 'poreldeporte',
   },
 }

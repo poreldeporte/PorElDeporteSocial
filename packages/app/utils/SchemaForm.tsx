@@ -13,6 +13,7 @@ import {
   TextAreaField,
   TextField,
   Theme,
+  YStack,
 } from '@my/ui'
 import { DateField, DateSchema } from '@my/ui/src/components/FormFields/DateField'
 import {
@@ -23,6 +24,17 @@ import { createTsForm, createUniqueFieldSchema } from '@ts-react/form'
 import type { ComponentProps } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { z } from 'zod'
+
+const selectSchema = z.string()
+const selectField = createUniqueFieldSchema(selectSchema, 'select')
+const selectOptionalField = createUniqueFieldSchema(selectSchema.optional(), 'select_optional')
+const addressField = createUniqueFieldSchema(AddressSchema, 'address')
+const addressOptionalField = createUniqueFieldSchema(AddressSchema.optional(), 'address_optional')
+const imageField = createUniqueFieldSchema(ImagePickerSchema, 'image')
+const imageOptionalField = createUniqueFieldSchema(
+  ImagePickerSchema.optional(),
+  'image_optional'
+)
 
 export const formFields = {
   text: z.string(),
@@ -46,13 +58,16 @@ export const formFields = {
   /**
    * make sure to pass options={} to props for this
    */
-  select: createUniqueFieldSchema(z.string(), 'select'),
+  select: selectField,
+  selectOptional: selectOptionalField,
   /**
    * example of how to handle more complex fields
    */
-  address: createUniqueFieldSchema(AddressSchema, 'address'),
+  address: addressField,
+  addressOptional: addressOptionalField,
   date: createUniqueFieldSchema(DateSchema, 'date'),
-  image: createUniqueFieldSchema(ImagePickerSchema, 'image'),
+  image: imageField,
+  imageOptional: imageOptionalField,
 }
 
 // function createFormSchema<T extends ZodRawShape>(getData: (fields: typeof formFields) => T) {
@@ -67,9 +82,12 @@ const mapping = [
   [formFields.boolean_switch, BooleanSwitchField] as const,
   [formFields.boolean_checkbox, BooleanCheckboxField] as const,
   [formFields.select, SelectField] as const,
+  [formFields.selectOptional, SelectField] as const,
   [formFields.address, AddressField] as const,
+  [formFields.addressOptional, AddressField] as const,
   [formFields.date, DateField] as const,
   [formFields.image, ImagePickerField] as const,
+  [formFields.imageOptional, ImagePickerField] as const,
 ] as const
 
 const FormComponent = (props: FormProps) => {
@@ -84,22 +102,33 @@ const _SchemaForm = createTsForm(mapping, {
   FormComponent,
 })
 
-// SchemaForm is a higher-order component that wraps around the _SchemaForm component.
-// It provides additional functionality for rendering a form with custom fields and a footer.
-// The renderAfter prop allows for custom content to be rendered in the form's footer.
-// The children prop can be used to customize the rendering of form fields.
-export const SchemaForm: typeof _SchemaForm = ({ ...props }) => {
+type SchemaFormProps = ComponentProps<typeof _SchemaForm> & {
+  bare?: boolean
+  children?: ComponentProps<typeof _SchemaForm>['children']
+}
+
+export const SchemaForm = ({ bare, ...props }: SchemaFormProps) => {
   const renderAfter: ComponentProps<typeof _SchemaForm>['renderAfter'] = props.renderAfter
     ? (vars) => <FormWrapper.Footer>{props.renderAfter?.(vars)}</FormWrapper.Footer>
     : undefined
 
   return (
     <_SchemaForm {...props} renderAfter={renderAfter}>
-      {(fields, context) => (
-        <FormWrapper.Body minWidth="100%" $platform-native={{ miw: '100%' }}>
-          {props.children ? props.children(fields, context) : Object.values(fields)}
-        </FormWrapper.Body>
-      )}
+      {(fields, context) => {
+        const rendered = props.children ? props.children(fields, context) : Object.values(fields)
+        if (bare) {
+          return (
+            <YStack minWidth="100%" $platform-native={{ miw: '100%' }}>
+              {rendered}
+            </YStack>
+          )
+        }
+        return (
+          <FormWrapper.Body minWidth="100%" $platform-native={{ miw: '100%' }}>
+            {rendered}
+          </FormWrapper.Body>
+        )
+      }}
     </_SchemaForm>
   )
 }

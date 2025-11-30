@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "0a84b488-72f9-4aef-8574-f4cc034909d1"
+      }
+    },
+    "owner": "poreldeporte",
+    "slug": "por-el-deporte",
+    "ios": {
+      "bundleIdentifier": "com.poreldeporte.poreldeporte",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+    },
+    "plugins": [
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "firebase": {
+            "iosUrlScheme": "YOUR_REVERSED_CLIENT_ID"
+          }
+        }
+      ]
+    ]
+  }
+}

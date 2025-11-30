@@ -1,4 +1,3 @@
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import React, { useEffect, useState, useCallback } from 'react'
 import { PanResponder } from 'react-native'
 import {
@@ -12,6 +11,7 @@ import {
 } from 'tamagui'
 
 import { OnboardingControls } from './OnboardingControls'
+import { useSafeAreaInsets } from '../hooks/useSafeAreaInsets'
 
 export type OnboardingStepInfo = {
   theme: ThemeName

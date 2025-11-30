@@ -1,56 +1,44 @@
 import { Button } from '@my/ui'
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
-import { useRouter } from 'solito/router'
+import { useState } from 'react'
+import * as Linking from 'expo-linking'
+
+import { getOAuthRedirectUrl } from 'app/utils/auth/getOAuthRedirectUrl'
 
 import { IconGoogle } from './IconGoogle'
 
 export function GoogleSignIn() {
   const supabase = useSupabase()
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
 
   async function signInWithGoogle() {
     try {
-      GoogleSignin.configure({
-        iosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
-        webClientId: process.env.GOOGLE_WEB_CLIENT_ID,
+      setIsLoading(true)
+      const redirectTo = getOAuthRedirectUrl()
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
       })
-
-      await GoogleSignin.hasPlayServices()
-
-      const response = await GoogleSignin.signIn()
-      const token = response?.data?.idToken
-
-      if (token) {
-        const { error } = await supabase.auth.signInWithIdToken({
-          provider: 'google',
-          token,
-        })
-
-        if (error) {
-          throw new Error('error', error)
-        }
-
-        router.replace('/')
-      } else {
-        throw new Error('no ID token present!')
+      if (error) {
+        throw error
+      }
+      if (data?.url) {
+        await Linking.openURL(data.url)
       }
     } catch (error) {
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // user cancelled the login flow
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        // operation (e.g. sign in) is in progress already
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        // play services not available or outdated
-      } else {
-        // some other error happened
-      }
+      console.error('Google sign-in failed', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
   return (
     <Button
       onPress={() => signInWithGoogle()}
+      disabled={isLoading}
       icon={IconGoogle}
       // styles to make it look like the native Apple button on AppleSignIn.native.tsx
       scaleIcon={0.75}
@@ -60,7 +48,7 @@ export function GoogleSignIn() {
       animation="200ms"
       chromeless
     >
-      Sign in with Google
+      {isLoading ? 'Opening…' : 'Sign in with Google'}
     </Button>
   )
 }

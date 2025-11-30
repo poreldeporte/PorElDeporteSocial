@@ -32,12 +32,21 @@ export const useUser = () => {
   const user = session?.user
   const { data: profile, refetch, isPending: isLoadingProfile } = useProfile()
 
+  const displayName = (() => {
+    if (profile?.name && profile.name.trim()) return profile.name
+    const composed = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
+    if (composed.length) return composed
+    const metaName = typeof user?.user_metadata.full_name === 'string' ? user.user_metadata.full_name : ''
+    if (metaName.trim()) return metaName
+    return user?.email ?? ''
+  })()
+
   const avatarUrl = (function () {
     if (profile?.avatar_url) return profile.avatar_url
     if (typeof user?.user_metadata.avatar_url === 'string') return user.user_metadata.avatar_url
 
     const params = new URLSearchParams()
-    const name = profile?.name || user?.email || ''
+    const name = displayName || user?.email || ''
     params.append('name', name)
     params.append('size', '256') // will be resized again by NextImage/SolitoImage
     return `https://ui-avatars.com/api.jpg?${params.toString()}`
@@ -47,7 +56,9 @@ export const useUser = () => {
     session,
     user,
     profile,
+    role: profile?.role ?? 'member',
     avatarUrl,
+    displayName,
     updateProfile: () => refetch(),
     isLoadingSession,
     isLoadingProfile,

@@ -28,7 +28,7 @@
     "eas:update:staging:ios": "cross-env NODE_ENV=staging APP_ENV=staging yarn with-env eas update --channel staging --platform ios",
     "ios": "yarn ios:check-xcode-version && yarn ios:run",
     "ios:check-xcode-version": "sh -c 'XC_VERSION=$(xcodebuild -version | grep Xcode | awk \"{print \\$2}\"); if [ $(echo $XC_VERSION | awk \"{print int(\\$1)}\") -lt 16 ]; then echo \"⚠️ Xcode ≥ 16 is required for Expo SDK 53. You have $XC_VERSION. You can bypass this check by running \\\"yarn ios:run\\\" but you may encounter native build errors.\"; exit 1; fi'",
-    "ios:run": "EXPO_USE_METRO_WORKSPACE_ROOT=1 yarn with-env expo run:ios",
+    "ios:run": "EXPO_USE_METRO_WORKSPACE_ROOT=1 yarn with-env expo run:ios --scheme PorElDeporte",
     "with-env": "dotenv -e ../../.env -c --",
     "lint": "eslint ./app",
     "lint:fix": "eslint ./app --fix",
@@ -76,7 +76,8 @@
     "react-native-screens": "~4.10.0",
     "react-native-svg": "15.11.2",
     "react-native-url-polyfill": "^1.3.0",
-    "react-native-web": "~0.20.0"
+    "react-native-web": "~0.20.0",
+    "react-native-webview": "13.6.4"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

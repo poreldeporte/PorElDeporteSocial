@@ -113,6 +113,7 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
 
   return next({
     ctx: {
+      ...ctx,
       // infers the `user` as non-nullable
       user: { ...ctx.user },
     },

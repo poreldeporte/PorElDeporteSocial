@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.base",
-  "include": ["features", "provider", "utils", "index.ts", "types.d.ts", "../ui/src", "../api/src"],
+  "include": ["features", "provider", "utils", "navigation", "assets", "index.ts", "types.d.ts", "../ui/src", "../api/src", "../config"],
   "compilerOptions": {
     "noEmit": true,
     "composite": true,

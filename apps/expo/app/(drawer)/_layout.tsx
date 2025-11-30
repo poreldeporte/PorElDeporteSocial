@@ -1,6 +1,6 @@
-import { ProfileScreen } from '@my/app/features/profile/screen'
+import { ProfileDrawerScreen } from '@my/app/features/profile/drawer-screen'
 import { Drawer } from 'expo-router/drawer'
 
 export default function Layout() {
-  return <Drawer drawerContent={ProfileScreen} />
+  return <Drawer drawerContent={ProfileDrawerScreen} screenOptions={{ headerShown: false }} />
 }

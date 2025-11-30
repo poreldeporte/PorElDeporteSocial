@@ -1,14 +1,4 @@
-import {
-  FormWrapper,
-  H2,
-  LoadingOverlay,
-  Paragraph,
-  SubmitButton,
-  Text,
-  Theme,
-  YStack,
-  isWeb,
-} from '@my/ui'
+import { FormWrapper, LoadingOverlay, Paragraph, SubmitButton, Text, Theme, YStack, isWeb } from '@my/ui'
 import { SchemaForm, formFields } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
@@ -19,6 +9,7 @@ import { Link } from 'solito/link'
 import { useRouter } from 'solito/router'
 import { z } from 'zod'
 
+import { AuthIntro } from './components'
 import { SocialLogin } from './components/SocialLogin'
 
 const { useParams, useUpdateParams } = createParam<{ email?: string }>()
@@ -96,10 +87,7 @@ export const SignInScreen = () => {
         >
           {(fields) => (
             <>
-              <YStack gap="$3" mb="$4">
-                <H2 $sm={{ size: '$8' }}>Welcome Back</H2>
-                <Paragraph theme="alt1">Sign in to your account</Paragraph>
-              </YStack>
+              <AuthIntro title="Welcome Back" subtitle="Sign in to your account" />
               {Object.values(fields)}
               {!isWeb && (
                 <YStack mt="$4">

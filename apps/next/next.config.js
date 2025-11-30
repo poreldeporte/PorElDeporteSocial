@@ -84,6 +84,7 @@ module.exports = () => {
       scrollRestoration: true,
       // optimizeCss: true,
     },
+    runtime: 'nodejs',
     redirects: async () => [
       // we have /onboarding on native but don't have a standalone page for /onboarding on web
       // it's included as a sidebar of auth pages, so we just redirect the user there

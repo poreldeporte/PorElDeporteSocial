@@ -211,7 +211,7 @@ export const DatePickerExample = forwardRef(
       selectedDates,
       onDatesChange: (dates) => {
         onDatesChange(dates)
-        onChangeText(dates[0]?.toISOString().split('T')[0] || '')
+        onChangeText(dates[0]?.toISOString() || '')
       },
       calendar: {
         startDay: 1,

@@ -1,32 +1,35 @@
-import { initiateAppleSignIn } from 'app/utils/auth/initiateAppleSignIn'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { Platform } from 'react-native'
-import { useRouter } from 'solito/router'
+import { useState } from 'react'
+import * as Linking from 'expo-linking'
+
+import { getOAuthRedirectUrl } from 'app/utils/auth/getOAuthRedirectUrl'
 
 export function AppleSignIn() {
   const supabase = useSupabase()
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
   async function signInWithApple() {
     try {
-      const { token, nonce } = await initiateAppleSignIn()
-      const { error } = await supabase.auth.signInWithIdToken({
+      setIsLoading(true)
+      const redirectTo = getOAuthRedirectUrl()
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
-        token,
-        nonce,
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
       })
-      if (!error) router.replace('/')
-      if (error) throw error
-    } catch (e) {
-      if (e instanceof Error && 'code' in e) {
-        if (e.code === 'ERR_REQUEST_CANCELED') {
-          // handle if the user canceled the sign-in flow
-        } else {
-          // handle any other errors
-        }
-      } else {
-        console.error('Unexpected error from Apple SignIn: ', e)
+      if (error) {
+        throw error
       }
+      if (data?.url) {
+        await Linking.openURL(data.url)
+      }
+    } catch (e) {
+      console.error('Apple sign-in failed', e)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -41,6 +44,7 @@ export function AppleSignIn() {
       buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
       cornerRadius={5}
       style={{ width: '100%', height: 44 }}
+      disabled={isLoading}
       onPress={signInWithApple}
     />
   )

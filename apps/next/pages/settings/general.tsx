@@ -1,14 +1,17 @@
 import { HomeLayout } from 'app/features/home/layout.web'
 import { GeneralSettingsScreen } from 'app/features/settings/general-screen'
 import { SettingsLayout } from 'app/features/settings/layout.web'
+import { getScreenLayout } from 'app/navigation/layouts'
 import Head from 'next/head'
 import { NextPageWithLayout } from 'pages/_app'
+
+const layout = getScreenLayout('settingsGeneral')
 
 const Page: NextPageWithLayout = () => {
   return (
     <>
       <Head>
-        <title>Settings</title>
+        <title>{layout.title}</title>
       </Head>
       <GeneralSettingsScreen />
     </>
@@ -16,7 +19,7 @@ const Page: NextPageWithLayout = () => {
 }
 
 Page.getLayout = (page) => (
-  <HomeLayout fullPage>
+  <HomeLayout fullPage layoutId={layout.id}>
     <SettingsLayout>{page}</SettingsLayout>
   </HomeLayout>
 )

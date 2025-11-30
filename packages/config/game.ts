@@ -1,0 +1,2 @@
+export const DEFAULT_WAITLIST_LIMIT = 50
+

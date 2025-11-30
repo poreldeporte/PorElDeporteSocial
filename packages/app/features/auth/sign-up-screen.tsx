@@ -2,35 +2,47 @@ import {
   Button,
   FormWrapper,
   H2,
+  LoadingOverlay,
   Paragraph,
   SubmitButton,
   Text,
   Theme,
   YStack,
   isWeb,
+  XStack,
 } from '@my/ui'
 import { ChevronLeft } from '@tamagui/lucide-icons'
-import { SchemaForm, formFields } from 'app/utils/SchemaForm'
+import { SchemaForm } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
-import { useEffect } from 'react'
+import { useUser } from 'app/utils/useUser'
+import React, { useCallback, useEffect, useState } from 'react'
 import { FormProvider, useForm, useFormContext, useWatch } from 'react-hook-form'
 import { createParam } from 'solito'
 import { Link } from 'solito/link'
 import { z } from 'zod'
 
+import { AuthIntro } from './components'
 import { SocialLogin } from './components/SocialLogin'
+import { signUpFieldSchema } from '../profile/profile-field-schema'
 
 const { useParams, useUpdateParams } = createParam<{ email?: string }>()
 
-const SignUpSchema = z.object({
-  email: formFields.text.email().describe('Email // your@email.acme'),
-  password: formFields.text.min(6).describe('Password // Choose a password'),
+const SignUpSchema = signUpFieldSchema.pick({
+  firstName: true,
+  lastName: true,
+  phone: true,
+  email: true,
+  password: true,
 })
+
+type SignUpValues = z.infer<typeof SignUpSchema>
 
 export const SignUpScreen = () => {
   const supabase = useSupabase()
-  const updateParams = useUpdateParams()
+  const { isLoadingSession } = useUser()
   const { params } = useParams()
+  const updateParams = useUpdateParams()
+  const form = useForm<SignUpValues>()
 
   useEffect(() => {
     if (params?.email) {
@@ -38,116 +50,193 @@ export const SignUpScreen = () => {
     }
   }, [params?.email, updateParams])
 
-  const form = useForm<z.infer<typeof SignUpSchema>>()
-
-  async function signUpWithEmail({ email, password }: z.infer<typeof SignUpSchema>) {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_URL}`,
-        // To take user's name other info
-        data: {
-          // first_name: firstName, // coming from state
-          // last_name: lastName,
+  const signUpWithEmail = useCallback(
+    async ({ firstName, lastName, phone, email, password }: SignUpValues) => {
+      const redirectTo = resolveAuthRedirect()
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: {
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+            phone: phone.trim(),
+          },
         },
-      },
-    })
+      })
 
-    if (error) {
-      const errorMessage = error?.message.toLowerCase()
-      if (errorMessage.includes('email')) {
-        form.setError('email', { type: 'custom', message: errorMessage })
-      } else if (errorMessage.includes('password')) {
-        form.setError('password', { type: 'custom', message: errorMessage })
-      } else {
-        form.setError('password', { type: 'custom', message: errorMessage })
+      if (error) {
+        const message = error.message || 'Unable to sign up right now.'
+        const lower = message.toLowerCase()
+        if (lower.includes('email')) {
+          form.setError('email', { type: 'custom', message })
+        } else if (lower.includes('password')) {
+          form.setError('password', { type: 'custom', message })
+        } else {
+          form.setError('root', { type: 'custom', message })
+        }
       }
-    }
-  }
+    },
+    [form, supabase]
+  )
+
+  const resendVerification = useCallback(
+    async (email: string) => {
+      const redirectTo = resolveAuthRedirect()
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: redirectTo,
+        },
+      })
+      if (error) {
+        throw new Error(error.message)
+      }
+    },
+    [supabase]
+  )
 
   return (
     <FormProvider {...form}>
       {form.formState.isSubmitSuccessful ? (
-        <CheckYourEmail />
+        <CheckYourEmail onResend={resendVerification} />
       ) : (
-        <SchemaForm
-          form={form}
-          schema={SignUpSchema}
-          defaultValues={{
-            email: params?.email || '',
-            password: '',
-          }}
-          props={{
-            password: {
-              secureTextEntry: true,
-            },
-          }}
-          onSubmit={signUpWithEmail}
-          renderAfter={({ submit }) => (
-            <>
-              <Theme inverse>
-                <SubmitButton onPress={() => submit()} br="$10">
-                  Sign Up
-                </SubmitButton>
-              </Theme>
-              <SignInLink />
-              {isWeb && <SocialLogin />}
-            </>
-          )}
-        >
-          {(fields) => (
-            <>
-              <YStack gap="$3" mb="$4">
-                <H2 $sm={{ size: '$8' }}>Get Started</H2>
-                <Paragraph theme="alt2">Create a new account</Paragraph>
-              </YStack>
-              {Object.values(fields)}
-              {!isWeb && (
-                <YStack mt="$4">
-                  <SocialLogin />
+        <FormWrapper>
+          <SchemaForm
+            form={form}
+            schema={SignUpSchema}
+            defaultValues={{
+              firstName: '',
+              lastName: '',
+              phone: '',
+              email: params?.email || '',
+              password: '',
+            }}
+            onSubmit={signUpWithEmail}
+            props={{
+              password: {
+                secureTextEntry: true,
+              },
+            }}
+            renderAfter={({ submit }) => (
+              <>
+                {form.formState.errors.root?.message ? (
+                  <Paragraph ta="center" theme="red">
+                    {form.formState.errors.root.message}
+                  </Paragraph>
+                ) : null}
+                <Theme inverse>
+                  <SubmitButton onPress={() => submit()} br="$10">
+                    Create account
+                  </SubmitButton>
+                </Theme>
+                <SignInLink />
+                {isWeb && <SocialLogin />}
+              </>
+            )}
+          >
+            {(fields) => (
+              <>
+                <AuthIntro title="Join the roster" subtitle="Create your Por El Deporte account" />
+                <YStack gap="$3">
+                  {fields.firstName}
+                  {fields.lastName}
+                  {fields.phone}
+                  {fields.email}
+                  {fields.password}
                 </YStack>
-              )}
-            </>
-          )}
-        </SchemaForm>
+                {!isWeb && (
+                  <YStack mt="$4">
+                    <SocialLogin />
+                  </YStack>
+                )}
+              </>
+            )}
+          </SchemaForm>
+          {isLoadingSession && <LoadingOverlay />}
+        </FormWrapper>
       )}
     </FormProvider>
   )
 }
 
 const SignInLink = () => {
-  const email = useWatch<z.infer<typeof SignUpSchema>>({ name: 'email' })
+  const email = useWatch<SignUpValues>({ name: 'email' })
+  const search = email ? `?${new URLSearchParams({ email }).toString()}` : ''
 
   return (
-    <Link href={`/sign-in?${new URLSearchParams(email ? { email } : undefined).toString()}`}>
-      <Paragraph ta="center" theme="alt1" mt="$2">
+    <Link href={`/sign-in${search}`}>
+      <Paragraph ta="center" theme="alt1">
         Already signed up? <Text textDecorationLine="underline">Sign in</Text>
       </Paragraph>
     </Link>
   )
 }
 
-const CheckYourEmail = () => {
-  const email = useWatch<z.infer<typeof SignUpSchema>>({ name: 'email' })
-  const { reset } = useFormContext()
+const CheckYourEmail = ({ onResend }: { onResend: (email: string) => Promise<void> }) => {
+  const email = useWatch<SignUpValues>({ name: 'email' })
+  const firstName = useWatch<SignUpValues>({ name: 'firstName' })
+  const { reset } = useFormContext<SignUpValues>()
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [message, setMessage] = useState<string>()
+
+  const handleResend = async () => {
+    if (!email) return
+    setStatus('loading')
+    setMessage(undefined)
+    try {
+      await onResend(email)
+      setStatus('success')
+      setMessage(`Verification email sent to ${email}.`)
+    } catch (error) {
+      setStatus('error')
+      setMessage(error instanceof Error ? error.message : 'Unable to resend right now.')
+    }
+  }
 
   return (
     <FormWrapper>
       <FormWrapper.Body>
         <YStack gap="$3">
-          <H2>Check Your Email</H2>
+          <H2>{firstName ? `Great pass, ${firstName}!` : 'Check Your Email'}</H2>
           <Paragraph theme="alt1">
-            We&apos;ve sent you a confirmation link. Please check your email ({email}) and confirm
-            it.
+            We&apos;ve sent you a confirmation link. Please check your email ({email}) and confirm it
+            to unlock Por El Deporte.
           </Paragraph>
+          {message ? (
+            <Paragraph theme={status === 'error' ? 'red' : 'alt1'} size="$2">
+              {message}
+            </Paragraph>
+          ) : null}
         </YStack>
       </FormWrapper.Body>
       <FormWrapper.Footer>
-        <Button themeInverse icon={ChevronLeft} br="$10" onPress={() => reset()}>
-          Back
-        </Button>
+        <XStack gap="$2" flexWrap="wrap">
+          <Button themeInverse icon={ChevronLeft} br="$10" onPress={() => reset()}>
+            Back
+          </Button>
+          <Button
+            theme="alt1"
+            br="$10"
+            onPress={handleResend}
+            disabled={!email || status === 'loading'}
+          >
+            {status === 'loading' ? 'Sending…' : 'Resend email'}
+          </Button>
+        </XStack>
       </FormWrapper.Footer>
     </FormWrapper>
   )
+}
+
+const resolveAuthRedirect = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+  if (process.env.EXPO_PUBLIC_URL) return process.env.EXPO_PUBLIC_URL
+  if (process.env.NEXT_PUBLIC_URL) return process.env.NEXT_PUBLIC_URL
+  return undefined
 }

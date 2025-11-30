@@ -1,20 +1,27 @@
 import { HomeLayout } from 'app/features/home/layout.web'
 import { ProfileScreen } from 'app/features/profile/screen'
+import { getScreenLayout } from 'app/navigation/layouts'
 import Head from 'next/head'
 
 import type { NextPageWithLayout } from '../_app'
+
+const layout = getScreenLayout('profile')
 
 const Page: NextPageWithLayout = () => {
   return (
     <>
       <Head>
-        <title>Profile</title>
+        <title>{layout.title}</title>
       </Head>
       <ProfileScreen />
     </>
   )
 }
 
-Page.getLayout = (page) => <HomeLayout fullPage>{page}</HomeLayout>
+Page.getLayout = (page) => (
+  <HomeLayout fullPage layoutId={layout.id}>
+    {page}
+  </HomeLayout>
+)
 
 export default Page

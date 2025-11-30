@@ -32,9 +32,9 @@ function MyApp({
   return (
     <>
       <Head>
-        <title>Tamagui Universal App</title>
-        <meta name="description" content="Tamagui Universal Starter" />
-        <link rel="icon" href="/favicon.svg" />
+        <title>Por El Deporte</title>
+        <meta name="description" content="Por El Deporte platform" />
+        <link rel="icon" href="/pixel-logo-ped.png" />
         <link rel="stylesheet" href="/tamagui.css" />
       </Head>
       <NextThemeProvider

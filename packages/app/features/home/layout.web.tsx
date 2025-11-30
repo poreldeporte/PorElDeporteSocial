@@ -1,27 +1,23 @@
 import {
-  Adapt,
   Avatar,
   Button,
   type ButtonProps,
   Popover,
   Separator,
   SizableText,
-  type StackProps,
   Theme,
   XStack,
   YStack,
   getTokens,
-  validToken,
 } from '@my/ui'
-import { CreateModal } from '@my/ui/src/components/CreateModal'
-import { Menu, Plus } from '@tamagui/lucide-icons'
-import { useGlobalStore } from 'app/utils/global-store'
+import { ChevronLeft, Plus, ShoppingBag } from '@tamagui/lucide-icons'
+import { getScreenLayout, type ScreenLayoutId } from 'app/navigation/layouts'
+import { getRoutesById, navRoutes, profileMenuRouteIds, webTabRouteIds } from 'app/navigation/routes'
 import { usePathname } from 'app/utils/usePathname'
 import { useUser } from 'app/utils/useUser'
-import { useRouter as useNextRouter } from 'next/router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { SolitoImage } from 'solito/image'
-import { Link, useLink } from 'solito/link'
+import { Link } from 'solito/link'
 
 import { NavTabs } from './components/nav-tabs.web'
 
@@ -29,45 +25,49 @@ export type HomeLayoutProps = {
   children?: React.ReactNode
   padded?: boolean
   fullPage?: boolean
+  layoutId?: ScreenLayoutId
+  backHref?: string
+  backLabel?: string
+  pageTitle?: string
 }
 
-export const HomeLayout = ({ children, fullPage = false, padded = false }: HomeLayoutProps) => {
-  return (
-    <YStack f={1}>
-      <YStack
-        gap="$4"
-        bw="$0"
-        bbc="$borderColor"
-        bs="solid"
-        bbw="$0.5"
-        jc="center"
-        px="$4"
-        bg="$color1"
-      >
-        <XStack jc="space-between" $sm={{ ai: 'center' }} ai="flex-end">
-          <YStack $sm={{ dsp: 'none' }}>
-            <NavTabs orientation="horizontal" size="$4" />
-          </YStack>
-          <YStack $gtSm={{ dsp: 'none' }}>
-            <MobileNavbar>
-              <YStack gap="$5" w="100%" ai="flex-end">
-                <NavTabs orientation="vertical" f={1} w="100%" size="$3" />
-                <Separator w="100%" />
-                <CtaButton w="100%" />
-                <Separator w="100%" />
-                <WithUserDetail ai="center" gap="$4">
-                  <ProfileButton />
-                </WithUserDetail>
-              </YStack>
-            </MobileNavbar>
-          </YStack>
-          <XStack ai="center" gap="$4" py="$3">
-            <CtaButton />
-            <ProfileButton />
-          </XStack>
-        </XStack>
-      </YStack>
+const headerTitleByLayout: Partial<Record<ScreenLayoutId, string>> = {
+  tabsRoot: 'Por El Deporte',
+  gamesList: 'Schedule',
+  gameDetail: 'Game Info',
+  gameDraft: 'Draft Room',
+  community: 'La Familia',
+  profile: 'My Profile',
+}
 
+const headerBackByLayout: Partial<
+  Record<ScreenLayoutId, string | ((pathname: string) => string | undefined)>
+> = {
+  gameDetail: '/games',
+  gameDraft: (pathname) => pathname.replace(/\/draft\/?$/, '') || '/games',
+}
+
+export const HomeLayout = ({
+  children,
+  fullPage = false,
+  padded = false,
+  layoutId,
+  backHref,
+  backLabel,
+  pageTitle,
+}: HomeLayoutProps) => {
+  const defaultLayout = getScreenLayout('tabsRoot')
+  const activeLayout = layoutId ? getScreenLayout(layoutId) : defaultLayout
+  const derivedTitle = pageTitle ?? activeLayout?.title ?? defaultLayout.title
+  const headerTitle = headerTitleByLayout[activeLayout.id] ?? derivedTitle
+  const pathname = usePathname()
+  const layoutBackConfig = headerBackByLayout[activeLayout.id]
+  const layoutBackHref =
+    typeof layoutBackConfig === 'function' ? layoutBackConfig(pathname) : layoutBackConfig
+  const derivedBackHref = backHref ?? layoutBackHref
+  return (
+    <YStack f={1} bg="$color1">
+      <Header title={headerTitle} backHref={derivedBackHref} />
       <YStack
         {...(fullPage && { flex: 1 })}
         {...(padded && {
@@ -76,9 +76,12 @@ export const HomeLayout = ({ children, fullPage = false, padded = false }: HomeL
           px: '$2',
           w: '100%',
         })}
+        pb={activeLayout.stickyCta === 'primary' ? '$13' : '$8'}
+        $gtSm={{ pb: 0 }}
       >
         {children}
       </YStack>
+      <BottomNav reserveCtaSpace={activeLayout.stickyCta === 'primary'} />
     </YStack>
   )
 }
@@ -98,131 +101,172 @@ const UserAvatar = () => {
   )
 }
 
-export const MobileNavbar = ({ children }: { children: React.ReactNode }) => {
-  const [open, setOpen] = useState(false)
-  const router = useNextRouter()
-  useEffect(() => {
-    const handleRouteChange = () => {
-      setOpen(false)
-    }
-    router.events.on('routeChangeStart', handleRouteChange)
-    return () => {
-      router.events.off('routeChangeStart', handleRouteChange)
-    }
-  }, [router.events])
+const CtaButton = (props: ButtonProps) => {
+  const { role } = useUser()
+  const isAdmin = role === 'admin'
+  const createRoute = navRoutes.create
+  if (!isAdmin) return null
   return (
-    <Popover open={open} onOpenChange={setOpen} size="$5" stayInFrame={{ padding: 20 }}>
+    <Theme inverse>
+      <Link href={createRoute.href}>
+        <Button size="$3" space="$1.5" my="$-1" icon={Plus} br="$10" {...props}>
+          Create
+        </Button>
+      </Link>
+    </Theme>
+  )
+}
+
+const ProfileMenu = () => {
+  const [open, setOpen] = useState(false)
+  const { displayName, user } = useUser()
+  const profileRoutes = getRoutesById(profileMenuRouteIds)
+  return (
+    <Popover size="$3" stayInFrame={{ padding: 16 }} open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <Button
-          chromeless
-          p="$2"
-          onPress={() => setOpen(!open)}
-          theme={open ? 'alt1' : null}
-          icon={<Menu size={32} />}
-        />
+        <Button chromeless p="$1">
+          <UserAvatar />
+        </Button>
       </Popover.Trigger>
-
-      <Adapt platform="web" when="sm">
-        <Popover.Sheet zIndex={100000000} modal dismissOnSnapToBottom>
-          <Popover.Sheet.Frame>
-            <Popover.Sheet.ScrollView>
-              <Adapt.Contents />
-            </Popover.Sheet.ScrollView>
-          </Popover.Sheet.Frame>
-          <Popover.Sheet.Overlay zi={100} />
-        </Popover.Sheet>
-      </Adapt>
-
       <Popover.Content
         bw={1}
         boc="$borderColor"
-        enterStyle={{ x: 0, y: -10, o: 0 }}
-        exitStyle={{ x: 0, y: -10, o: 0 }}
-        x={0}
-        y={0}
-        o={1}
-        animation={[
-          'quick',
-          {
-            opacity: {
-              overshootClamping: true,
-            },
-          },
-        ]}
-        p={0}
-        mah={validToken('80vh')}
+        enterStyle={{ y: -10, o: 0 }}
+        exitStyle={{ y: -10, o: 0 }}
+        w={240}
+        p="$3"
         elevate
-        zi={100000000}
       >
-        <Popover.Arrow bw={1} boc="$borderColor" />
-
-        <Popover.ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-          <YStack miw={230} p="$3" ai="flex-end">
-            {children}
+        <YStack gap="$2">
+          <YStack>
+            <SizableText fontWeight="600">{displayName || 'Member'}</SizableText>
+            <SizableText theme="alt2" size="$2">
+              {user?.email ?? ''}
+            </SizableText>
           </YStack>
-        </Popover.ScrollView>
+          <Separator />
+          {profileRoutes.map((route) => {
+            const Icon = route.icon
+            return (
+              <Link key={route.id} href={route.href}>
+                <Button
+                  chromeless
+                  justifyContent="flex-start"
+                  gap="$2"
+                  onPress={() => setOpen(false)}
+                >
+                  <Icon size={18} />
+                  {route.label}
+                </Button>
+              </Link>
+            )
+          })}
+        </YStack>
       </Popover.Content>
     </Popover>
   )
 }
 
-const CtaButton = (props: ButtonProps) => {
-  const { toggleCreateModal, setToggleCreateModal } = useGlobalStore()
-  const pathName = usePathname()
-
+const Header = ({ backHref, title }: { backHref?: string; title: string }) => {
+  const showBack = Boolean(backHref)
   return (
-    <>
-      <CreateModal toggleEvent={toggleCreateModal} setToggleEvent={setToggleCreateModal} />
-      <Theme inverse>
-        <Adapt when="sm">
-          <Button
-            {...useLink({ href: '/create' })}
-            size="$3"
-            space="$1.5"
-            my="$-1"
-            icon={Plus}
-            br="$10"
-            {...props}
-          >
-            Create
+    <YStack
+      bw="$0"
+      bbc="$borderColor"
+      bs="solid"
+      bbw="$0.5"
+      jc="center"
+      px="$3"
+      py="$0"
+      bg="$color1"
+      zi={5}
+    >
+      <XStack w="100%" pos="relative" jc="center" ai="center">
+        {showBack && (
+          <XStack pos="absolute" l="$2">
+            <Link href={backHref!}>
+              <Button
+                chromeless
+                px={0}
+                py={0}
+                height="$4"
+                width="$4"
+                aria-label="Go back"
+                pressStyle={{ opacity: 0.7 }}
+              >
+                <ChevronLeft size={28} />
+              </Button>
+            </Link>
+          </XStack>
+        )}
+        <Link href="/">
+          <Button chromeless fontSize="$5" fontWeight="700" px={0} pressStyle={{ opacity: 0.7 }}>
+            {title}
           </Button>
-        </Adapt>
-        <Adapt when="gtSm">
-          <Button
-            onPress={() => {
-              if (pathName !== '/create') setToggleCreateModal()
-            }}
-            size="$3"
-            space="$1.5"
-            my="$-1"
-            icon={Plus}
-            br="$10"
-            {...props}
-          >
-            Create
-          </Button>
-        </Adapt>
-      </Theme>
-    </>
+        </Link>
+        <XStack pos="absolute" r="$2">
+          <ShopButton />
+        </XStack>
+      </XStack>
+    </YStack>
   )
 }
 
-const ProfileButton = () => (
-  <Link href="/profile">
-    <UserAvatar />
+const ShopButton = () => (
+  <Link href="/shop">
+    <Button
+      chromeless
+      px={0}
+      py={0}
+      height="$4"
+      width="$4"
+      aria-label="Shop"
+      pressStyle={{ opacity: 0.7 }}
+    >
+      <ShoppingBag size={24} />
+    </Button>
   </Link>
 )
 
-const WithUserDetail = ({ children, ...props }: StackProps) => {
-  const { user, profile } = useUser()
-
+const BottomNav = ({ reserveCtaSpace = false }: { reserveCtaSpace?: boolean }) => {
+  const pathname = usePathname()
+  const routes = getRoutesById(webTabRouteIds)
   return (
-    <XStack gap="$2" {...props}>
-      <YStack ai="flex-end">
-        <SizableText size="$5">{profile?.name}</SizableText>
-        <SizableText theme="alt1">{user?.email}</SizableText>
-      </YStack>
-      {children}
+    <XStack
+      $gtSm={{ dsp: 'none' }}
+      bg="$color1"
+      px="$2"
+      pt="$1"
+      pb={reserveCtaSpace ? '$6' : '$1'}
+      jc="space-around"
+      ai="center"
+      btw="$0.5"
+      btc="$borderColor"
+      style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}
+    >
+      {routes.map((route) => {
+        const Icon = route.icon
+        const active =
+          pathname === route.href || (route.href !== '/' && pathname.startsWith(`${route.href}/`))
+        return (
+          <Link key={route.id} href={route.href}>
+            <Button
+              chromeless
+              size="$2"
+              bw={0}
+              br={0}
+              jc="center"
+              ai="center"
+              gap="$1"
+              pressStyle={{ opacity: 0.7 }}
+              opacity={active ? 1 : 0.7}
+            >
+              <Icon size={20} color={active ? '$color12' : '$color10'} />
+              <SizableText size="$2">{route.label}</SizableText>
+            </Button>
+          </Link>
+        )
+      })}
     </XStack>
   )
 }

@@ -39,9 +39,9 @@ export const DateField = (props: Pick<InputProps, 'size'>) => {
               <DatePickerExample
                 disabled={disabled}
                 placeholderTextColor="$color10"
-                value={field.value?.dateValue.toISOString()}
+                value={field.value?.dateValue ? field.value.dateValue.toISOString() : undefined}
                 onChangeText={(dateValue) =>
-                  field.onChange({ ...field.value, dateValue: new Date(dateValue) })
+                  field.onChange({ ...(field.value ?? {}), dateValue: new Date(dateValue) })
                 }
                 onBlur={field.onBlur}
                 ref={inputRef}

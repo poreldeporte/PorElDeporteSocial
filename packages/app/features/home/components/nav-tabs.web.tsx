@@ -13,17 +13,25 @@ import { useRouter as useNextRouter } from 'next/router'
 import { useState } from 'react'
 import { useRouter } from 'solito/router'
 
+import { getRoutesById, navRoutes, webTabRouteIds } from 'app/navigation/routes'
+
 /**
  * this component is web-only
  */
 export const NavTabs = (props: TabsProps) => {
   const nextRouter = useNextRouter()
   const router = useRouter()
-  const currentTab = nextRouter.pathname
+  const pathname = nextRouter.pathname
+  const tabRoutes = getRoutesById(webTabRouteIds)
+
+  const activeRoute =
+    tabRoutes.find((route) => pathname === route.href || pathname.startsWith(`${route.href}/`)) ??
+    navRoutes.home
+  const currentValue = activeRoute.href
   const setCurrentTab = (newRoute: string) => router.push(newRoute)
-  /**
-   * Layout of the Tab user might intend to select (hovering / focusing)
-   */
+/**
+ * Layout of the Tab user might intend to select (hovering / focusing)
+ */
   const [intentAt, setIntentIndicator] = useState<TabLayout | null>(null)
   /**
    * Layout of the Tab user selected
@@ -41,7 +49,7 @@ export const NavTabs = (props: TabsProps) => {
   return (
     <Tabs
       $gtSm={{ mb: '$-0.75' }} // for the active TabsRovingIndicator to look good
-      value={currentTab}
+      value={currentValue}
       onValueChange={setCurrentTab}
       activationMode="manual"
       {...props}
@@ -92,12 +100,11 @@ export const NavTabs = (props: TabsProps) => {
         f={1}
         flexDirection={props.orientation === 'horizontal' ? 'row' : 'column'} // temp fix: would be fixed after https://github.com/tamagui/tamagui/pull/1313
       >
-        <Tab value="/" onInteraction={handleOnInteraction}>
-          Home
-        </Tab>
-        <Tab value="/settings" onInteraction={handleOnInteraction}>
-          Settings
-        </Tab>
+        {tabRoutes.map((route) => (
+          <Tab key={route.id} value={route.href} onInteraction={handleOnInteraction}>
+            {route.label}
+          </Tab>
+        ))}
       </Tabs.List>
     </Tabs>
   )

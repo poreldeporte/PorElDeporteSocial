@@ -1,5 +1,5 @@
 import { Onboarding, OnboardingStepInfo, StepContent } from '@my/ui'
-import { ArrowUp, Rocket, Sparkles } from '@tamagui/lucide-icons'
+import { CalendarCheck, Trophy, Users } from '@tamagui/lucide-icons'
 import React from 'react'
 import { useRouter } from 'solito/router'
 
@@ -8,9 +8,9 @@ const steps: OnboardingStepInfo[] = [
     theme: 'orange',
     Content: () => (
       <StepContent
-        title="Kickstart"
-        icon={Sparkles}
-        description="Auth, profile, settings, adaptive layouts and many more ready for you to build on top of"
+        title="Join the club"
+        icon={Users}
+        description="Create your Por El Deporte profile and unlock access to curated members-only runs."
       />
     ),
   },
@@ -18,9 +18,9 @@ const steps: OnboardingStepInfo[] = [
     theme: 'green',
     Content: () => (
       <StepContent
-        title="Updates"
-        icon={ArrowUp}
-        description="As we make the starter better, we'll keep sending PRs with our GitHub app so your app keeps improving"
+        title="Sign up for games"
+        icon={CalendarCheck}
+        description="Claim a roster spot in seconds—no endless group chats, just confirmed kickoff times."
       />
     ),
   },
@@ -28,9 +28,9 @@ const steps: OnboardingStepInfo[] = [
     theme: 'blue',
     Content: () => (
       <StepContent
-        title="Deploy"
-        icon={Rocket}
-        description="The Takeout starter is the best way to go from zero to deploy and target all platforms at the same time."
+        title="Make your mark"
+        icon={Trophy}
+        description="Make a name for yourself in one of Miami's most elite fútbol communities."
       />
     ),
   },

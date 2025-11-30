@@ -1,17 +1,40 @@
-import { Separator, SizableText, YStack, isWeb } from '@my/ui'
+import { Paragraph, Separator, SizableText, XStack, YStack, isWeb } from '@my/ui'
+import { trackAuthEvent } from 'app/utils/analytics'
 
 import { AppleSignIn } from './AppleSignIn'
 import { GoogleSignIn } from './GoogleSignIn'
 
-export function SocialLogin() {
-  return (
-    <YStack gap="$5">
-      <OrSeparator />
-      <YStack gap="$3">
-        <AppleSignIn />
+type SocialLoginProps = {
+  variant?: 'default' | 'compact'
+  stepIndex?: number
+  showSeparator?: boolean
+}
 
-        <GoogleSignIn />
-      </YStack>
+export function SocialLogin({ variant = 'default', stepIndex, showSeparator }: SocialLoginProps) {
+  const compact = variant === 'compact' && !isWeb
+  const shouldShowSeparator = showSeparator ?? (!compact && isWeb)
+  const handleSelect = (provider: 'apple' | 'google') => () =>
+    trackAuthEvent('auth_social_selected', { provider, stepIndex })
+
+  return (
+    <YStack gap="$2">
+      <Paragraph ta="center" theme="alt1" size="$2">
+        {compact
+          ? 'Skip passwords—use Apple or Google.'
+          : 'Prefer a faster start? Use Apple or Google and we’ll still capture your kit and roster info.'}
+      </Paragraph>
+      {shouldShowSeparator ? <OrSeparator /> : null}
+      {compact ? (
+        <XStack gap="$2" mt="$1">
+          <AppleSignIn variant="compact" label="Apple" onSelect={handleSelect('apple')} />
+          <GoogleSignIn variant="compact" label="Google" onSelect={handleSelect('google')} />
+        </XStack>
+      ) : (
+        <YStack gap="$3">
+          <AppleSignIn onSelect={handleSelect('apple')} />
+          <GoogleSignIn onSelect={handleSelect('google')} />
+        </YStack>
+      )}
     </YStack>
   )
 }
