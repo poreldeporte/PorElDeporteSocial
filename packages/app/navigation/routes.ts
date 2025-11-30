@@ -38,14 +38,14 @@ export const navRoutes: Record<NavigationRoute['id'], NavigationRoute> = {
   },
   games: {
     id: 'games',
-    label: 'Schedule',
+    label: 'Upcoming',
     href: '/games',
     nativeSegment: 'games/index',
     icon: Calendar,
   },
   community: {
     id: 'community',
-    label: 'La Familia',
+    label: 'Chat',
     href: '/community',
     nativeSegment: 'community/index',
     icon: MessageCircle,
@@ -87,7 +87,7 @@ export const navRoutes: Record<NavigationRoute['id'], NavigationRoute> = {
   },
 }
 
-export const webTabRouteIds = ['home', 'games', 'community', 'profile'] as const
+export const webTabRouteIds = ['home', 'games', 'community', 'leaderboard'] as const
 export const nativeTabRouteIds = ['home', 'games', 'community', 'leaderboard'] as const
 export const profileMenuRouteIds = ['profile', 'profileEdit', 'settings'] as const
 

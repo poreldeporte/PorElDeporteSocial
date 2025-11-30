@@ -1,5 +1,5 @@
 import { Button, SizableText, XStack, useTheme } from '@my/ui'
-import { Menu, Plus, ShoppingBag, Trophy, User } from '@tamagui/lucide-icons'
+import { Menu, Plus, ShoppingBag, User } from '@tamagui/lucide-icons'
 import { DrawerActions } from '@react-navigation/native'
 import { router, Stack, Tabs, useNavigation, usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -32,7 +32,13 @@ export default function Layout() {
     profile: 'profile',
   }
   const activeLayoutId = layoutByRoute[activeRoute.id] ?? 'tabsRoot'
-  const headerTitle = getScreenLayout(activeLayoutId).title
+  const headerTitle = (() => {
+    if (activeRoute.id === 'home') return 'Por El Deporte'
+    if (activeRoute.id === 'games') return 'Schedule'
+    if (activeRoute.id === 'community') return 'La Familia'
+    if (activeRoute.id === 'leaderboard') return 'Leaderboard'
+    return getScreenLayout(activeLayoutId).title
+  })()
   const tabPaddingBottom = insets.bottom + 20
   const navigation = useNavigation()
   const showDrawerButton = activeRoute.id === 'profile' && pathname?.startsWith('/profile')
@@ -50,17 +56,36 @@ export default function Layout() {
               {headerTitle}
             </SizableText>
           ),
-          headerLeft: () => (
-            <XStack gap="$2">
-              <Button
-                chromeless
-                borderWidth={0}
-                borderStyle="unset"
-                onPress={() => router.navigate('/profile')}
-              >
-                <User size={22} />
-              </Button>
-              {showDrawerButton ? (
+          headerLeft: () => {
+            if (activeRoute.id === 'leaderboard') {
+              return (
+                <Button
+                  chromeless
+                  borderWidth={0}
+                  borderStyle="unset"
+                  onPress={() => router.navigate('/profile')}
+                >
+                  <User size={22} />
+                </Button>
+              )
+            }
+            if (activeRoute.id === 'games' && isAdmin) {
+              return (
+                <Button
+                  chromeless
+                  borderWidth={0}
+                  borderStyle="unset"
+                  icon={Plus}
+                  onPress={() => {
+                    router.navigate(createSegment)
+                  }}
+                >
+                  Create
+                </Button>
+              )
+            }
+            if (showDrawerButton) {
+              return (
                 <Button
                   chromeless
                   borderWidth={0}
@@ -69,9 +94,10 @@ export default function Layout() {
                 >
                   <Menu size={24} />
                 </Button>
-              ) : null}
-            </XStack>
-          ),
+              )
+            }
+            return null
+          },
           headerTintColor: accentColor.val,
           headerStyle: { backgroundColor: headerBackground },
           headerBackTitleStyle: { fontSize: 16, textTransform: 'lowercase' },
@@ -82,33 +108,11 @@ export default function Layout() {
                 borderWidth={0}
                 backgroundColor="transparent"
                 onPress={() => {
-                  router.navigate('/leaderboard')
-                }}
-              >
-                <Trophy size={22} />
-              </Button>
-              <Button
-                borderStyle="unset"
-                borderWidth={0}
-                backgroundColor="transparent"
-                onPress={() => {
                   router.navigate('/shop')
                 }}
               >
                 <ShoppingBag size={22} />
               </Button>
-              {isAdmin ? (
-                <Button
-                  borderStyle="unset"
-                  borderWidth={0}
-                  backgroundColor="transparent"
-                  onPress={() => {
-                    router.navigate(createSegment)
-                  }}
-                >
-                  <Plus size={24} />
-                </Button>
-              ) : null}
             </XStack>
           ),
         }}

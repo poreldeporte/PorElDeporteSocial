@@ -65,9 +65,11 @@ export const HomeLayout = ({
   const layoutBackHref =
     typeof layoutBackConfig === 'function' ? layoutBackConfig(pathname) : layoutBackConfig
   const derivedBackHref = backHref ?? layoutBackHref
+  const { role } = useUser()
+  const isAdmin = role === 'admin'
   return (
     <YStack f={1} bg="$color1">
-      <Header title={headerTitle} backHref={derivedBackHref} />
+      <Header title={headerTitle} backHref={derivedBackHref} layoutId={activeLayout.id} isAdmin={isAdmin} />
       <YStack
         {...(fullPage && { flex: 1 })}
         {...(padded && {
@@ -167,8 +169,66 @@ const ProfileMenu = () => {
   )
 }
 
-const Header = ({ backHref, title }: { backHref?: string; title: string }) => {
+const Header = ({
+  backHref,
+  title,
+  layoutId,
+  isAdmin,
+}: {
+  backHref?: string
+  title: string
+  layoutId: ScreenLayoutId
+  isAdmin: boolean
+}) => {
   const showBack = Boolean(backHref)
+  const showCreate = layoutId === 'gamesList' && isAdmin
+  const showProfile = layoutId === 'leaderboard'
+  const LeftContent = () => {
+    if (showBack) {
+      return (
+        <Link href={backHref!}>
+          <Button
+            chromeless
+            px={0}
+            py={0}
+            height="$4"
+            width="$4"
+            aria-label="Go back"
+            pressStyle={{ opacity: 0.7 }}
+          >
+            <ChevronLeft size={28} />
+          </Button>
+        </Link>
+      )
+    }
+    if (showCreate) {
+      return (
+        <Link href={navRoutes.create.href}>
+          <Button
+            chromeless
+            px="$2"
+            py="$1"
+            gap="$1"
+            icon={Plus}
+            pressStyle={{ opacity: 0.7 }}
+          >
+            Create
+          </Button>
+        </Link>
+      )
+    }
+    if (showProfile) {
+      return (
+        <Link href="/profile">
+          <Button chromeless px={0} py={0} aria-label="Profile" pressStyle={{ opacity: 0.7 }}>
+            <UserAvatar />
+          </Button>
+        </Link>
+      )
+    }
+    return null
+  }
+
   return (
     <YStack
       bw="$0"
@@ -182,28 +242,12 @@ const Header = ({ backHref, title }: { backHref?: string; title: string }) => {
       zi={5}
     >
       <XStack w="100%" pos="relative" jc="center" ai="center">
-        {showBack && (
-          <XStack pos="absolute" l="$2">
-            <Link href={backHref!}>
-              <Button
-                chromeless
-                px={0}
-                py={0}
-                height="$4"
-                width="$4"
-                aria-label="Go back"
-                pressStyle={{ opacity: 0.7 }}
-              >
-                <ChevronLeft size={28} />
-              </Button>
-            </Link>
-          </XStack>
-        )}
-        <Link href="/">
-          <Button chromeless fontSize="$5" fontWeight="700" px={0} pressStyle={{ opacity: 0.7 }}>
-            {title}
-          </Button>
-        </Link>
+        <XStack pos="absolute" l="$2">
+          <LeftContent />
+        </XStack>
+        <SizableText fontSize="$5" fontWeight="700">
+          {title}
+        </SizableText>
         <XStack pos="absolute" r="$2">
           <ShopButton />
         </XStack>
