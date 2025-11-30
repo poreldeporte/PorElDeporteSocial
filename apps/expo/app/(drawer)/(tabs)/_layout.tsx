@@ -1,15 +1,41 @@
-import { useTheme, Button } from '@my/ui'
+import { Button, SizableText, XStack, useTheme } from '@my/ui'
+import { Menu, Plus, ShoppingBag, Trophy, User } from '@tamagui/lucide-icons'
 import { DrawerActions } from '@react-navigation/native'
-import { Home, Menu, Plus, User } from '@tamagui/lucide-icons'
-// import { IconGearFill, IconGear, IconHouse, IconHouseFill } from '@tamagui-icons/icon-ph'
 import { router, Stack, Tabs, useNavigation, usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { getRoutesById, navRoutes, nativeTabRouteIds } from '@my/app/navigation/routes'
+import { getScreenLayout, type ScreenLayoutId } from '@my/app/navigation/layouts'
+import { useUser } from '@my/app/utils/useUser'
+
 export default function Layout() {
-  const { accentColor } = useTheme()
-  const navigation = useNavigation()
+  const { accentColor, color1 } = useTheme()
+  const headerBackground = color1?.val ?? '#fff'
   const pathname = usePathname()
   const insets = useSafeAreaInsets()
+  const tabRoutes = getRoutesById(nativeTabRouteIds)
+  const createSegment = navRoutes.create.nativeSegment ?? navRoutes.create.href
+  const { role } = useUser()
+  const isAdmin = role === 'admin'
+  const candidateRoutes = [...tabRoutes, navRoutes.profile]
+  const activeRoute =
+    candidateRoutes.find((route) => {
+      if (!pathname) return false
+      if (route.href === '/') return pathname === '/'
+      return pathname.startsWith(route.href)
+    }) ?? tabRoutes[0]
+  const layoutByRoute: Record<string, ScreenLayoutId> = {
+    home: 'tabsRoot',
+    games: 'gamesList',
+    community: 'community',
+    leaderboard: 'leaderboard',
+    profile: 'profile',
+  }
+  const activeLayoutId = layoutByRoute[activeRoute.id] ?? 'tabsRoot'
+  const headerTitle = getScreenLayout(activeLayoutId).title
+  const tabPaddingBottom = insets.bottom + 20
+  const navigation = useNavigation()
+  const showDrawerButton = activeRoute.id === 'profile' && pathname?.startsWith('/profile')
 
   if (__DEV__) {
     console.log('pathname', pathname)
@@ -18,45 +44,83 @@ export default function Layout() {
     <>
       <Stack.Screen
         options={{
-          title: 'Home',
-          headerShown: pathname === '/' || pathname === '/create',
-          headerTintColor: accentColor.val,
-          headerLeft: () => (
-            <Button
-              borderStyle="unset"
-              borderWidth={0}
-              backgroundColor="transparent"
-              marginLeft="$-1"
-              paddingHorizontal="$4"
-              onPress={() => {
-                navigation.dispatch(DrawerActions.openDrawer())
-              }}
-            >
-              <Menu size={24} />
-            </Button>
+          headerShown: true,
+          headerTitle: () => (
+            <SizableText fontWeight="700" size="$4">
+              {headerTitle}
+            </SizableText>
           ),
+          headerLeft: () => (
+            <XStack gap="$2">
+              <Button
+                chromeless
+                borderWidth={0}
+                borderStyle="unset"
+                onPress={() => router.navigate('/profile')}
+              >
+                <User size={22} />
+              </Button>
+              {showDrawerButton ? (
+                <Button
+                  chromeless
+                  borderWidth={0}
+                  borderStyle="unset"
+                  onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                >
+                  <Menu size={24} />
+                </Button>
+              ) : null}
+            </XStack>
+          ),
+          headerTintColor: accentColor.val,
+          headerStyle: { backgroundColor: headerBackground },
+          headerBackTitleStyle: { fontSize: 16, textTransform: 'lowercase' },
           headerRight: () => (
-            <Button
-              borderStyle="unset"
-              borderWidth={0}
-              marginRight="$-1"
-              backgroundColor="transparent"
-              onPress={() => {
-                router.navigate('create')
-              }}
-            >
-              <Plus size={24} />
-            </Button>
+            <XStack gap="$2" mr="$-1">
+              <Button
+                borderStyle="unset"
+                borderWidth={0}
+                backgroundColor="transparent"
+                onPress={() => {
+                  router.navigate('/leaderboard')
+                }}
+              >
+                <Trophy size={22} />
+              </Button>
+              <Button
+                borderStyle="unset"
+                borderWidth={0}
+                backgroundColor="transparent"
+                onPress={() => {
+                  router.navigate('/shop')
+                }}
+              >
+                <ShoppingBag size={22} />
+              </Button>
+              {isAdmin ? (
+                <Button
+                  borderStyle="unset"
+                  borderWidth={0}
+                  backgroundColor="transparent"
+                  onPress={() => {
+                    router.navigate(createSegment)
+                  }}
+                >
+                  <Plus size={24} />
+                </Button>
+              ) : null}
+            </XStack>
           ),
         }}
       />
       <Tabs
         screenOptions={{
+          headerShown: false,
           tabBarShowLabel: false,
           headerTintColor: accentColor.val,
           tabBarStyle: {
             paddingTop: 10,
-            paddingBottom: insets.bottom + 20, // edit this with safe area insets
+            paddingBottom: tabPaddingBottom,
             height: 60,
             alignContent: 'center',
             justifyContent: 'center',
@@ -66,29 +130,25 @@ export default function Layout() {
           },
         }}
       >
-        <Tabs.Screen
-          name="index"
-          key="index"
-          options={{
-            headerShown: false,
-            title: 'Home',
-            tabBarIcon: ({ size, color, focused }) => (
-              <Home color={focused ? '$color12' : '$color10'} size={size} strokeWidth={2} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="profile"
-          key="profile"
-          options={{
-            headerShown: false,
-            title: 'Profile',
-            tabBarLabel: 'Profile',
-            tabBarIcon: ({ size, color, focused }) => (
-              <User color={focused ? '$color12' : '$color10'} size={size} strokeWidth={2} />
-            ),
-          }}
-        />
+        {tabRoutes.map((route) => {
+          const Icon = route.icon
+          return (
+            <Tabs.Screen
+              key={route.id}
+              name={route.nativeSegment ?? route.id}
+              options={{
+                title: route.label,
+                tabBarIcon: ({ size, focused }) => (
+                  <Icon
+                    color={focused ? accentColor.val : '$color10'}
+                    size={size}
+                    strokeWidth={2}
+                  />
+                ),
+              }}
+            />
+          )
+        })}
       </Tabs>
     </>
   )
