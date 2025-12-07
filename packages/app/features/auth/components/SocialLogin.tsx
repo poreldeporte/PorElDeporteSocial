@@ -1,4 +1,4 @@
-import { Paragraph, Separator, SizableText, XStack, YStack, isWeb } from '@my/ui'
+import { Paragraph, Separator, SizableText, XStack, YStack, isWeb } from '@my/ui/public'
 import { trackAuthEvent } from 'app/utils/analytics'
 
 import { AppleSignIn } from './AppleSignIn'

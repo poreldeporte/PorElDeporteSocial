@@ -4,6 +4,7 @@
     "rootDir": ".",
     "paths": {
       "@my/*": ["packages/*"],
+      "@my/ui/public": ["packages/ui/src/public"],
       "app/*": ["packages/app/*"],
       "ui/*": ["packages/ui/*"]
     },

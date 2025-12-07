@@ -1,6 +1,6 @@
 'use client'
 
-import { YStack } from '@my/ui'
+import { YStack } from '@my/ui/public'
 import { COMMUNITY_CHAT_ROOM } from 'app/constants/chat'
 import { useUser } from 'app/utils/useUser'
 import { WhatsAppStyleChat } from './components/WhatsAppStyleChat'

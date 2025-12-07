@@ -1,4 +1,4 @@
-import { Button, Main, Theme, YStack, isWeb } from '@my/ui'
+import { Button, Main, Theme, YStack, isWeb } from '@my/ui/public'
 import { ChevronLeft } from '@tamagui/lucide-icons'
 import { useLink } from 'solito/link'
 

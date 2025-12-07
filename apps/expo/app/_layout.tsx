@@ -6,7 +6,7 @@ import { SplashScreen, Stack } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { LogBox, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { SizableText, useTheme } from '@my/ui'
+import { SizableText, useTheme } from '@my/ui/public'
 
 SplashScreen.preventAutoHideAsync()
 

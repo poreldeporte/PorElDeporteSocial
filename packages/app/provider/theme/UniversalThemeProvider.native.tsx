@@ -1,4 +1,4 @@
-import { useIsomorphicLayoutEffect } from '@my/ui'
+import { useIsomorphicLayoutEffect } from '@my/ui/public'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'
 import type {

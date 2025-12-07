@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, Platform } from 'react-native'
 
-import { useToastController } from '@my/ui'
+import { useToastController } from '@my/ui/public'
 
 import { api } from './api'
 

@@ -1,4 +1,4 @@
-import { Onboarding, OnboardingStepInfo, StepContent } from '@my/ui'
+import { Onboarding, OnboardingStepInfo, StepContent } from '@my/ui/public'
 import { CalendarCheck, Trophy, Users } from '@tamagui/lucide-icons'
 import React from 'react'
 import { useRouter } from 'solito/router'

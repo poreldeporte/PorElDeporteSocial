@@ -1,4 +1,4 @@
-import { Paragraph, Text, YStack } from '@my/ui'
+import { Paragraph, Text, YStack } from '@my/ui/public'
 import { Link } from 'expo-router'
 
 export const AboutScreen = () => {

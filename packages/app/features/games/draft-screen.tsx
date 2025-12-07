@@ -12,7 +12,7 @@ import {
   XStack,
   YStack,
   useToastController,
-} from '@my/ui'
+} from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { useTeamsState } from 'app/utils/useTeamsState'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'

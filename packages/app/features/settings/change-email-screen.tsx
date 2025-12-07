@@ -9,7 +9,7 @@ import {
   YStack,
   isWeb,
   useToastController,
-} from '@my/ui'
+} from '@my/ui/public'
 import { SchemaForm, formFields } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'

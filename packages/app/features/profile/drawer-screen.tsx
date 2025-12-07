@@ -1,4 +1,4 @@
-import { Avatar, Paragraph, Settings, XStack, YStack, getTokens, useWindowDimensions } from '@my/ui'
+import { Avatar, Paragraph, Settings, XStack, YStack, getTokens, useWindowDimensions } from '@my/ui/public'
 import { DrawerContentScrollView } from '@react-navigation/drawer'
 import { Box, Cog, Milestone, ShoppingCart, User, Users } from '@tamagui/lucide-icons'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'

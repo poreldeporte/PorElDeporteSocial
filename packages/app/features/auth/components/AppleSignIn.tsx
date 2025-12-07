@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from '@my/ui'
+import { Button } from '@my/ui/public'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useRouter } from 'solito/router'
 import { getOAuthRedirectUrl } from 'app/utils/auth/getOAuthRedirectUrl'

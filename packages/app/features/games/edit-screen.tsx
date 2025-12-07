@@ -1,4 +1,4 @@
-import { Button, Paragraph, Spinner, YStack } from '@my/ui'
+import { Button, Paragraph, Spinner, YStack } from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { useUser } from 'app/utils/useUser'
 import { useRouter } from 'solito/router'

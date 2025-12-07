@@ -12,10 +12,10 @@ import { size } from './themes/token-size'
 import { space } from './themes/token-space'
 import { zIndex } from './themes/token-z-index'
 
-// Hold down Option for a second to see some helpful visuals
-setupDev({
-  visualizer: true,
-})
+if (process.env.NODE_ENV !== 'production') {
+  // Hold down Option for a second to see helpful visuals
+  setupDev({ visualizer: true })
+}
 
 /**
  * This avoids shipping themes as JS. Instead, Tamagui will hydrate them from CSS.

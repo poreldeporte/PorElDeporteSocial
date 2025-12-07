@@ -1,4 +1,4 @@
-import { FullscreenSpinner, ScrollView, View, YStack } from '@my/ui'
+import { FullscreenSpinner, ScrollView, View, YStack } from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'

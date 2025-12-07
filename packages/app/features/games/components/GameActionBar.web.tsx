@@ -1,4 +1,4 @@
-import { Button, Paragraph, Spinner, XStack, YStack } from '@my/ui'
+import { Button, Paragraph, Spinner, XStack, YStack } from '@my/ui/public'
 import type { ThemeName } from '@tamagui/core'
 
 import type { GameActionBarProps } from './GameActionBar.types'

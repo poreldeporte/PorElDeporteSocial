@@ -1,4 +1,4 @@
-import { Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack } from '@my/ui'
+import { Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack } from '@my/ui/public'
 import { Shield, Share2, Sparkles, UserCog } from '@tamagui/lucide-icons'
 import { pedLogo } from 'app/assets'
 import { screenContentContainerStyle } from 'app/constants/layout'

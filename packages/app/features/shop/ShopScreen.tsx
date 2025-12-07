@@ -1,4 +1,4 @@
-import { Paragraph, YStack, Button } from '@my/ui'
+import { Paragraph, YStack, Button } from '@my/ui/public'
 import { useEffect } from 'react'
 import { Link } from 'solito/link'
 

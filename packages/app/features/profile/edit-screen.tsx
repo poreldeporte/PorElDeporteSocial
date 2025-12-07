@@ -7,7 +7,7 @@ import {
   View,
   YStack,
   useToastController,
-} from '@my/ui'
+} from '@my/ui/public'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'

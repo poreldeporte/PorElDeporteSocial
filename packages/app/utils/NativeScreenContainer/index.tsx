@@ -1,4 +1,4 @@
-import { ScrollView } from '@my/ui'
+import { ScrollView } from '@my/ui/public'
 import { useScrollToTop } from '@react-navigation/native'
 import { Stack } from 'expo-router'
 import { useRef } from 'react'

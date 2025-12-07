@@ -10,7 +10,7 @@ import {
   YStack,
   isWeb,
   XStack,
-} from '@my/ui'
+} from '@my/ui/public'
 import { ChevronLeft } from '@tamagui/lucide-icons'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'

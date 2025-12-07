@@ -1,4 +1,4 @@
-import { Button, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui'
+import { Button, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 import { Calendar } from '@tamagui/lucide-icons'
 import { useLink } from 'solito/link'
 

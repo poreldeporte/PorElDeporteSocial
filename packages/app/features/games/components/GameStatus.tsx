@@ -1,4 +1,4 @@
-import { Paragraph, SizableText, XStack } from '@my/ui'
+import { Paragraph, SizableText, XStack } from '@my/ui/public'
 import { Calendar, ShieldAlert } from '@tamagui/lucide-icons'
 import type { ReactNode } from 'react'
 

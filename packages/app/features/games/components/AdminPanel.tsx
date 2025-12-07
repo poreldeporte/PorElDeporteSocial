@@ -1,4 +1,4 @@
-import { Button, Card, Paragraph, SizableText, useToastController, XStack, YStack } from '@my/ui'
+import { Button, Card, Paragraph, SizableText, useToastController, XStack, YStack } from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { useLink } from 'solito/link'
 

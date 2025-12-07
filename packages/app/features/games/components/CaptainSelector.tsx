@@ -7,7 +7,7 @@ import {
   XStack,
   YStack,
   useToastController,
-} from '@my/ui'
+} from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertDialog } from 'tamagui'

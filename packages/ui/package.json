@@ -8,6 +8,11 @@
   "types": "./src",
   "main": "src/index.tsx",
   "module:jsx": "src",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./public": "./src/public.ts",
+    "./package.json": "./package.json"
+  },
   "files": [
     "types",
     "dist"

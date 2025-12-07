@@ -1,4 +1,4 @@
-import { Button } from '@my/ui'
+import { Button } from '@my/ui/public'
 import { useLink } from 'solito/link'
 
 export const ViewAllPastGamesButton = () => {

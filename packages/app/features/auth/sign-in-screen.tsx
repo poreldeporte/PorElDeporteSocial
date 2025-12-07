@@ -1,4 +1,4 @@
-import { FormWrapper, LoadingOverlay, Paragraph, SubmitButton, Text, Theme, YStack, isWeb } from '@my/ui'
+import { FormWrapper, LoadingOverlay, Paragraph, SubmitButton, Text, Theme, YStack, isWeb } from '@my/ui/public'
 import { SchemaForm, formFields } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'

@@ -1,4 +1,4 @@
-import { Card, Paragraph, SizableText, XStack, YStack, isWeb } from '@my/ui'
+import { Card, Paragraph, SizableText, XStack, YStack, isWeb } from '@my/ui/public'
 import type { Control } from 'react-hook-form'
 import { useController } from 'react-hook-form'
 

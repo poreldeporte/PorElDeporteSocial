@@ -1,4 +1,4 @@
-import { Button, Card, Paragraph, SizableText, Spinner, XStack, YStack } from '@my/ui'
+import { Button, Card, Paragraph, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
 import { History } from '@tamagui/lucide-icons'
 import { useMemo } from 'react'
 import { useLink } from 'solito/link'

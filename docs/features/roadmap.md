@@ -82,7 +82,7 @@ Success in each phase is measured by these criteria, not raw feature counts.
 
 ### 4.2 Current Assets (Takeout/Bento Starter)
 - **Platforms**: Expo Router app (`apps/expo`) and Next.js Pages app (`apps/next`) already share screens (auth, home, create, profile, settings).
-- **Design system**: Tamagui theme + Bento bundle (`packages/ui`, `bento-bundle/`) provide cards, dialogs, forms, nav shells, and motion primitives.
+- **Design system**: Tamagui theme (`packages/ui`) provides cards, dialogs, forms, nav shells, and motion primitives.
 - **Data & Auth**: Supabase migrations for `profiles`, `events`, `projects`, `posts`, etc. Auto trigger inserts profiles on sign-up. Generated types ensure end-to-end typing.
 - **Tooling**: Yarn 4 workspaces, Turbo task runner, React Query caching, SchemaForm (Zod + ts-react-form), tRPC context with Supabase auth, Storybook for UI review.
 
@@ -106,7 +106,7 @@ Mapping requirements to this stack is captured below.
 | Settings | Theme toggle, logout, change email/password, legal links. | No notification preferences, community settings, or payments info. |
 | Supabase Schema | Tables: `profiles`, `events`, `posts`, `projects`, `achievements`, `categories`, `user_stats`, `referrals`. `events` already holds time/status; migrations seed minimal data. | No `game_queue`, `draft_picks`, `transactions`, `threads`, etc. `events` lacks capacity/location/cost; seeds commented out. |
 | API Layer | tRPC router only exposes `greeting.greet`; context sets up Supabase client with RLS. | Needs feature routers for games, queue, payments. |
-| Design System | `packages/ui` + `bento-bundle` include cards, toasts, dialogs, onboarding flows, form fields, nav shells; Storybook apps ready. | Requires Por El Deporte branding (colors, icons) and sports-specific components (GameCard, QueueList); current package also imports `@my/app` screens and needs decoupling to remain platform-agnostic. |
+| Design System | `packages/ui` includes cards, toasts, dialogs, onboarding flows, form fields, nav shells; Storybook apps ready. | Requires Por El Deporte branding (colors, icons) and sports-specific components (GameCard, QueueList); current package also imports `@my/app` screens and needs decoupling to remain platform-agnostic. |
 | Testing & Tooling | Turbo commands, React Query set-up, SchemaForm, global providers, lint config. | No automated tests yet; instrumentation limited to console logs. |
 
 Takeout delivers a polished shell with working auth, profile, forms, and styling. However, most domain features (queue, drafts, payments, stats, notifications) are absent or placeholder, guiding the phase roadmap below.
