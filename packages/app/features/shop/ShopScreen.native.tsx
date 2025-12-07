@@ -1,4 +1,4 @@
-import { Button, FullscreenSpinner, YStack } from '@my/ui'
+import { Button, FullscreenSpinner, YStack } from '@my/ui/public'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { X } from '@tamagui/lucide-icons'
 import { WebView } from 'react-native-webview'

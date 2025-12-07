@@ -10,6 +10,7 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
+    "test": "vitest run",
     "check:type": "tsc --outDir /tmp",
     "check:type:watch": "yarn check:type -w"
   },
@@ -53,6 +54,9 @@
   "devDependencies": {
     "@types/react": "^18.0.27",
     "eslint-config-custom": "*",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "vite": "^5.4.11",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^1.6.0"
   }
 }

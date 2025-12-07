@@ -9,7 +9,7 @@ import {
   Spinner,
   YStack,
   useToastController,
-} from '@my/ui'
+} from '@my/ui/public'
 import { useRouter } from 'solito/router'
 import { api } from 'app/utils/api'
 import { useTeamsState } from 'app/utils/useTeamsState'

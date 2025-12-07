@@ -1,4 +1,4 @@
-import { Button, H4, OverviewCard, Theme, XStack, YStack } from '@my/ui'
+import { Button, H4, OverviewCard, Theme, XStack, YStack } from '@my/ui/public'
 import { ArrowRight } from '@tamagui/lucide-icons'
 
 import { ScrollAdapt } from './scroll-adapt'

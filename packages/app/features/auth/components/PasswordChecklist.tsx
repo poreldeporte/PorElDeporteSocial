@@ -1,4 +1,4 @@
-import { Paragraph, XStack, YStack } from '@my/ui'
+import { Paragraph, XStack, YStack } from '@my/ui/public'
 import { CheckCircle2, Circle } from '@tamagui/lucide-icons'
 
 const REQUIREMENTS = [

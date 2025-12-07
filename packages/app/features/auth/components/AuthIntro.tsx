@@ -1,4 +1,4 @@
-import { H2, Paragraph, YStack } from '@my/ui'
+import { H2, Paragraph, YStack } from '@my/ui/public'
 import { pedLogo } from 'app/assets'
 import { SolitoImage } from 'solito/image'
 

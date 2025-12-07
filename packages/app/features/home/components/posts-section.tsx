@@ -11,7 +11,7 @@ import {
   isWeb,
   useToastController,
   validToken,
-} from '@my/ui'
+} from '@my/ui/public'
 import { ArrowRight } from '@tamagui/lucide-icons'
 import usePostQuery from 'app/utils/react-query/usePostQuery'
 import { useEffect } from 'react'

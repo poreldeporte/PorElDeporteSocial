@@ -1,4 +1,4 @@
-import { ToastViewport as ToastViewportOg } from '@my/ui'
+import { ToastViewport as ToastViewportOg } from '@my/ui/public'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
 import { ToastViewportProps } from './ToastViewport'

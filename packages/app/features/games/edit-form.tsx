@@ -1,4 +1,4 @@
-import { Paragraph, SubmitButton, Theme, useToastController, YStack } from '@my/ui'
+import { Paragraph, SubmitButton, Theme, useToastController, YStack } from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { SchemaForm, formFields } from 'app/utils/SchemaForm'
 import { z } from 'zod'

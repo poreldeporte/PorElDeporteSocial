@@ -1,4 +1,4 @@
-import { validToken, AchievementCard, Button, H4, Theme, XStack, YStack, ThemeName } from '@my/ui'
+import { validToken, AchievementCard, Button, H4, Theme, XStack, YStack, ThemeName } from '@my/ui/public'
 import { ArrowRight, DollarSign } from '@tamagui/lucide-icons'
 import { Platform } from 'react-native'
 import { useLink } from 'solito/link'

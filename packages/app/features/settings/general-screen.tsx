@@ -1,4 +1,4 @@
-import { FormWrapper, H2, H4, KVTable, Separator, SizableText, YStack, isWeb, styled } from '@my/ui'
+import { FormWrapper, H2, H4, KVTable, Separator, SizableText, YStack, isWeb, styled } from '@my/ui/public'
 import { useUser } from 'app/utils/useUser'
 import { Link } from 'solito/link'
 

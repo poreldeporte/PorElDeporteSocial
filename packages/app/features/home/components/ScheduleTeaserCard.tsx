@@ -1,4 +1,4 @@
-import { AnimatePresence, Card, Paragraph, SizableText, XStack } from '@my/ui'
+import { AnimatePresence, Card, Paragraph, SizableText, XStack } from '@my/ui/public'
 import { ArrowRight, Calendar, Trophy, Volleyball } from '@tamagui/lucide-icons'
 import { useRouter } from 'solito/router'
 

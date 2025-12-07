@@ -15,13 +15,16 @@ export default {
     },
     updates: {
       fallbackToCacheTimeout: 0,
-      url: 'https://u.expo.dev/b5f02af2-6475-4d9e-81b3-664f89564580',
+      url: 'https://u.expo.dev/0a84b488-72f9-4aef-8574-f4cc034909d1',
     },
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.poreldeporte.app',
       buildNumber: '6',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       softwareKeyboardLayoutMode: 'pan',
@@ -51,13 +54,6 @@ export default {
           photosPermission: 'The app accesses your photos to let you share them with your friends.',
         },
       ],
-      [
-        '@react-native-google-signin/google-signin',
-        {
-          // https://react-native-google-signin.github.io/docs/setting-up/expo
-          iosUrlScheme: process.env.GOOGLE_IOS_SCHEME,
-        },
-      ],
       'expo-apple-authentication',
       'expo-router',
       'expo-build-properties',
@@ -68,7 +64,7 @@ export default {
         origin: false,
       },
       eas: {
-        projectId: 'b5f02af2-6475-4d9e-81b3-664f89564580',
+        projectId: '0a84b488-72f9-4aef-8574-f4cc034909d1',
       },
     },
     runtimeVersion: {

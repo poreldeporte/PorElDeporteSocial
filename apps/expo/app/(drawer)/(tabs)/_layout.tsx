@@ -1,4 +1,4 @@
-import { Button, SizableText, XStack, useTheme } from '@my/ui'
+import { Button, SizableText, XStack, useTheme } from '@my/ui/public'
 import { Menu, Plus, ShoppingBag, User } from '@tamagui/lucide-icons'
 import { DrawerActions } from '@react-navigation/native'
 import { router, Stack, Tabs, useNavigation, usePathname } from 'expo-router'
@@ -153,6 +153,13 @@ export default function Layout() {
             />
           )
         })}
+        <Tabs.Screen
+          name="profile"
+          options={{
+            // Keep profile reachable via links/navigation, but hide it from the tab bar.
+            href: null,
+          }}
+        />
       </Tabs>
     </>
   )

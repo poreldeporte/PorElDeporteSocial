@@ -1,4 +1,4 @@
-import { AnimatePresence, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui'
+import { AnimatePresence, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 
 type StatsCardProps = {
   stats: { wins: number; losses: number; games: number }

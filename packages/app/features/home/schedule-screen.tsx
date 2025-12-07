@@ -1,4 +1,4 @@
-import { ScrollView, View, YStack, Card, Paragraph, Spinner, Button } from '@my/ui'
+import { ScrollView, View, YStack, Card, Paragraph, Spinner, Button } from '@my/ui/public'
 
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'

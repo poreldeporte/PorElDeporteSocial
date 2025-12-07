@@ -14,7 +14,7 @@ import {
   TextField,
   Theme,
   YStack,
-} from '@my/ui'
+} from '@my/ui/public'
 import { DateField, DateSchema } from '@my/ui/src/components/FormFields/DateField'
 import {
   ImagePickerField,

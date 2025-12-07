@@ -9,7 +9,7 @@ import {
   XStack,
   YStack,
   getTokens,
-} from '@my/ui'
+} from '@my/ui/public'
 import { ChevronLeft, Plus, ShoppingBag } from '@tamagui/lucide-icons'
 import { getScreenLayout, type ScreenLayoutId } from 'app/navigation/layouts'
 import { getRoutesById, navRoutes, profileMenuRouteIds, webTabRouteIds } from 'app/navigation/routes'

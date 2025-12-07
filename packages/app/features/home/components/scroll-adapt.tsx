@@ -1,4 +1,4 @@
-import { ScrollView, useMedia } from '@my/ui'
+import { ScrollView, useMedia } from '@my/ui/public'
 
 export function ScrollAdapt({
   children,

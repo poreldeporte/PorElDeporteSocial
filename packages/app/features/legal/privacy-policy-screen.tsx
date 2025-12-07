@@ -1,4 +1,4 @@
-import { H1, Paragraph, YStack, isWeb } from '@my/ui'
+import { H1, Paragraph, YStack, isWeb } from '@my/ui/public'
 
 export const PrivacyPolicyScreen = () => {
   return (

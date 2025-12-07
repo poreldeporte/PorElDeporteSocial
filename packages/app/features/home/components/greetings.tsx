@@ -1,4 +1,4 @@
-import { useToastController, Spinner, H2 } from '@my/ui'
+import { useToastController, Spinner, H2 } from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { getBaseUrl } from 'app/utils/getBaseUrl'
 import { useEffect } from 'react'

@@ -32,19 +32,16 @@ export const deriveAvailabilityStatus = ({
   if (!rosterFilled) {
     return { state: 'open', label: 'Open', tone: 'success' }
   }
+
   const confirmedAttendanceCount =
     attendanceConfirmedCount !== undefined ? attendanceConfirmedCount : confirmedCount
-  if (confirmedAttendanceCount >= capacity) {
-    return { state: 'locked', label: 'Locked', tone: 'neutral' }
-  }
+  const waitlistEnabled = typeof waitlistCapacity === 'number' && waitlistCapacity > 0
+  if (!waitlistEnabled) return { state: 'locked', label: 'Locked', tone: 'neutral' }
+  if (confirmedAttendanceCount >= capacity) return { state: 'locked', label: 'Locked', tone: 'neutral' }
+
   const waitlistIsFull =
-    typeof waitlistedCount === 'number' &&
-    typeof waitlistCapacity === 'number' &&
-    waitlistCapacity > 0 &&
-    waitlistedCount >= waitlistCapacity
-  if (waitlistIsFull) {
-    return { state: 'waitlist_full', label: 'Waitlist full', tone: 'warning' }
-  }
+    waitlistEnabled && typeof waitlistedCount === 'number' && waitlistedCount >= waitlistCapacity!
+  if (waitlistIsFull) return { state: 'waitlist_full', label: 'Waitlist full', tone: 'warning' }
   return { state: 'waitlist', label: 'Waitlist open', tone: 'warning' }
 }
 

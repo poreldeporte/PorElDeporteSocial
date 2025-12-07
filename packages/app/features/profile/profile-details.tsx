@@ -1,4 +1,4 @@
-import { Card, Paragraph, SizableText, XStack, YStack } from '@my/ui'
+import { Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 
 import { profileFieldCopy } from './field-copy'
 

@@ -1,4 +1,4 @@
-import { Button } from '@my/ui'
+import { Button } from '@my/ui/public'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useState } from 'react'
 import * as Linking from 'expo-linking'

@@ -8,21 +8,10 @@
     "owner": "poreldeporte",
     "slug": "por-el-deporte",
     "ios": {
-      "bundleIdentifier": "com.poreldeporte.poreldeporte",
+      "bundleIdentifier": "com.poreldeporte.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     }
-    },
-    "plugins": [
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "firebase": {
-            "iosUrlScheme": "YOUR_REVERSED_CLIENT_ID"
-          }
-        }
-      ]
-    ]
   }
 }

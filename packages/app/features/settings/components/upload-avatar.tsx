@@ -1,4 +1,4 @@
-import { YStack } from '@my/ui'
+import { YStack } from '@my/ui/public'
 import { Upload } from '@tamagui/lucide-icons'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'

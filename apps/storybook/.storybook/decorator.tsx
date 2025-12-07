@@ -1,9 +1,9 @@
-import { TamaguiProvider, Theme, ThemeName, YStack } from '@my/ui'
+import { TamaguiProvider, Theme, ThemeName, YStack } from '@my/ui/public'
 import { Decorator } from '@storybook/react'
 import { UniversalThemeProvider } from 'app/provider/theme'
 import { ToastProvider } from 'app/provider/toast'
 import React from 'react'
-import { config } from '@my/ui'
+import { config } from '@my/ui/public'
 
 export const StorybookDecorator: Decorator = (Story, args: any) => {
   const {

@@ -1,4 +1,4 @@
-import { AnimatePresence, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui'
+import { AnimatePresence, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 import { pedLogo } from 'app/assets'
 import { SolitoImage } from 'solito/image'
 import { LinearGradient } from '@tamagui/linear-gradient'

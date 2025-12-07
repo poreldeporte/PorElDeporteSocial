@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView } from 'react-native'
 import { PlusCircle, Send, Trash } from '@tamagui/lucide-icons'
 import { LinearGradient } from '@tamagui/linear-gradient'
-import { Button, Input, Paragraph, Spinner, XStack, YStack, isWeb, useToastController } from '@my/ui'
+import { Button, Input, Paragraph, Spinner, XStack, YStack, isWeb, useToastController } from '@my/ui/public'
 import { SolitoImage } from 'solito/image'
 
 import { CHAT_MESSAGE_MAX_LENGTH, CHAT_REACTION_EMOJIS, formatChatTimestamp } from 'app/constants/chat'

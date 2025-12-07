@@ -10,7 +10,7 @@ import {
   YStack,
   isWeb,
   useToastController,
-} from '@my/ui'
+} from '@my/ui/public'
 import { ArrowRight, Calendar, Handshake, Heart, ShieldCheck, Zap } from '@tamagui/lucide-icons'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
@@ -175,7 +175,7 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
                 confirmationWindowStart={view.confirmationWindowStart}
               />
             ) : null}
-            {view.confirmedCount >= data.capacity ? (
+            {view.confirmedCount >= data.capacity && data.draftStatus !== 'completed' ? (
               <DraftStatusCard draftStatus={data.draftStatus} canManage={canManage} draftLink={draftLink} />
             ) : null}
           </YStack>
@@ -460,8 +460,12 @@ const CombinedStatusBadge = ({
 }) => {
   if (!availability && !userBadge) return null
 
-  const tone = availability?.tone ?? userBadge?.tone ?? 'neutral'
-  const labelParts = [describeAvailability(availability), describeUserBadge(userBadge)].filter(Boolean)
+  const userLabel =
+    userBadge?.label === 'Dropped' ? null : describeUserBadge(userBadge)
+  const labelParts = [describeAvailability(availability), userLabel].filter(Boolean)
+  if (labelParts.length === 0) return null
+
+  const tone = availability?.tone ?? (userLabel ? userBadge?.tone : undefined) ?? 'neutral'
   const label = labelParts.join(' · ')
 
   return (
@@ -533,8 +537,8 @@ const ResultSummary = ({
     ? pending
       ? 'Awaiting confirmation.'
       : 'Result confirmed.'
-    : draftStatus === 'completed'
-      ? 'Teams are locked in. See who you’re running with.'
+    : draftStatus === 'in_progress'
+      ? 'Captains are drafting—teams update live.'
       : null
 
   return (
@@ -556,11 +560,6 @@ const ResultSummary = ({
       ) : (
         <Paragraph theme="alt2">Teams not finalized yet.</Paragraph>
       )}
-      {!result && draftStatus !== 'completed' ? (
-        <Paragraph theme="alt2" size="$2">
-          Captains are drafting—teams update live.
-        </Paragraph>
-      ) : null}
     </Card>
   )
 }
@@ -582,22 +581,27 @@ const ResultTeamSection = ({
 }) => (
   <YStack borderWidth={1} borderColor="$color4" br="$5" p="$2" gap="$1.5">
     <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-      <YStack gap="$0.5">
-        <Paragraph theme="alt2">
-          {variant === 'winner' ? 'Winner' : variant === 'loser' ? 'Loser' : 'Team'}
-        </Paragraph>
-        <Paragraph fontWeight="600">{team.name}</Paragraph>
-      </YStack>
-      <YStack ai="flex-end">
+      <Paragraph fontWeight="600">{team.name}</Paragraph>
+      <XStack gap="$2" ai="center">
         {variant === 'winner' ? <StatusBadge tone="success">Winner</StatusBadge> : null}
-        {score != null ? <Paragraph theme="alt1">Score {score}</Paragraph> : null}
-      </YStack>
+        {variant === 'loser' ? <StatusBadge tone="neutral">Loser</StatusBadge> : null}
+        {score != null ? (
+          <Paragraph theme="alt1" size="$2">
+            Score {score}
+          </Paragraph>
+        ) : null}
+      </XStack>
     </XStack>
     <YStack gap="$1">
       {captainName ? (
-        <Paragraph theme="alt1" fontWeight="600">
-          {captainName} (Captain)
-        </Paragraph>
+        <XStack ai="center" gap="$2">
+          <Paragraph theme="alt1" fontWeight="600">
+            {captainName}
+          </Paragraph>
+          <StatusBadge tone="neutral" showIcon={false}>
+            Captain
+          </StatusBadge>
+        </XStack>
       ) : null}
       {(team.members ?? [])
         .filter((member) =>

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict'
-
 import type { GameDetail } from '../types'
 import { deriveDraftViewModel } from './deriveDraftViewModel'
+import { describe, expect, it } from 'vitest'
 
 type Captain = GameDetail['captains'][number]
 type QueueEntry = GameDetail['queue'][number]
@@ -76,51 +75,69 @@ const teamB = {
   captain_profile_id: 'captain-2',
 }
 
-const run = () => {
-  const gameDetail = baseGameDetail()
-  gameDetail.captains = [buildCaptain(), buildCaptain({ slot: 2, profileId: 'captain-2', player: { id: 'captain-2', name: 'Casey Two', avatarUrl: null } })]
-  gameDetail.queue = [
-    buildQueueEntry({ profileId: 'captain-1', player: { id: 'captain-1', name: 'Alex One', avatarUrl: null } }),
-    buildQueueEntry({ id: 'queue-2', profileId: 'player-2', player: { id: 'player-2', name: 'Jordan Two', avatarUrl: null } }),
-    buildQueueEntry({ id: 'queue-3', profileId: 'player-3', player: { id: 'player-3', name: 'Sky Three', avatarUrl: null }, status: 'confirmed' }),
-  ]
-  gameDetail.draftStatus = 'in_progress'
+describe('deriveDraftViewModel', () => {
+  it('computes pickability and round state for captain and spectator', () => {
+    const gameDetail = baseGameDetail()
+    gameDetail.captains = [
+      buildCaptain(),
+      buildCaptain({
+        slot: 2,
+        profileId: 'captain-2',
+        player: { id: 'captain-2', name: 'Casey Two', avatarUrl: null },
+      }),
+    ]
+    gameDetail.queue = [
+      buildQueueEntry({
+        profileId: 'captain-1',
+        player: { id: 'captain-1', name: 'Alex One', avatarUrl: null },
+      }),
+      buildQueueEntry({
+        id: 'queue-2',
+        profileId: 'player-2',
+        player: { id: 'player-2', name: 'Jordan Two', avatarUrl: null },
+      }),
+      buildQueueEntry({
+        id: 'queue-3',
+        profileId: 'player-3',
+        player: { id: 'player-3', name: 'Sky Three', avatarUrl: null },
+        status: 'confirmed',
+      }),
+    ]
+    gameDetail.draftStatus = 'in_progress'
 
-  const model = deriveDraftViewModel({
-    gameDetail,
-    gameMeta: { draft_status: 'in_progress', draft_turn: 0, draft_direction: 1 },
-    teams: [team, teamB],
-    draftedProfileIds: new Set(['player-2']),
-    optimisticPicks: ['player-4'],
-    captainTeam: team,
-    currentTurnTeam: team,
-    isAdmin: false,
-    isCaptainTurn: true,
+    const model = deriveDraftViewModel({
+      gameDetail,
+      gameMeta: { draft_status: 'in_progress', draft_turn: 0, draft_direction: 1 },
+      teams: [team, teamB],
+      draftedProfileIds: new Set(['player-2']),
+      optimisticPicks: ['player-4'],
+      captainTeam: team,
+      currentTurnTeam: team,
+      isAdmin: false,
+      isCaptainTurn: true,
+    })
+
+    expect(model.confirmedPlayers).toHaveLength(2)
+    expect(model.availablePlayers).toHaveLength(1)
+    expect(model.canPick).toBe(true)
+    expect(model.allDrafted).toBe(false)
+    expect(model.captainNameByTeamId.get('team-1')).toBe('Captain One')
+    expect(model.currentRound).toBe(2)
+
+    const spectatorModel = deriveDraftViewModel({
+      gameDetail,
+      gameMeta: { draft_status: 'in_progress', draft_turn: 1, draft_direction: -1 },
+      teams: [team, teamB],
+      draftedProfileIds: new Set(),
+      optimisticPicks: [],
+      captainTeam: null,
+      currentTurnTeam: teamB,
+      isAdmin: false,
+      isCaptainTurn: false,
+    })
+
+    expect(spectatorModel.canPick).toBe(false)
+    expect(spectatorModel.isSpectator).toBe(true)
+    expect(spectatorModel.currentRound).toBe(1)
   })
-
-  assert.equal(model.confirmedPlayers.length, 2, 'should exclude captain from confirmed list')
-  assert.equal(model.availablePlayers.length, 1, 'one player should remain available after drafted exclusion')
-  assert.equal(model.canPick, true, 'captain on turn should be allowed to pick')
-  assert.equal(model.allDrafted, false, 'still has available players')
-  assert.equal(model.captainNameByTeamId.get('team-1'), 'Captain One', 'captain name map should resolve team name')
-  assert.equal(model.currentRound, 2, 'optimistic pick should advance round calculation')
-
-  const spectatorModel = deriveDraftViewModel({
-    gameDetail,
-    gameMeta: { draft_status: 'in_progress', draft_turn: 1, draft_direction: -1 },
-    teams: [team, teamB],
-    draftedProfileIds: new Set(),
-    optimisticPicks: [],
-    captainTeam: null,
-    currentTurnTeam: teamB,
-    isAdmin: false,
-    isCaptainTurn: false,
-  })
-
-  assert.equal(spectatorModel.canPick, false, 'non-admin spectator cannot pick')
-  assert.equal(spectatorModel.isSpectator, true, 'spectator flag should mirror pick eligibility')
-  assert.equal(spectatorModel.currentRound, 1, 'round defaults to 1 when no picks have happened yet')
-}
-
-run()
-console.log('deriveDraftViewModel checks passed')
+})

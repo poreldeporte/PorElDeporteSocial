@@ -7,7 +7,7 @@ import {
   SizableText,
   XStack,
   YStack,
-} from '@my/ui'
+} from '@my/ui/public'
 import { Crown, Trophy } from '@tamagui/lucide-icons'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api, type RouterOutputs } from 'app/utils/api'
@@ -112,14 +112,15 @@ const HighlightRow = ({
     { label: 'Captain leader', entry: topCaptain, icon: Trophy, meta: topCaptain ? `${topCaptain.gamesAsCaptain} captain games` : null },
   ]
   return (
-    <XStack gap="$2" flexWrap="wrap">
+    <XStack gap="$2" flexWrap="wrap" $gtSm={{ flexWrap: 'nowrap' }}>
       {cards.map(({ label, entry, icon: Icon, meta }, idx) => (
         <Card
           key={label}
           f={1}
-          minWidth={180}
+          flexBasis={0}
+          minWidth={140}
           px="$3"
-          py="$3"
+          py="$2.5"
           bordered
           $platform-native={{ borderWidth: 0 }}
           animation="medium"
@@ -134,7 +135,7 @@ const HighlightRow = ({
           </XStack>
           {entry ? (
             <>
-              <SizableText size="$6" fontWeight="700">
+              <SizableText size="$5" fontWeight="700">
                 {entry.name}
               </SizableText>
               {meta ? (

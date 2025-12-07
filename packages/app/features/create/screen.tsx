@@ -1,4 +1,4 @@
-import { Paragraph, ScrollView, YStack } from '@my/ui'
+import { Paragraph, ScrollView, YStack } from '@my/ui/public'
 import { usePathname } from 'app/utils/usePathname'
 import { useUser } from 'app/utils/useUser'
 import { useRouter } from 'solito/router'

@@ -7,6 +7,8 @@ import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { recordDraftEvent, resetDraftForGame, startDraftForGame } from '../services/draft'
 import { ensureAdmin } from '../utils/ensureAdmin'
+import { markGameCompletedIfNeeded } from '../utils/markGameCompleted'
+import { nextSnakeTurn } from '../domain/draft'
 
 const uuid = z.string().uuid()
 
@@ -361,6 +363,7 @@ export const teamsRouter = createTRPCRouter({
     if (payload.status === 'confirmed' && payload.losing_team_id) {
       await recordPlayerStats(payload.game_id, payload.winning_team_id, payload.losing_team_id)
     }
+    await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, payload.status === 'confirmed')
 
     return { ok: true, status: payload.status }
   }),
@@ -393,6 +396,7 @@ export const teamsRouter = createTRPCRouter({
     if (resultRow?.winning_team_id && resultRow?.losing_team_id) {
       await recordPlayerStats(input.gameId, resultRow.winning_team_id, resultRow.losing_team_id)
     }
+    await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, true)
 
     return { ok: true }
   }),
@@ -590,19 +594,6 @@ const nextPickOrder = async (gameId: string) => {
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return (data?.pick_order ?? 0) + 1
-}
-
-const nextSnakeTurn = (currentTurn: number, direction: number, teamCount: number) => {
-  let nextTurn = currentTurn + direction
-  let nextDirection = direction
-  if (nextTurn >= teamCount) {
-    nextDirection = -1
-    nextTurn = teamCount - 1
-  } else if (nextTurn < 0) {
-    nextDirection = 1
-    nextTurn = 0
-  }
-  return { nextTurn, nextDirection }
 }
 
 const recordPlayerStats = async (gameId: string, winningTeamId: string, losingTeamId: string) => {

@@ -1,4 +1,4 @@
-import { Paragraph, XStack } from '@my/ui'
+import { Paragraph, XStack } from '@my/ui/public'
 
 type MagicLinkPromptProps = {
   email?: string

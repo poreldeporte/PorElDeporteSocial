@@ -1,4 +1,4 @@
-import { Paragraph, ScrollView, Separator, Settings, YStack, isWeb, useMedia } from '@my/ui'
+import { Paragraph, ScrollView, Separator, Settings, YStack, isWeb, useMedia } from '@my/ui/public'
 import { Book, Cog, Info, Lock, LogOut, Mail, Moon, Twitter } from '@tamagui/lucide-icons'
 import { useThemeSetting } from 'app/provider/theme'
 import { redirect } from 'app/utils/redirect'
