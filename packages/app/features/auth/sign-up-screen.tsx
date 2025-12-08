@@ -22,7 +22,6 @@ import { Link } from 'solito/link'
 import { z } from 'zod'
 
 import { AuthIntro } from './components'
-import { SocialLogin } from './components/SocialLogin'
 import { signUpFieldSchema } from '../profile/profile-field-schema'
 
 const { useParams, useUpdateParams } = createParam<{ email?: string }>()
@@ -128,33 +127,27 @@ export const SignUpScreen = () => {
                     {form.formState.errors.root.message}
                   </Paragraph>
                 ) : null}
-                <Theme inverse>
-                  <SubmitButton onPress={() => submit()} br="$10">
-                    Create account
-                  </SubmitButton>
-                </Theme>
-                <SignInLink />
-                {isWeb && <SocialLogin />}
-              </>
-            )}
-          >
-            {(fields) => (
-              <>
-                <AuthIntro title="Join the roster" subtitle="Create your Por El Deporte account" />
-                <YStack gap="$3">
-                  {fields.firstName}
-                  {fields.lastName}
-                  {fields.phone}
-                  {fields.email}
-                  {fields.password}
-                </YStack>
-                {!isWeb && (
-                  <YStack mt="$4">
-                    <SocialLogin />
-                  </YStack>
-                )}
-              </>
-            )}
+              <Theme inverse>
+                <SubmitButton onPress={() => submit()} br="$10">
+                  Create account
+                </SubmitButton>
+              </Theme>
+              <SignInLink />
+            </>
+          )}
+        >
+          {(fields) => (
+            <>
+              <AuthIntro title="Join the roster" subtitle="Create your Por El Deporte account" />
+              <YStack gap="$3">
+                {fields.firstName}
+                {fields.lastName}
+                {fields.phone}
+                {fields.email}
+                {fields.password}
+              </YStack>
+            </>
+          )}
           </SchemaForm>
           {isLoadingSession && <LoadingOverlay />}
         </FormWrapper>

@@ -62,13 +62,6 @@ export const LeaderboardScreen = () => {
 
   return (
     <ScrollView contentContainerStyle={{ ...screenContentContainerStyle, gap: 16 }}>
-      <YStack gap="$2">
-        <SizableText size="$7" fontWeight="700">
-          Leaderboard
-        </SizableText>
-        <Paragraph theme="alt2">All-time rankings across key stats.</Paragraph>
-      </YStack>
-
       <HighlightRow topOverall={topOverall} topGoalDiff={topGoalDiff} topCaptain={topCaptain} />
 
       <XStack gap="$2" flexWrap="wrap">
