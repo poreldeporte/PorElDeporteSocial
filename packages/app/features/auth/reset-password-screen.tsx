@@ -2,7 +2,7 @@ import { Button, FormWrapper, H2, Paragraph, SubmitButton, Text, Theme, YStack }
 import { ChevronLeft } from '@tamagui/lucide-icons'
 import { SchemaForm, formFields } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { FormProvider, useForm, useFormContext, useWatch } from 'react-hook-form'
 import { createParam } from 'solito'
 import { Link } from 'solito/link'
@@ -14,15 +14,93 @@ const ResetPasswordSchema = z.object({
   email: formFields.text.email().describe('Email // your@email.acme'),
 })
 
+const NewPasswordSchema = z.object({
+  password: formFields.text.password(),
+})
+
 export const ResetPasswordScreen = () => {
   const supabase = useSupabase()
   const { params } = useParams()
   const updateParams = useUpdateParams()
+  const [mode, setMode] = useState<'request' | 'reset'>('request')
+  const [checking, setChecking] = useState(true)
+
   useEffect(() => {
     if (params?.email) {
       updateParams({ email: undefined }, { web: { replace: true } })
     }
   }, [params?.email, updateParams])
+
+  useEffect(() => {
+    const handleRecovery = async () => {
+      if (typeof window === 'undefined') {
+        setChecking(false)
+        return
+      }
+      const url = new URL(window.location.href)
+      const code = url.searchParams.get('code')
+      if (!code) {
+        setChecking(false)
+        return
+      }
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      if (!error) setMode('reset')
+      setChecking(false)
+    }
+    handleRecovery()
+  }, [supabase])
+
+  if (checking) {
+    return (
+      <FormWrapper>
+        <FormWrapper.Body>
+          <Paragraph theme="alt1">Loading...</Paragraph>
+        </FormWrapper.Body>
+      </FormWrapper>
+    )
+  }
+
+  if (mode === 'reset') {
+    const form = useForm<z.infer<typeof NewPasswordSchema>>()
+
+    const setPassword = async ({ password }: z.infer<typeof NewPasswordSchema>) => {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) {
+        form.setError('password', { type: 'custom', message: error.message })
+        return
+      }
+      form.reset()
+      setMode('request')
+    }
+
+    return (
+      <FormProvider {...form}>
+        <SchemaForm
+          form={form}
+          schema={NewPasswordSchema}
+          defaultValues={{ password: '' }}
+          onSubmit={setPassword}
+          renderAfter={({ submit }) => (
+            <Theme inverse>
+              <SubmitButton onPress={() => submit()} br="$10">
+                Update password
+              </SubmitButton>
+            </Theme>
+          )}
+        >
+          {(fields) => (
+            <>
+              <YStack gap="$3" mb="$4">
+                <H2 $sm={{ size: '$8' }}>Set a new password</H2>
+                <Paragraph theme="alt1">Enter your new password to finish resetting.</Paragraph>
+              </YStack>
+              {fields.password}
+            </>
+          )}
+        </SchemaForm>
+      </FormProvider>
+    )
+  }
 
   const form = useForm<z.infer<typeof ResetPasswordSchema>>()
 
