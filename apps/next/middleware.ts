@@ -23,8 +23,9 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
   const isAuthRoute = authRoutes.some((route) => req.nextUrl.pathname.startsWith(route))
+  const isResetRoute = req.nextUrl.pathname.startsWith('/reset-password')
   // redirect if a logged in user is accessing an auth route (e.g. /sign-in)
-  if (user && isAuthRoute) {
+  if (user && isAuthRoute && !isResetRoute) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/'
     return NextResponse.redirect(redirectUrl)

@@ -27,7 +27,10 @@ export const ResetPasswordScreen = () => {
   const form = useForm<z.infer<typeof ResetPasswordSchema>>()
 
   async function resetPassword({ email }: z.infer<typeof ResetPasswordSchema>) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    const redirectTo = resolveResetRedirect()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    })
 
     if (error) {
       const errorMessage = error?.message.toLowerCase()
@@ -114,4 +117,17 @@ const SignInLink = () => {
       </Paragraph>
     </Link>
   )
+}
+
+const resolveResetRedirect = () => {
+  const base =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.EXPO_PUBLIC_URL || process.env.NEXT_PUBLIC_URL
+  if (!base) return undefined
+  try {
+    return new URL('/reset-password', base).toString()
+  } catch {
+    return base
+  }
 }
