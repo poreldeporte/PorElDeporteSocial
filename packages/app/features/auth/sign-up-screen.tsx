@@ -1,7 +1,9 @@
 import {
   Button,
+  Checkbox,
   FormWrapper,
   H2,
+  Label,
   LoadingOverlay,
   Paragraph,
   SubmitButton,
@@ -11,7 +13,7 @@ import {
   isWeb,
   XStack,
 } from '@my/ui/public'
-import { ChevronLeft } from '@tamagui/lucide-icons'
+import { Check as CheckIcon, ChevronLeft } from '@tamagui/lucide-icons'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
@@ -22,7 +24,7 @@ import { Link } from 'solito/link'
 import { z } from 'zod'
 
 import { AuthIntro } from './components'
-import { signUpFieldSchema } from '../profile/profile-field-schema'
+import { POSITION_OPTIONS, signUpFieldSchema } from '../profile/profile-field-schema'
 
 const { useParams, useUpdateParams } = createParam<{ email?: string }>()
 
@@ -32,6 +34,8 @@ const SignUpSchema = signUpFieldSchema.pick({
   phone: true,
   email: true,
   password: true,
+  jerseyNumber: true,
+  position: true,
 })
 
 type SignUpValues = z.infer<typeof SignUpSchema>
@@ -50,7 +54,15 @@ export const SignUpScreen = () => {
   }, [params?.email, updateParams])
 
   const signUpWithEmail = useCallback(
-    async ({ firstName, lastName, phone, email, password }: SignUpValues) => {
+    async ({
+      firstName,
+      lastName,
+      phone,
+      email,
+      password,
+      jerseyNumber,
+      position,
+    }: SignUpValues) => {
       const redirectTo = resolveAuthRedirect()
       const { error } = await supabase.auth.signUp({
         email,
@@ -62,6 +74,8 @@ export const SignUpScreen = () => {
             last_name: lastName.trim(),
             full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
             phone: phone.trim(),
+            jersey_number: jerseyNumber ?? null,
+            position: position?.join(',') ?? null,
           },
         },
       })
@@ -113,6 +127,8 @@ export const SignUpScreen = () => {
               phone: '',
               email: params?.email || '',
               password: '',
+              jerseyNumber: undefined,
+              position: [],
             }}
             onSubmit={signUpWithEmail}
             props={{
@@ -144,6 +160,8 @@ export const SignUpScreen = () => {
                 {fields.lastName}
                 {fields.phone}
                 {fields.email}
+                <PositionCheckboxes />
+                {fields.jerseyNumber}
                 {fields.password}
               </YStack>
             </>
@@ -222,6 +240,43 @@ const CheckYourEmail = ({ onResend }: { onResend: (email: string) => Promise<voi
         </XStack>
       </FormWrapper.Footer>
     </FormWrapper>
+  )
+}
+
+const PositionCheckboxes = () => {
+  const { watch, setValue } = useFormContext<SignUpValues>()
+  const selected = watch('position') ?? []
+
+  const toggle = (value: string) => {
+    const next = selected.includes(value)
+      ? selected.filter((item) => item !== value)
+      : [...selected, value]
+    setValue('position', next, { shouldValidate: true })
+  }
+
+  return (
+    <YStack gap="$2">
+      <Paragraph theme="alt2">Positions</Paragraph>
+      <YStack gap="$2">
+        {POSITION_OPTIONS.map((option) => (
+          <XStack key={option} ai="center" gap="$2">
+            <Checkbox
+              checked={selected.includes(option)}
+              onCheckedChange={() => toggle(option)}
+              id={`position-${option}`}
+              size="$3"
+            >
+              <Checkbox.Indicator>
+                <CheckIcon size={12} />
+              </Checkbox.Indicator>
+            </Checkbox>
+            <Label htmlFor={`position-${option}`} onPress={() => toggle(option)}>
+              {option}
+            </Label>
+          </XStack>
+        ))}
+      </YStack>
+    </YStack>
   )
 }
 

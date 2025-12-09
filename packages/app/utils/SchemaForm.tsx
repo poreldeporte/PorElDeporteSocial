@@ -28,6 +28,8 @@ import { z } from 'zod'
 const selectSchema = z.string()
 const selectField = createUniqueFieldSchema(selectSchema, 'select')
 const selectOptionalField = createUniqueFieldSchema(selectSchema.optional(), 'select_optional')
+const selectMultiSchema = z.array(z.string())
+const selectMultiField = createUniqueFieldSchema(selectMultiSchema, 'select_multi')
 const addressField = createUniqueFieldSchema(AddressSchema, 'address')
 const addressOptionalField = createUniqueFieldSchema(AddressSchema.optional(), 'address_optional')
 const imageField = createUniqueFieldSchema(ImagePickerSchema, 'image')
@@ -35,9 +37,11 @@ const imageOptionalField = createUniqueFieldSchema(
   ImagePickerSchema.optional(),
   'image_optional'
 )
+const passwordField = createUniqueFieldSchema(z.string(), 'password')
 
 export const formFields = {
   text: z.string(),
+  password: passwordField,
   textarea: createUniqueFieldSchema(z.string(), 'textarea'),
   /**
    * input that takes number
@@ -60,6 +64,7 @@ export const formFields = {
    */
   select: selectField,
   selectOptional: selectOptionalField,
+  selectMulti: selectMultiField,
   /**
    * example of how to handle more complex fields
    */
@@ -83,11 +88,13 @@ const mapping = [
   [formFields.boolean_checkbox, BooleanCheckboxField] as const,
   [formFields.select, SelectField] as const,
   [formFields.selectOptional, SelectField] as const,
+  [formFields.selectMulti, SelectField] as const,
   [formFields.address, AddressField] as const,
   [formFields.addressOptional, AddressField] as const,
   [formFields.date, DateField] as const,
   [formFields.image, ImagePickerField] as const,
   [formFields.imageOptional, ImagePickerField] as const,
+  [formFields.password, TextField] as const,
 ] as const
 
 const FormComponent = (props: FormProps) => {

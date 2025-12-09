@@ -19,20 +19,8 @@ const schemaFields = {
     .min(1)
     .max(99)
     .describe(describeProfileField('jerseyNumber')),
-  position: formFields.select
-    .refine((value) => POSITION_OPTIONS.includes(value as PositionOption), {
-      message: 'Select a position',
-    })
-    .describe(describeProfileField('position')),
-  positionOptional: formFields.selectOptional
-    .refine(
-      (value) =>
-        value === undefined || value === '' || POSITION_OPTIONS.includes(value as PositionOption),
-      {
-        message: 'Select a position',
-      }
-    )
-    .describe(describeProfileField('position')),
+  position: formFields.selectMulti.describe(describeProfileField('position')),
+  positionOptional: formFields.selectMulti.optional().describe(describeProfileField('position')),
 }
 
 export const signUpFieldSchema = z.object({
