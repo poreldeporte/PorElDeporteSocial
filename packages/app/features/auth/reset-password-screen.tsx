@@ -15,7 +15,7 @@ const ResetPasswordSchema = z.object({
 })
 
 const NewPasswordSchema = z.object({
-  password: formFields.password.min(8, 'Use at least 8 characters'),
+  password: formFields.text.min(8, 'Use at least 8 characters'),
 })
 
 export const ResetPasswordScreen = () => {
