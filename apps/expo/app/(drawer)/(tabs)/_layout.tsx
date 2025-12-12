@@ -1,7 +1,6 @@
 import { Button, SizableText, XStack, useTheme } from '@my/ui/public'
-import { Menu, Plus, ShoppingBag, User } from '@tamagui/lucide-icons'
-import { DrawerActions } from '@react-navigation/native'
-import { router, Stack, Tabs, useNavigation, usePathname } from 'expo-router'
+import { Plus, ShoppingBag, User } from '@tamagui/lucide-icons'
+import { router, Stack, Tabs, usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { getRoutesById, navRoutes, nativeTabRouteIds } from '@my/app/navigation/routes'
@@ -40,8 +39,6 @@ export default function Layout() {
     return getScreenLayout(activeLayoutId).title
   })()
   const tabPaddingBottom = insets.bottom + 20
-  const navigation = useNavigation()
-  const showDrawerButton = activeRoute.id === 'profile' && pathname?.startsWith('/profile')
 
   if (__DEV__) {
     console.log('pathname', pathname)
@@ -81,18 +78,6 @@ export default function Layout() {
                   }}
                 >
                   Create
-                </Button>
-              )
-            }
-            if (showDrawerButton) {
-              return (
-                <Button
-                  chromeless
-                  borderWidth={0}
-                  borderStyle="unset"
-                  onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-                >
-                  <Menu size={24} />
                 </Button>
               )
             }

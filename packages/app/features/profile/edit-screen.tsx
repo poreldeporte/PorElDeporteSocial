@@ -1,10 +1,14 @@
 import {
   Avatar,
+  Checkbox,
   FormWrapper,
   FullscreenSpinner,
+  Paragraph,
+  Label,
   SubmitButton,
   Theme,
   View,
+  XStack,
   YStack,
   useToastController,
 } from '@my/ui/public'
@@ -15,6 +19,8 @@ import { useUser } from 'app/utils/useUser'
 import { createParam } from 'solito'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
+import { useFormContext } from 'react-hook-form'
+import { Check as CheckIcon } from '@tamagui/lucide-icons'
 
 import { api } from '../../utils/api'
 import { UploadAvatar } from '../settings/components/upload-avatar'
@@ -43,7 +49,9 @@ export const EditProfileScreen = () => {
           ? { dateValue: new Date(profile.birth_date) }
           : undefined,
         jerseyNumber: profile.jersey_number ?? undefined,
-        position: profile.position ?? '',
+        position: profile.position
+          ? profile.position.split(',').map((p) => p.trim()).filter(Boolean)
+          : [],
       }}
     />
   )
@@ -76,7 +84,7 @@ const EditProfileForm = ({
           name: `${data.firstName} ${data.lastName}`.trim(),
           birth_date: data.birthDate.dateValue.toISOString().slice(0, 10),
           jersey_number: data.jerseyNumber,
-          position: data.position?.trim() || null,
+          position: data.position?.length ? data.position.join(',') : null,
         })
         .eq('id', userId)
     },
@@ -100,9 +108,6 @@ const EditProfileForm = ({
           phone: {
             inputMode: 'tel',
           } as any,
-          position: {
-            options: POSITION_OPTIONS.map((option) => ({ name: option, value: option })),
-          },
         }}
         defaultValues={{
           firstName: initial.firstName,
@@ -111,7 +116,7 @@ const EditProfileForm = ({
           address: initial.address,
           birthDate: initial.birthDate,
           jerseyNumber: initial.jerseyNumber,
-          position: initial.position ?? POSITION_OPTIONS[0],
+          position: initial.position ?? [],
         }}
         onSubmit={(values) => mutation.mutate(values)}
         renderAfter={({ submit }) => (
@@ -129,11 +134,56 @@ const EditProfileForm = ({
                 </UploadAvatar>
               </View>
             </YStack>
-            {Object.values(fields)}
+            <YStack gap="$3">
+              {fields.firstName}
+              {fields.lastName}
+              {fields.phone}
+              <PositionCheckboxes />
+              {fields.jerseyNumber}
+              {fields.birthDate}
+              {fields.address}
+            </YStack>
           </>
         )}
       </SchemaForm>
     </FormWrapper>
+  )
+}
+
+const PositionCheckboxes = () => {
+  const { watch, setValue } = useFormContext<ProfileUpdateFieldValues>()
+  const selected = watch('position') ?? []
+
+  const toggle = (value: string) => {
+    const next = selected.includes(value)
+      ? selected.filter((item) => item !== value)
+      : [...selected, value]
+    setValue('position', next, { shouldValidate: true })
+  }
+
+  return (
+    <YStack gap="$2">
+      <Paragraph theme="alt2">Positions</Paragraph>
+      <YStack gap="$2">
+        {POSITION_OPTIONS.map((option) => (
+          <XStack key={option} ai="center" gap="$2">
+            <Checkbox
+              checked={selected.includes(option)}
+              onCheckedChange={() => toggle(option)}
+              id={`position-edit-${option}`}
+              size="$3"
+            >
+              <Checkbox.Indicator>
+                <CheckIcon size={12} />
+              </Checkbox.Indicator>
+            </Checkbox>
+            <Label htmlFor={`position-edit-${option}`} onPress={() => toggle(option)}>
+              {option}
+            </Label>
+          </XStack>
+        ))}
+      </YStack>
+    </YStack>
   )
 }
 

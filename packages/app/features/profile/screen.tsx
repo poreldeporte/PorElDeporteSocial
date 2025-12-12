@@ -5,6 +5,7 @@ import { screenContentContainerStyle } from 'app/constants/layout'
 import { useMyStats } from 'app/features/home/hooks/useMyStats'
 import { useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
+import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { SolitoImage } from 'solito/image'
 import { useLink } from 'solito/link'
 import { useMemo } from 'react'
@@ -18,13 +19,11 @@ export const ProfileScreen = () => {
   useStatsRealtime(true)
   const memberSince = profile?.created_at ? new Date(profile.created_at) : null
   const editLink = useLink({ href: '/profile/edit' })
-  const inviteLink = useLink({ href: '/community' })
-  const settingsLink = useLink({ href: '/settings' })
+  const supabase = useSupabase()
   const historyLink = useLink({ href: '/games' })
   const heroLinks = [
     { icon: UserCog, label: 'Edit profile', linkProps: editLink },
-    { icon: Share2, label: 'Invite a friend', linkProps: inviteLink },
-    { icon: Shield, label: 'Settings', linkProps: settingsLink },
+    { icon: Shield, label: 'Log out', onPress: () => supabase.auth.signOut() },
   ]
 
   return (
@@ -50,7 +49,7 @@ export const ProfileScreen = () => {
           position={profile?.position}
         />
         <ProfileCultureCard role={role} />
-        <ProfilePledge inviteLink={inviteLink} />
+        <ProfilePledge />
       </YStack>
     </ScrollView>
   )
@@ -68,7 +67,12 @@ const ProfileHero = ({
   role: string
   avatarUrl: string
   memberSince: Date | null
-  quickLinks: Array<{ icon: typeof Shield; label: string; linkProps: ReturnType<typeof useLink> }>
+  quickLinks: Array<{
+    icon: typeof Shield
+    label: string
+    linkProps?: ReturnType<typeof useLink>
+    onPress?: () => void
+  }>
   userId: string
 }) => {
   const memberId = userId ? userId.slice(0, 8).toUpperCase() : 'PEDSQUAD'
@@ -256,7 +260,7 @@ const ProfileCultureCard = ({ role }: { role: string }) => {
   )
 }
 
-const ProfilePledge = ({ inviteLink }: { inviteLink: ReturnType<typeof useLink> }) => (
+const ProfilePledge = () => (
   <LinearGradient
     colors={['rgba(255,120,48,0.35)', 'rgba(5,8,13,0.85)']}
     start={[0, 0]}
@@ -279,9 +283,6 @@ const ProfilePledge = ({ inviteLink }: { inviteLink: ReturnType<typeof useLink> 
         Inner-circle footy. Show up early, play clean, hype every run. Respect the invite, protect the
         vibe.
       </Paragraph>
-      <Button br="$9" theme="alt1" icon={Share2} {...inviteLink}>
-        Share the vibe
-      </Button>
     </Card>
   </LinearGradient>
 )
@@ -290,11 +291,13 @@ const ActionButton = ({
   icon: Icon,
   label,
   linkProps,
+  onPress,
   flexValue,
 }: {
   icon: typeof Shield
   label: string
-  linkProps: ReturnType<typeof useLink>
+  linkProps?: ReturnType<typeof useLink>
+  onPress?: () => void
   flexValue?: string
 }) => (
   <Button
@@ -304,6 +307,7 @@ const ActionButton = ({
     theme="alt1"
     icon={Icon}
     {...linkProps}
+    onPress={onPress ?? linkProps?.onPress}
     flexBasis={flexValue}
     flexGrow={flexValue ? 1 : undefined}
     minWidth={flexValue ? 120 : undefined}

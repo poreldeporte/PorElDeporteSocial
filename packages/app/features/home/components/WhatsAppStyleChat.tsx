@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ScrollView } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
 import { PlusCircle, Send, Trash } from '@tamagui/lucide-icons'
 import { LinearGradient } from '@tamagui/linear-gradient'
 import { Button, Input, Paragraph, Spinner, XStack, YStack, isWeb, useToastController } from '@my/ui/public'
@@ -336,6 +336,8 @@ export const WhatsAppStyleChat = ({
       ? 'Connecting to chat…'
       : null
 
+  const keyboardVerticalOffset = Platform.select({ ios: 80, android: 0, default: 0 })
+
   const handleLoadMore = useCallback(() => {
     if (!historyQuery.hasNextPage || historyQuery.isFetchingNextPage) return
     historyQuery.fetchNextPage().catch(() => undefined)
@@ -360,6 +362,7 @@ export const WhatsAppStyleChat = ({
                 paddingBottom: 24,
               }}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
               {historyQuery.isLoading && messages.length === 0 ? (
                 <XStack ai="center" jc="center" py="$4">
@@ -413,16 +416,6 @@ export const WhatsAppStyleChat = ({
               </Paragraph>
             ) : null}
             <XStack ai="center" gap="$2" bg="rgba(0,0,0,0.6)" br="$9" px="$1.5" py="$2">
-              <Button
-                circular
-                size="$2"
-                bg="transparent"
-                borderWidth={chatEnabled ? 1 : 0}
-                borderColor="rgba(255,255,255,0.2)"
-                disabled={!chatEnabled}
-              >
-                <PlusCircle size={20} />
-              </Button>
               <Input
                 flex={1}
                 bg="transparent"
@@ -472,9 +465,15 @@ export const WhatsAppStyleChat = ({
   }
 
   return (
-    <YStack f={1} bg="#05080d" position="relative">
-      <WatermarkLogo style={{ bottom: 24, right: 16 }} />
-      {chatShell}
-    </YStack>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+    >
+      <YStack f={1} bg="#05080d" position="relative">
+        <WatermarkLogo style={{ bottom: 24, right: 16 }} />
+        {chatShell}
+      </YStack>
+    </KeyboardAvoidingView>
   )
 }
