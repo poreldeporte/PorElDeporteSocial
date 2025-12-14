@@ -21,7 +21,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.poreldeporte.app',
-      buildNumber: '9',
+      buildNumber: '12',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
@@ -34,7 +34,7 @@ export default {
       },
       package: 'com.poreldeporte.app',
       permissions: ['android.permission.RECORD_AUDIO'],
-      versionCode: 3,
+      versionCode: 6,
     },
     web: {
       favicon: './assets/favicon.png',
