@@ -14,6 +14,7 @@ import {
 } from '@my/ui/public'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { SchemaForm } from 'app/utils/SchemaForm'
+import { pedLogo } from 'app/assets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { createParam } from 'solito'
@@ -129,9 +130,7 @@ const EditProfileForm = ({
           <>
             <YStack mb="$4" ai="center">
               <View>
-                <UploadAvatar>
-                  <UserAvatar />
-                </UploadAvatar>
+                <UserAvatar />
               </View>
             </YStack>
             <YStack gap="$3">
@@ -188,10 +187,9 @@ const PositionCheckboxes = () => {
 }
 
 const UserAvatar = () => {
-  const { avatarUrl } = useUser()
   return (
     <Avatar circular size={128}>
-      <SolitoImage src={avatarUrl} alt="your avatar" width={128} height={128} />
+      <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={128} height={128} />
     </Avatar>
   )
 }

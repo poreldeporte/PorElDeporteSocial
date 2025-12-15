@@ -49,3 +49,10 @@
 3) Backfill participation from current `game_team_members` + `game_results` (if history kept).
 4) Create aggregates/views/materialized views; add RPC wrappers.
 5) Drop `game_player_stats` and unused starter tables after cutover.***
+
+## Stats Coverage (fields exposed via views/RPCs)
+- Player career: wins, losses, draws, total games, goals_for/against, goal_diff, win_rate, games_as_captain, recent_outcomes (last N), close_game_record (one-goal games), streaks (current, longest win/unbeaten), activity (games in last 30/60/90 days), last_played_at.
+- Leaderboard: ranks for overall, wins, goal_diff, captain; win_rate/goal_diff/wins/losses/games_as_captain; recent form.
+- Teammate/rival: games_same_team, wins_same_team, draws_same_team, games_opposite_team, wins_opposite_team, last_played_at, first_played_at.
+- Attendance: confirmations, cancels, late_cancels, dropouts, confirm_lead_time avg/median, cancel_lead_time avg/median, late_cancel_rate, dropout_rate.
+- Draft: avg_pick_order, pick_order_distribution, win_rate_by_pick_order, value_over_slot (per pick), early_vs_late_win_rate, captain_selection_counts, captain_win_rates.

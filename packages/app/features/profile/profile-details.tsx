@@ -35,23 +35,22 @@ const formatJerseyNumber = (value?: number | null) => {
   return `#${value}`
 }
 
-const DetailTile = ({ label, value }: { label: string; value: string }) => (
-  <YStack
-    flexBasis="48%"
-    minWidth={140}
-    px="$3"
+const DetailRow = ({ label, value, isFirst }: { label: string; value: string; isFirst?: boolean }) => (
+  <XStack
+    px="$2"
     py="$2.5"
-    br="$6"
-    borderWidth={1}
+    gap="$3"
+    ai="center"
+    borderTopWidth={isFirst ? 0 : 1}
     borderColor="$color4"
-    backgroundColor="$color1"
-    gap="$1"
   >
-    <Paragraph theme="alt2" size="$2">
+    <Paragraph theme="alt2" size="$2" minWidth={120}>
       {label}
     </Paragraph>
-    <SizableText fontWeight="600">{value}</SizableText>
-  </YStack>
+    <Paragraph fontWeight="600" flex={1}>
+      {value}
+    </Paragraph>
+  </XStack>
 )
 
 const DetailsSection = ({
@@ -65,11 +64,11 @@ const DetailsSection = ({
     <SizableText size="$5" fontWeight="600">
       {title}
     </SizableText>
-    <XStack gap="$2" flexWrap="wrap">
-      {items.map((item) => (
-        <DetailTile key={item.label} label={item.label} value={item.value} />
+    <YStack>
+      {items.map((item, index) => (
+        <DetailRow key={item.label} label={item.label} value={item.value} isFirst={index === 0} />
       ))}
-    </XStack>
+    </YStack>
   </Card>
 )
 

@@ -1,4 +1,5 @@
 import {
+  Avatar,
   Button,
   Card,
   FullscreenSpinner,
@@ -8,20 +9,20 @@ import {
   XStack,
   YStack,
 } from '@my/ui/public'
-import { Crown, Trophy } from '@tamagui/lucide-icons'
+import { Crown as CrownIcon } from '@tamagui/lucide-icons'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { useMemo, useState } from 'react'
 
-type Metric = 'overall' | 'wins' | 'goal_diff' | 'captain'
+type Metric = 'wins' | 'losses' | 'goal_diff' | 'games'
 type RawEntry = RouterOutputs['stats']['leaderboard'][number]
 type Entry = RawEntry & { rank: number; winRate: number; recent: string[] }
 
 const metricOptions: { id: Metric; label: string }[] = [
-  { id: 'overall', label: 'Overall' },
-  { id: 'wins', label: 'Most wins' },
-  { id: 'goal_diff', label: 'Goal diff' },
-  { id: 'captain', label: 'Captain' },
+  { id: 'wins', label: 'W' },
+  { id: 'losses', label: 'L' },
+  { id: 'goal_diff', label: 'GD' },
+  { id: 'games', label: 'GP' },
 ]
 
 const formatWinRate = (value: number) => `${Math.round((value || 0) * 100)}%`
@@ -33,11 +34,30 @@ const normalizeEntry = (entry: RawEntry): Entry => ({
 })
 
 export const LeaderboardScreen = () => {
-  const [metric, setMetric] = useState<Metric>('overall')
-  const query = api.stats.leaderboard.useQuery({ metric })
+  const [metric, setMetric] = useState<Metric>('wins')
+  const queryMetric = metric === 'goal_diff' ? 'goal_diff' : metric === 'wins' ? 'wins' : 'overall'
+  const query = api.stats.leaderboard.useQuery({ metric: queryMetric as any })
 
   const entries = useMemo(() => (query.data ?? []).map(normalizeEntry), [query.data])
-  const sorted = entries
+  const sorted = useMemo(() => {
+    const list = [...entries]
+    list.sort((a, b) => {
+      switch (metric) {
+        case 'wins':
+          return (b.wins ?? 0) - (a.wins ?? 0)
+        case 'losses':
+          return (b.losses ?? 0) - (a.losses ?? 0)
+        case 'goal_diff':
+          return (b.goalDiff ?? 0) - (a.goalDiff ?? 0)
+        case 'games':
+          return (b.games ?? 0) - (a.games ?? 0)
+        default:
+          return (b.winRate ?? 0) - (a.winRate ?? 0)
+      }
+    })
+    return list
+  }, [entries, metric])
+  const glowRow = useMemo(() => sorted.slice(0, 3), [sorted])
 
   if (query.isLoading) {
     return (
@@ -56,158 +76,232 @@ export const LeaderboardScreen = () => {
     )
   }
 
-  const topOverall = entries.find((entry) => entry.overallRank === 1)
-  const topGoalDiff = entries.find((entry) => entry.goalDiffRank === 1)
-  const topCaptain = entries.find((entry) => entry.captainRank === 1)
-
   return (
-    <ScrollView contentContainerStyle={{ ...screenContentContainerStyle, gap: 16 }}>
-      <HighlightRow topOverall={topOverall} topGoalDiff={topGoalDiff} topCaptain={topCaptain} />
+    <ScrollView contentContainerStyle={screenContentContainerStyle}>
+      <YStack gap="$4">
+        {glowRow.length ? (
+          <YStack pt="$2">
+            <GlowRow entries={glowRow} />
+          </YStack>
+        ) : null}
 
-      <XStack gap="$2" flexWrap="wrap">
-        {metricOptions.map((option) => (
-          <Button
-            key={option.id}
-            size="$3"
-            theme={metric === option.id ? 'active' : 'alt1'}
-            onPress={() => setMetric(option.id)}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </XStack>
-
-      <Card bordered $platform-native={{ borderWidth: 0 }} p="$3" gap="$2">
-        {sorted.length === 0 ? (
-          <Paragraph theme="alt2">No players to rank yet.</Paragraph>
-        ) : (
-          sorted.map((entry, index) => (
-            <LeaderboardRow key={entry.profileId ?? index} rank={entry.rank || index + 1} entry={entry} />
-          ))
-        )}
-      </Card>
-    </ScrollView>
-  )
-}
-
-const HighlightRow = ({
-  topOverall,
-  topGoalDiff,
-  topCaptain,
-}: {
-  topOverall?: Entry
-  topGoalDiff?: Entry
-  topCaptain?: Entry
-}) => {
-  const cards = [
-    { label: 'Top overall', entry: topOverall, icon: Trophy, meta: topOverall ? `${formatWinRate(topOverall.winRate)} · ${topOverall.wins}-${topOverall.losses}` : null },
-    { label: 'Best goal diff', entry: topGoalDiff, icon: Crown, meta: topGoalDiff ? `GD ${topGoalDiff.goalDiff} · ${topGoalDiff.games} games` : null },
-    { label: 'Captain leader', entry: topCaptain, icon: Trophy, meta: topCaptain ? `${topCaptain.gamesAsCaptain} captain games` : null },
-  ]
-  return (
-    <XStack gap="$2" flexWrap="wrap" $gtSm={{ flexWrap: 'nowrap' }}>
-      {cards.map(({ label, entry, icon: Icon, meta }, idx) => (
-        <Card
-          key={label}
-          f={1}
-          flexBasis={0}
-          minWidth={140}
-          px="$3"
-          py="$2.5"
-          bordered
-          $platform-native={{ borderWidth: 0 }}
-          animation="medium"
-          enterStyle={{ opacity: 0, y: 10 }}
-          delay={idx * 30}
-        >
-          <XStack ai="center" gap="$2">
-            <Icon size={16} />
-            <Paragraph theme="alt2" size="$2">
-              {label}
-            </Paragraph>
+        <Card bordered $platform-native={{ borderWidth: 0 }} p="$1.5" gap="$1">
+          <XStack gap="$1" ai="center" jc="space-between">
+            <XStack gap="$1" ai="center" flex={1} flexWrap="wrap">
+              {metricOptions.map((option) => (
+                <Button
+                  key={option.id}
+                  size="$2"
+                  theme={metric === option.id ? 'active' : 'alt1'}
+                  onPress={() => setMetric(option.id)}
+                  flex={1}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </XStack>
           </XStack>
-          {entry ? (
-            <>
-              <SizableText size="$5" fontWeight="700">
-                {entry.name}
-              </SizableText>
-              {meta ? (
-                <Paragraph theme="alt2" size="$2">
-                  {meta}
-                </Paragraph>
-              ) : null}
-            </>
+        </Card>
+
+        <Card bordered $platform-native={{ borderWidth: 0 }} p="$0" gap="$0">
+          {sorted.length === 0 ? (
+            <Paragraph theme="alt2" px="$3" py="$3">
+              No players to rank yet.
+            </Paragraph>
           ) : (
-            <Paragraph theme="alt2">No data</Paragraph>
+            <>
+              <TableHeader />
+              {sorted.map((entry, index) => (<LeaderboardRow key={entry.profileId ?? index} rank={entry.rank || index + 1} entry={entry} />))}
+            </>
           )}
         </Card>
-      ))}
-    </XStack>
+      </YStack>
+    </ScrollView>
   )
 }
 
 const LeaderboardRow = ({ rank, entry }: { rank: number; entry: Entry }) => {
   return (
-    <Card bordered $platform-native={{ borderWidth: 0 }} px="$3" py="$2.5" bg="$color1">
-      <XStack gap="$2" ai="center" jc="space-between" flexWrap="wrap">
-        <XStack gap="$2" ai="center" flexShrink={1}>
-          <RankBadge rank={rank} />
-          <YStack>
-            <SizableText fontWeight="700">{entry.name}</SizableText>
-            <Paragraph theme="alt2" size="$2">
-              {labelLine(entry)}
-            </Paragraph>
-          </YStack>
-        </XStack>
-        <XStack gap="$2" flexWrap="wrap" ai="center">
-          <StatPill label="Win rate" value={formatWinRate(entry.winRate)} />
-          <StatPill label="Record" value={`${entry.wins}-${entry.losses}`} />
-          <StatPill label="GD" value={`${entry.goalDiff}`} />
-          <StatPill label="Captain" value={`${entry.gamesAsCaptain}`} />
-          <RecentForm recent={entry.recent} />
-        </XStack>
-      </XStack>
-    </Card>
+    <XStack
+      px="$2"
+      py="$1.5"
+      ai="center"
+      gap="$0.5"
+      flexWrap="nowrap"
+      borderBottomWidth={1}
+      borderColor="$color4"
+      backgroundColor="$color1"
+    >
+      <RankBadge rank={rank} />
+      <Paragraph fontWeight="700" size="$2" numberOfLines={1} ellipsizeMode="tail" pl="$1" flex={1}>
+        {entry.name}
+      </Paragraph>
+      <Column value={`${entry.wins}`} />
+      <Column value={`${entry.losses}`} />
+      <Column value={`${entry.goalDiff}`} />
+      <Column value={`${entry.games}`} />
+    </XStack>
   )
 }
 
-const labelLine = (entry: Entry) =>
-  [entry.games ? `${entry.games} games` : null, entry.position || null, entry.jerseyNumber ? `#${entry.jerseyNumber}` : null]
-    .filter(Boolean)
-    .join(' · ')
-
 const RankBadge = ({ rank }: { rank: number }) => (
-  <YStack w={32} h={32} ai="center" jc="center" br="$10" backgroundColor={rank === 1 ? '$color8' : '$color3'}>
-    <Paragraph fontWeight="700">{rank}</Paragraph>
-  </YStack>
-)
-
-const StatPill = ({ label, value }: { label: string; value: string }) => (
-  <YStack px="$2" py="$1.5" br="$6" borderWidth={1} borderColor="$color4" minWidth={88} ai="center">
-    <Paragraph theme="alt2" size="$2">
-      {label}
+  <YStack width={32} height={32} ai="center" jc="center" br="$10" backgroundColor={rank === 1 ? '$color8' : '$color3'}>
+    <Paragraph fontWeight="700" size="$2">
+      {rank}
     </Paragraph>
-    <Paragraph fontWeight="700">{value}</Paragraph>
   </YStack>
 )
 
-const RecentForm = ({ recent }: { recent: string[] }) => {
-  if (!recent?.length) return <StatPill label="Form" value="—" />
+const Column = ({ value }: { value: string }) => (
+  <YStack minWidth={52} ai="flex-end" gap="$0.1">
+    <Paragraph fontWeight="700" size="$2" ta="right">
+      {value}
+    </Paragraph>
+  </YStack>
+)
+
+const TableHeader = () => (
+  <XStack px="$2" py="$1.25" ai="center" gap="$0.5" flexWrap="nowrap" borderBottomWidth={1} borderColor="$color4">
+    <Paragraph fontWeight="700" size="$2" minWidth={32} ta="center">
+      {' '}
+    </Paragraph>
+    <Paragraph fontWeight="700" size="$2" flex={1} pl="$1">
+      Player
+    </Paragraph>
+    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
+      W
+    </Paragraph>
+    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
+      L
+    </Paragraph>
+    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
+      GD
+    </Paragraph>
+    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
+      GP
+    </Paragraph>
+  </XStack>
+)
+
+const initials = (name: string | null | undefined) => {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  const first = parts[0]?.[0] ?? ''
+  const last = parts[1]?.[0] ?? ''
+  return `${first}${last}`.toUpperCase()
+}
+
+const InitialsBadge = ({ name }: { name: string }) => (
+  <YStack
+    width={72}
+    height={72}
+    ai="center"
+    jc="center"
+    br={36}
+    backgroundColor="#111827"
+    borderColor="#1f2937"
+    borderWidth={1.5}
+  >
+    <Paragraph color="#fff" fontWeight="700" size="$4">
+      {initials(name)}
+    </Paragraph>
+  </YStack>
+)
+
+const GlowRow = ({ entries }: { entries: Entry[] }) => {
+  const slots = [
+    { rank: 2, entry: entries[1], glow: '#06b6d4', scale: 0.9, trend: 'up' as const },
+    { rank: 1, entry: entries[0], glow: '#facc15', scale: 1.5, crown: true },
+    { rank: 3, entry: entries[2], glow: '#a855f7', scale: 0.9, trend: 'down' as const },
+  ]
+
   return (
-    <XStack gap="$1">
-      {recent.map((result, idx) => (
-        <YStack
-          key={`${result}-${idx}`}
-          px="$1.5"
-          py="$0.5"
-          br="$5"
-          backgroundColor={result === 'W' ? '$green3' : '$red3'}
-        >
-          <Paragraph fontWeight="700" size="$2">
-            {result}
-          </Paragraph>
-        </YStack>
-      ))}
-    </XStack>
+    <YStack p="$3" ai="center" jc="center">
+      <XStack ai="center" jc="center" gap="$2" flexWrap="nowrap">
+        {slots.map((slot) => {
+          const entry = slot.entry
+          const name = entry?.name ?? 'TBD'
+          return (
+            <YStack key={slot.rank} ai="center" gap="$1" minWidth={110}>
+              <YStack position="relative" ai="center" jc="center">
+                {slot.rank === 1 ? (
+                  <YStack
+                    position="absolute"
+                    top={-20}
+                    width={140}
+                    height={140}
+                    br={70}
+                    backgroundColor="rgba(251,191,36,0.05)"
+                    shadowColor="#fbbf24"
+                    shadowRadius={14}
+                  />
+                ) : null}
+                {slot.crown ? (
+                  <YStack position="absolute" top={-18}>
+                    <CrownIcon size={20} color="#f97316" />
+                  </YStack>
+                ) : null}
+                {slot.rank !== 1 ? (
+                  <Paragraph
+                    position="absolute"
+                    top={-18}
+                    color="$color12"
+                    fontWeight="800"
+                    size="$2"
+                  >
+                    {slot.rank}
+                  </Paragraph>
+                ) : null}
+                <GlowCircle name={name} glowColor={slot.glow} scale={slot.scale} rank={slot.rank} />
+              </YStack>
+              <YStack ai="center" mt="$0.5">
+                <Paragraph color="$color12" fontWeight="600" numberOfLines={1} ta="center">
+                  {name.split(' ')[0] ?? name}
+                </Paragraph>
+                {name.split(' ')[1] ? (
+                  <Paragraph color="$color12" fontWeight="600" numberOfLines={1} ta="center">
+                    {name.split(' ').slice(1).join(' ')}
+                  </Paragraph>
+                ) : null}
+              </YStack>
+            </YStack>
+          )
+        })}
+      </XStack>
+    </YStack>
+  )
+}
+
+const GlowCircle = ({ name, glowColor, scale = 1, rank }: { name: string; glowColor: string; scale?: number; rank: number }) => {
+  const size = 72 * scale
+  const initialSize = rank === 1 ? '$6' : '$4'
+  return (
+    <YStack
+      width={size}
+      height={size}
+      ai="center"
+      jc="center"
+      br={size / 2}
+      backgroundColor="#0f172a"
+      borderColor={glowColor}
+      borderWidth={2}
+      shadowColor={glowColor}
+      shadowRadius={12}
+      overflow="hidden"
+      position="relative"
+    >
+      <Paragraph color="#fff" fontWeight="700" size={initialSize}>
+        {initials(name)}
+      </Paragraph>
+      <Paragraph
+        color="#fff"
+        fontWeight="800"
+        position="absolute"
+        bottom={6}
+        size={rank === 1 ? '$3' : '$2'}
+      >
+        {rank}
+      </Paragraph>
+    </YStack>
   )
 }

@@ -4,7 +4,7 @@ export const profileFieldCopy = {
   email: { label: 'Email', placeholder: 'lionel@gmail.com' },
   phone: { label: 'Phone', placeholder: '+1 305 555 1234' },
   password: { label: 'Password', placeholder: 'Choose a password' },
-  address: { label: 'Address (optional)', placeholder: '123 NW 5th St, Miami' },
+  address: { label: 'Address', placeholder: '123 NW 5th St, Miami' },
   birthDate: { label: 'Birth Date', placeholder: 'Select your birth date' },
   jerseyNumber: { label: 'Jersey Number', placeholder: '10' },
   position: { label: 'Preferred Position', placeholder: 'Midfield' },

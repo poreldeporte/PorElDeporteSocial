@@ -26,7 +26,6 @@ export default function Layout() {
   const layoutByRoute: Record<string, ScreenLayoutId> = {
     home: 'tabsRoot',
     games: 'gamesList',
-    community: 'community',
     leaderboard: 'leaderboard',
     profile: 'profile',
   }
@@ -34,7 +33,6 @@ export default function Layout() {
   const headerTitle = (() => {
     if (activeRoute.id === 'home') return 'Por El Deporte'
     if (activeRoute.id === 'games') return 'Schedule'
-    if (activeRoute.id === 'community') return 'La Familia'
     if (activeRoute.id === 'leaderboard') return 'Leaderboard'
     return getScreenLayout(activeLayoutId).title
   })()
@@ -105,7 +103,7 @@ export default function Layout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarShowLabel: false,
+          tabBarShowLabel: true,
           headerTintColor: accentColor.val,
           tabBarStyle: {
             paddingTop: 10,
@@ -117,23 +115,43 @@ export default function Layout() {
           tabBarItemStyle: {
             paddingBottom: 10,
           },
+          tabBarLabelStyle: {
+            fontSize: 12,
+          },
         }}
       >
         {tabRoutes.map((route) => {
           const Icon = route.icon
+          const isHome = route.id === 'home'
           return (
             <Tabs.Screen
               key={route.id}
               name={route.nativeSegment ?? route.id}
               options={{
                 title: route.label,
-                tabBarIcon: ({ size, focused }) => (
-                  <Icon
-                    color={focused ? accentColor.val : '$color10'}
-                    size={size}
-                    strokeWidth={2}
-                  />
-                ),
+                tabBarIcon: ({ size, focused }) => {
+                  if (isHome) {
+                    return (
+                      <XStack
+                        ai="center"
+                        jc="center"
+                        w={56}
+                        h={56}
+                        br={28}
+                        backgroundColor={focused ? accentColor.val : '$color3'}
+                      >
+                        <Icon color={focused ? '$color1' : '$color11'} size={22} strokeWidth={2} />
+                      </XStack>
+                    )
+                  }
+                  return (
+                    <Icon
+                      color={focused ? accentColor.val : '$color10'}
+                      size={size}
+                      strokeWidth={2}
+                    />
+                  )
+                },
               }}
             />
           )
@@ -141,7 +159,12 @@ export default function Layout() {
         <Tabs.Screen
           name="profile"
           options={{
-            // Keep profile reachable via links/navigation, but hide it from the tab bar.
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="community/index"
+          options={{
             href: null,
           }}
         />
