@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
+import { supabaseAdmin } from '../supabase-admin'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
 const joinInput = z.object({
@@ -165,7 +166,7 @@ export const queueRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await ensureAdmin(ctx.supabase, ctx.user.id)
 
-      const { data, error } = await ctx.supabase
+      const { data, error } = await supabaseAdmin
         .from('game_queue')
         .update({
           status: 'cancelled',
@@ -184,8 +185,8 @@ export const queueRouter = createTRPCRouter({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
       }
 
-      await promoteNextWaitlisted(ctx.supabase, data.game_id)
-      await syncPendingGameLockState(ctx.supabase, data.game_id)
+      await promoteNextWaitlisted(supabaseAdmin, data.game_id)
+      await syncPendingGameLockState(supabaseAdmin, data.game_id)
 
       return { gameId: data.game_id }
     }),

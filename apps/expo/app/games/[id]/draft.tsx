@@ -18,6 +18,7 @@ export default function Screen() {
           headerShown: true,
           headerTitle: layout.title,
           headerTitleAlign: 'center',
+          headerBackTitleVisible: false,
         }}
       />
       <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>

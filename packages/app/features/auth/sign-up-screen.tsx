@@ -22,6 +22,7 @@ import { FormProvider, useForm, useFormContext, useWatch } from 'react-hook-form
 import { createParam } from 'solito'
 import { Link } from 'solito/link'
 import { z } from 'zod'
+import { formatDateInput } from '../profile/edit-screen'
 
 import { AuthIntro } from './components'
 import { POSITION_OPTIONS, signUpFieldSchema } from '../profile/profile-field-schema'
@@ -36,6 +37,7 @@ const SignUpSchema = signUpFieldSchema.pick({
   password: true,
   jerseyNumber: true,
   position: true,
+  birthDate: true,
 })
 
 type SignUpValues = z.infer<typeof SignUpSchema>
@@ -62,6 +64,7 @@ export const SignUpScreen = () => {
       password,
       jerseyNumber,
       position,
+      birthDate,
     }: SignUpValues) => {
       const redirectTo = resolveAuthRedirect()
       const { error } = await supabase.auth.signUp({
@@ -76,6 +79,7 @@ export const SignUpScreen = () => {
             phone: phone.trim(),
             jersey_number: jerseyNumber ?? null,
             position: position?.join(',') ?? null,
+            birth_date: birthDate ? formatDateInput(birthDate.dateValue) : null,
           },
         },
       })
@@ -126,10 +130,11 @@ export const SignUpScreen = () => {
               lastName: '',
               phone: '',
               email: params?.email || '',
-              password: '',
-              jerseyNumber: undefined,
-              position: [],
-            }}
+            password: '',
+            jerseyNumber: undefined,
+            position: [],
+            birthDate: undefined,
+          }}
             onSubmit={signUpWithEmail}
             props={{
               password: {
@@ -158,15 +163,16 @@ export const SignUpScreen = () => {
               <YStack gap="$3">
                 {fields.firstName}
                 {fields.lastName}
-                {fields.phone}
-                {fields.email}
-                <PositionCheckboxes />
-                {fields.jerseyNumber}
-                {fields.password}
-              </YStack>
-            </>
-          )}
-          </SchemaForm>
+              {fields.phone}
+              {fields.email}
+              <PositionCheckboxes />
+              {fields.jerseyNumber}
+              {fields.birthDate}
+              {fields.password}
+            </YStack>
+          </>
+        )}
+      </SchemaForm>
           {isLoadingSession && <LoadingOverlay />}
         </FormWrapper>
       )}

@@ -83,7 +83,7 @@ const EditProfileForm = ({
           phone: data.phone.trim(),
           address: data.address?.trim() || null,
           name: `${data.firstName} ${data.lastName}`.trim(),
-          birth_date: data.birthDate.dateValue.toISOString().slice(0, 10),
+          birth_date: formatDateInput(data.birthDate.dateValue),
           jersey_number: data.jerseyNumber,
           position: data.position?.length ? data.position.join(',') : null,
         })
@@ -95,6 +95,10 @@ const EditProfileForm = ({
       await queryClient.invalidateQueries({ queryKey: ['profile', userId] })
       await apiUtils.greeting.invalidate()
       router.back()
+    },
+
+    onError(error: Error) {
+      toast.show('Unable to update profile', { message: error.message })
     },
   })
 
@@ -122,7 +126,9 @@ const EditProfileForm = ({
         onSubmit={(values) => mutation.mutate(values)}
         renderAfter={({ submit }) => (
           <Theme inverse>
-            <SubmitButton onPress={() => submit()}>Update Profile</SubmitButton>
+            <SubmitButton disabled={mutation.isPending} onPress={() => submit()}>
+              {mutation.isPending ? 'Saving…' : 'Update Profile'}
+            </SubmitButton>
           </Theme>
         )}
       >
@@ -192,4 +198,11 @@ const UserAvatar = () => {
       <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={128} height={128} />
     </Avatar>
   )
+}
+
+export const formatDateInput = (date: Date) => {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
 }

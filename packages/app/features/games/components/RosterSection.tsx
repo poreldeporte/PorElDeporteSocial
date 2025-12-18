@@ -53,6 +53,11 @@ const PlayerRow = ({
   const confirmed = Boolean(entry.attendanceConfirmedAt)
   const record = entry.record
   const recent = record?.recent?.length ? record.recent.join(' ') : null
+  const jersey = typeof entry.player.jerseyNumber === 'number' ? `#${entry.player.jerseyNumber}` : null
+  const positions = formatPositions(entry.player.position)
+  const recordLabel =
+    record && (record.wins > 0 || record.losses > 0) ? `Record ${record.wins}-${record.losses}` : null
+  const sublineParts = [jersey, positions, recordLabel].filter(Boolean)
   return (
     <XStack ai="center" gap="$2" jc="space-between">
       <Paragraph theme="alt2" minWidth={24}>
@@ -60,10 +65,11 @@ const PlayerRow = ({
       </Paragraph>
       <YStack f={1} pr="$2" gap="$0.5">
         <SizableText fontWeight="600">{entry.player.name ?? 'Anonymous Player'}</SizableText>
-        <Paragraph theme="alt2" size="$2">
-          #{entry.player.jerseyNumber ?? '—'} · {entry.player.position ?? 'No position'} · Record{' '}
-          {record ? `${record.wins}-${record.losses}` : '—'}
-        </Paragraph>
+        {sublineParts.length ? (
+          <Paragraph theme="alt2" size="$2">
+            {sublineParts.join(' · ')}
+          </Paragraph>
+        ) : null}
         {recent ? (
           <Paragraph theme="alt2" size="$2">
             Last 5: {recent}
@@ -90,6 +96,25 @@ const PlayerRow = ({
       </XStack>
     </XStack>
   )
+}
+
+const positionAbbrev: Record<string, string> = {
+  goalkeeper: 'GK',
+  defender: 'Def',
+  midfielder: 'Mid',
+  forward: 'Fwd',
+}
+
+const formatPositions = (positions?: string | null) => {
+  if (!positions) return null
+  const mapped = positions
+    .split(',')
+    .map((pos) => pos.trim().toLowerCase())
+    .filter(Boolean)
+    .map((pos) => positionAbbrev[pos])
+    .filter(Boolean)
+  if (!mapped.length) return null
+  return mapped.join(', ')
 }
 
 export const getPlayerInitials = (name?: string | null) => {

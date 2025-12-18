@@ -315,6 +315,12 @@ export const useGamesListRealtime = (enabled: boolean) => {
             }))
           }
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_draft_events' }, () => {
+          scheduleInvalidate()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_results' }, () => {
+          scheduleInvalidate()
+        })
     },
     [utils, scheduleInvalidate]
   )
