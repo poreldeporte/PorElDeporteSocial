@@ -50,11 +50,8 @@ export const EditGameForm = ({
       schema={EditGameSchema}
       defaultValues={{
         ...buildGameFormDefaults({
-          description: game.description,
           startTime: game.startTime,
           locationName: game.locationName,
-          locationNotes: game.locationNotes,
-          costCents: game.costCents,
           capacity: game.capacity,
         }),
         status: game.status,
@@ -82,7 +79,7 @@ export const EditGameForm = ({
     >
       {(fields) => (
         <YStack gap="$3">
-          <Paragraph theme="alt1">Adjust schedule, location, or roster caps as needed.</Paragraph>
+          <Paragraph theme="alt1">Adjust schedule, venue, roster cap, or status.</Paragraph>
           {Object.values(fields)}
         </YStack>
       )}

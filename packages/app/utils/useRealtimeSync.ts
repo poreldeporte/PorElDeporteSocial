@@ -213,11 +213,11 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
     (channel: RealtimeChannel) => {
       channel.on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'game_queue', filter: `game_id=eq.${gameId}` },
-        (payload) => {
-          const newRow = payload.new as QueueTableRow | null
-          const oldRow = payload.old as QueueTableRow | null
-          const gameIdFromRow = newRow?.game_id ?? oldRow?.game_id
+          { event: '*', schema: 'public', table: 'game_queue', filter: `game_id=eq.${gameId}` },
+          (payload) => {
+            const newRow = payload.new as QueueTableRow | null
+            const oldRow = payload.old as QueueTableRow | null
+            const gameIdFromRow = newRow?.game_id ?? oldRow?.game_id
           if (!gameIdFromRow) return
 
           const deltas = getQueueDelta({
@@ -314,6 +314,7 @@ export const useGamesListRealtime = (enabled: boolean) => {
               waitlistedCount: Math.max(0, game.waitlistedCount + deltas.deltaWaitlisted),
             }))
           }
+          scheduleInvalidate()
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_draft_events' }, () => {
           scheduleInvalidate()

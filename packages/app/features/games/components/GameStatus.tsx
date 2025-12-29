@@ -2,6 +2,7 @@ import { Paragraph, SizableText, XStack } from '@my/ui/public'
 import { Calendar, ShieldAlert } from '@tamagui/lucide-icons'
 import type { ReactNode } from 'react'
 
+import type { CombinedStatus } from '../status-helpers'
 import type { GameStatus } from '../types'
 
 export type StatusTone = 'default' | 'success' | 'warning' | 'neutral'
@@ -43,6 +44,17 @@ export const StatusBadge = ({
       <SizableText size="$2" color={styles.text as any} fontWeight="600">
         {children}
       </SizableText>
+    </XStack>
+  )
+}
+
+export const CombinedStatusBadge = ({ status }: { status?: CombinedStatus | null }) => {
+  if (!status) return null
+  return (
+    <XStack>
+      <StatusBadge tone={status.tone} showIcon>
+        {status.label}
+      </StatusBadge>
     </XStack>
   )
 }

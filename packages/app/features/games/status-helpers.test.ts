@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   deriveAvailabilityStatus,
+  deriveCombinedStatus,
   deriveUserBadge,
   deriveUserStateMessage,
-  describeAvailability,
 } from './status-helpers'
 
 describe('status-helpers', () => {
@@ -19,7 +19,30 @@ describe('status-helpers', () => {
     })
 
     expect(availability.state).toBe('locked')
-    expect(describeAvailability(availability)).toBe('Roster locked')
+    const combinedNonRoster = deriveCombinedStatus({
+      gameStatus: 'scheduled',
+      confirmedCount: 10,
+      capacity: 10,
+      attendanceConfirmedCount: 9,
+      waitlistedCount: 0,
+      waitlistCapacity: 0,
+      userStatus: 'none',
+      attendanceConfirmed: false,
+    })
+    expect(combinedNonRoster).toEqual({ label: 'Pending Confirmations', tone: 'neutral' })
+
+    const combinedRoster = deriveCombinedStatus({
+      gameStatus: 'scheduled',
+      confirmedCount: 10,
+      capacity: 10,
+      attendanceConfirmedCount: 9,
+      waitlistedCount: 0,
+      waitlistCapacity: 0,
+      userStatus: 'confirmed',
+      attendanceConfirmed: false,
+      canConfirmAttendance: false,
+    })
+    expect(combinedRoster).toEqual({ label: 'On roster', tone: 'neutral' })
   })
 
   it('keeps waitlist open when enabled', () => {
@@ -33,7 +56,17 @@ describe('status-helpers', () => {
     })
 
     expect(availability.state).toBe('waitlist')
-    expect(describeAvailability(availability)).toBe('Waitlist open')
+    const combined = deriveCombinedStatus({
+      gameStatus: 'scheduled',
+      confirmedCount: 10,
+      capacity: 10,
+      attendanceConfirmedCount: 9,
+      waitlistedCount: 2,
+      waitlistCapacity: 5,
+      userStatus: 'none',
+      attendanceConfirmed: false,
+    })
+    expect(combined).toEqual({ label: 'Waitlist', tone: 'warning' })
   })
 
   it('describes confirmed badge and attendance prompts', () => {
@@ -49,10 +82,10 @@ describe('status-helpers', () => {
       gameStatus: 'scheduled',
       spotsLeft: 0,
     })
-    expect(confirmPrompt).toBe('Confirm attendance now.')
+    expect(confirmPrompt).toBe('Confirm spot now.')
   })
 
-  it('handles waitlist full message for non-rostered user', () => {
+  it('handles waitlist message for non-rostered user', () => {
     const message = deriveUserStateMessage({
       queueStatus: 'none',
       attendanceConfirmed: false,
@@ -62,6 +95,81 @@ describe('status-helpers', () => {
       gameStatus: 'scheduled',
       spotsLeft: 0,
     })
-    expect(message).toBe('Waitlist is full. Keep an eye on notifications.')
+    expect(message).toBe('Join the waitlist and we’ll ping you if a spot opens.')
+  })
+
+  it('derives combined status with user priority', () => {
+    const combined = deriveCombinedStatus({
+      gameStatus: 'scheduled',
+      confirmedCount: 10,
+      capacity: 10,
+      attendanceConfirmedCount: 10,
+      waitlistedCount: 2,
+      waitlistCapacity: 5,
+      userStatus: 'confirmed',
+      attendanceConfirmed: true,
+      canConfirmAttendance: true,
+    })
+    expect(combined).toEqual({ label: 'Confirmed', tone: 'success' })
+  })
+
+  it('derives combined status when locked and user not on roster', () => {
+    const combined = deriveCombinedStatus({
+      gameStatus: 'scheduled',
+      confirmedCount: 10,
+      capacity: 10,
+      attendanceConfirmedCount: 9,
+      waitlistedCount: 0,
+      waitlistCapacity: 0,
+      userStatus: 'none',
+      attendanceConfirmed: false,
+      canConfirmAttendance: false,
+    })
+    expect(combined).toEqual({ label: 'Pending Confirmations', tone: 'neutral' })
+  })
+
+  it('derives combined status for rostered user before confirmation window', () => {
+    const combined = deriveCombinedStatus({
+      gameStatus: 'scheduled',
+      confirmedCount: 10,
+      capacity: 10,
+      attendanceConfirmedCount: 9,
+      waitlistedCount: 0,
+      waitlistCapacity: 0,
+      userStatus: 'confirmed',
+      attendanceConfirmed: false,
+      canConfirmAttendance: false,
+    })
+    expect(combined).toEqual({ label: 'On roster', tone: 'neutral' })
+  })
+
+  it('derives combined status for rostered user when confirmation open', () => {
+    const combined = deriveCombinedStatus({
+      gameStatus: 'scheduled',
+      confirmedCount: 10,
+      capacity: 10,
+      attendanceConfirmedCount: 9,
+      waitlistedCount: 0,
+      waitlistCapacity: 0,
+      userStatus: 'confirmed',
+      attendanceConfirmed: false,
+      canConfirmAttendance: true,
+    })
+    expect(combined).toEqual({ label: 'Confirm spot', tone: 'neutral' })
+  })
+
+  it('derives combined status for cancelled game regardless of user badge', () => {
+    const combined = deriveCombinedStatus({
+      gameStatus: 'cancelled',
+      confirmedCount: 0,
+      capacity: 10,
+      attendanceConfirmedCount: 0,
+      waitlistedCount: 0,
+      waitlistCapacity: 0,
+      userStatus: 'confirmed',
+      attendanceConfirmed: true,
+      canConfirmAttendance: true,
+    })
+    expect(combined).toEqual({ label: 'Game cancelled', tone: 'warning' })
   })
 })

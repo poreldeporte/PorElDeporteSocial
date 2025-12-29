@@ -12,7 +12,7 @@ import { GameCard } from './components/game-card'
 export const ScheduleScreen = () => {
   const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'upcoming' })
   useGamesListRealtime(true)
-  const { join, leave, pendingGameId, isPending } = useQueueActions()
+  const { join, leave, confirmAttendance, pendingGameId, isPending, isConfirming } = useQueueActions()
   const games = ((data ?? []).filter((game) => game.status !== 'completed') as GameListItem[])
 
   return (
@@ -43,8 +43,10 @@ export const ScheduleScreen = () => {
             onRetry={refetch}
             join={join}
             leave={leave}
+            confirmAttendance={confirmAttendance}
             pendingGameId={pendingGameId}
             isPending={isPending}
+            isConfirming={isConfirming}
           />
         </YStack>
       </ScrollView>
@@ -60,8 +62,10 @@ const GameListSection = ({
   onRetry,
   join,
   leave,
+  confirmAttendance,
   pendingGameId,
   isPending,
+  isConfirming,
 }: {
   games: GameListItem[]
   isLoading: boolean
@@ -69,8 +73,10 @@ const GameListSection = ({
   onRetry: () => void
   join: (id: string) => void
   leave: (id: string) => void
+  confirmAttendance: (id: string) => void
   pendingGameId: string | null
   isPending: boolean
+  isConfirming: boolean
 }) => {
   if (isLoading) {
     return (
@@ -108,7 +114,9 @@ const GameListSection = ({
           game={game}
           onJoin={join}
           onLeave={leave}
+          onConfirmAttendance={confirmAttendance}
           isPending={isPending && pendingGameId === game.id}
+          isConfirming={isConfirming}
         />
       ))}
     </YStack>

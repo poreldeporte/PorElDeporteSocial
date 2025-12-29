@@ -1,5 +1,5 @@
 import { Button, Card, Paragraph, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
-import { History } from '@tamagui/lucide-icons'
+import { ArrowRight } from '@tamagui/lucide-icons'
 import { useMemo } from 'react'
 import { useLink } from 'solito/link'
 
@@ -21,54 +21,44 @@ export const PastGamesSection = ({ mode }: PastGamesSectionProps) => {
     () => (mode === 'admin' ? games : games.filter((game) => game.userStatus === 'confirmed')),
     [games, mode]
   )
-  const title = mode === 'admin' ? 'Recent games' : 'My recent games'
-  const description =
-    mode === 'admin'
-      ? 'Review past matches, report results, or double-check drafts.'
-      : 'Respect the crew. Stay sharp, stay ready.'
-
+  const title = 'Recent games'
   return (
-    <Card px="$4" py="$4" bordered $platform-native={{ borderWidth: 0 }}>
-      <YStack gap="$2">
-        <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-          <XStack ai="center" gap="$2">
-            <History size={20} />
-            <SizableText size="$5" fontWeight="600">
-              {title}
-            </SizableText>
-          </XStack>
-          {mode === 'admin' && visibleGames.length > 0 ? <ViewAllPastGamesButton /> : null}
-        </XStack>
-        {(mode !== 'admin' || visibleGames.length === 0) ? (
-          <Paragraph theme="alt2">{description}</Paragraph>
-        ) : null}
-
-        {isLoading ? (
-          <XStack ai="center" jc="center" py="$4">
-            <Spinner />
-          </XStack>
-        ) : error ? (
-          <YStack gap="$2">
-            <Paragraph theme="alt1">Unable to load history.</Paragraph>
-            <Button br="$10" size="$3" onPress={() => refetch()}>
-              Retry
-            </Button>
-          </YStack>
-        ) : visibleGames.length === 0 ? (
-          <Paragraph theme="alt2">
-            {mode === 'admin'
-              ? 'No previous games yet.'
-              : 'You have not played any games yet.'}
-          </Paragraph>
-        ) : (
-          <YStack gap="$2">
-            {visibleGames.slice(0, 5).map((game, index) => (
-              <PastGameRow key={game.id} game={game} index={index} />
-            ))}
-          </YStack>
-        )}
-      </YStack>
-    </Card>
+    <YStack gap="$2">
+      <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
+        <SizableText size="$5" fontWeight="600">
+          {title}
+        </SizableText>
+        {mode === 'admin' && visibleGames.length > 0 ? <ViewAllPastGamesButton /> : null}
+      </XStack>
+      <Card px="$4" py="$3" bordered $platform-native={{ borderWidth: 0 }}>
+        <YStack gap="$2">
+          {isLoading ? (
+            <XStack ai="center" jc="center" py="$4">
+              <Spinner />
+            </XStack>
+          ) : error ? (
+            <YStack gap="$2">
+              <Paragraph theme="alt1">Unable to load history.</Paragraph>
+              <Button br="$10" size="$3" onPress={() => refetch()}>
+                Retry
+              </Button>
+            </YStack>
+          ) : visibleGames.length === 0 ? (
+            <Paragraph theme="alt2">
+              {mode === 'admin'
+                ? 'No previous games yet.'
+                : 'You have not played any games yet.'}
+            </Paragraph>
+          ) : (
+            <YStack gap="$2">
+              {visibleGames.slice(0, 5).map((game, index) => (
+                <PastGameRow key={game.id} game={game} index={index} />
+              ))}
+            </YStack>
+          )}
+        </YStack>
+      </Card>
+    </YStack>
   )
 }
 
@@ -76,14 +66,12 @@ const PastGameRow = ({ game, index }: { game: GameListItem; index: number }) => 
   const link = useLink({ href: `/games/${game.id}` })
   const kickoff = new Date(game.startTime)
   const timeLabel = kickoff.toLocaleString(undefined, {
-    weekday: 'long',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  })
-  const dateLabel = kickoff.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+    hour12: true,
   })
 
   return (
@@ -96,16 +84,23 @@ const PastGameRow = ({ game, index }: { game: GameListItem; index: number }) => 
       animation="medium"
       enterStyle={{ opacity: 0, x: -20 }}
       delay={index * 40}
+      {...link}
+      pressStyle={{ opacity: 0.8 }}
     >
-      <YStack gap="$0.5">
-        <SizableText fontWeight="600">{timeLabel}</SizableText>
-        <Paragraph theme="alt2">
-          {game.locationName ? `${game.locationName} · ${dateLabel}` : dateLabel}
-        </Paragraph>
+      <YStack gap="$0.5" flex={1}>
+        <XStack ai="center" jc="space-between" gap="$2">
+          <SizableText fontWeight="600">{timeLabel}</SizableText>
+          <ArrowRight size={20} />
+        </XStack>
+        <XStack ai="center" jc="space-between" gap="$2">
+          <Paragraph theme="alt2">{game.locationName ? game.locationName : 'Venue TBD'}</Paragraph>
+          <XStack ai="center" gap="$1">
+            <Paragraph theme="alt2" size="$2">
+              View recap
+            </Paragraph>
+          </XStack>
+        </XStack>
       </YStack>
-      <Button size="$2" br="$10" {...link}>
-        Open
-      </Button>
     </XStack>
   )
 }

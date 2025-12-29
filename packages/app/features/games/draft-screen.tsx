@@ -13,6 +13,7 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
+import { BRAND_COLORS } from 'app/constants/colors'
 import { api } from 'app/utils/api'
 import { useTeamsState } from 'app/utils/useTeamsState'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -663,11 +664,17 @@ const AvailablePlayersSection = ({
                         Last 5: {recentLabel || '—'}
                       </Paragraph>
                     </YStack>
+                    {/** Primary orange for live draft action */}
                     <Button
                       size="$2"
                       disabled={!canPick || rowPending || readOnly}
                       onPress={() => onPick(entry.profileId)}
                       iconAfter={rowPending ? <Spinner size="small" /> : undefined}
+                      style={
+                        canPick && !rowPending && !readOnly
+                          ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+                          : undefined
+                      }
                     >
                       {rowPending ? 'Drafting…' : canPick && !readOnly ? 'Draft' : 'Waiting'}
                     </Button>

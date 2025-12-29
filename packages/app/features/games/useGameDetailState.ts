@@ -19,8 +19,8 @@ export type GameDetailStateArgs = {
 export type GameDetailViewState = ReturnType<typeof computeGameDetailState>
 
 const statusCopy: Record<GameDetail['status'], { label: string; tone: 'default' | 'warning' }> = {
-  scheduled: { label: 'Open', tone: 'default' },
-  locked: { label: 'Roster locked', tone: 'warning' },
+  scheduled: { label: 'Spots open', tone: 'default' },
+  locked: { label: 'Awaiting confirmation', tone: 'warning' },
   cancelled: { label: 'Cancelled', tone: 'warning' },
   completed: { label: 'Completed', tone: 'default' },
 }
@@ -62,6 +62,7 @@ export const computeGameDetailState = ({
     ? startDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
     : ''
   const kickoffLabel = formatGameKickoffLabel(startDate)
+  const hasStarted = startDate ? now >= startDate.getTime() : false
 
   const confirmedCount = game?.confirmedCount ?? 0
   const waitlistedCount = game?.waitlistedCount ?? 0
@@ -72,7 +73,9 @@ export const computeGameDetailState = ({
   const confirmedPlayers = sortConfirmed(
     (game?.queue ?? []).filter((entry) => entry.status === 'confirmed')
   )
-  const waitlistedPlayers = (game?.queue ?? []).filter((entry) => entry.status === 'waitlisted')
+  const waitlistedPlayers = (game?.queue ?? [])
+    .filter((entry) => entry.status === 'waitlisted')
+    .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime())
 
   const userEntry =
     game && userId ? game.queue.find((entry) => entry.player.id === userId) ?? null : null
@@ -80,14 +83,23 @@ export const computeGameDetailState = ({
   const userStatus = game ? userEntry?.status ?? game.userStatus : 'none'
   const ctaState = deriveCtaState(userStatus)
   const isGamePending = queueState.isPending && game ? queueState.pendingGameId === game.id : false
-  const canJoin = !!game && game.status === 'scheduled' && !waitlistFull
-  const ctaDisabled = !game || isGamePending || (ctaState === 'join' && !canJoin)
+  const canJoin = !!game && !hasStarted && game.status !== 'cancelled'
+  const canLeave =
+    !!game &&
+    !hasStarted &&
+    game.status !== 'completed' &&
+    game.status !== 'cancelled'
+  const ctaDisabled =
+    !game ||
+    isGamePending ||
+    (ctaState === 'join' && !canJoin) ||
+    (ctaState !== 'join' && !canLeave)
   const ctaTheme = ctaState === 'join' ? undefined : 'alt2'
   const statusMeta = game ? statusCopy[game.status] : null
   const userStatusMessage = userStatusCopy[userStatus]
 
   const confirmationWindowStart = startDate
-    ? new Date(startDate.getTime() - 24 * 60 * 60 * 1000)
+    ? new Date(startDate.getTime() - 48 * 60 * 60 * 1000)
     : null
   const isConfirmationOpen =
     confirmationWindowStart && startDate
@@ -111,14 +123,13 @@ export const computeGameDetailState = ({
     userEntry,
     userStatusMessage,
     ctaState,
-    ctaLabel:
-      game && game.status !== 'scheduled'
-        ? game.status === 'locked'
-          ? 'Roster locked'
-          : game.status === 'completed'
-            ? 'Game completed'
-            : 'Roster closed'
-        : ctaCopy[ctaState],
+    ctaLabel: (() => {
+      if (!game) return ctaCopy[ctaState]
+      if (game.status === 'cancelled') return 'Game cancelled'
+      if (game.status === 'completed' || hasStarted) return 'Game completed'
+      if (game.status === 'locked' && ctaState === 'join') return 'Join waitlist'
+      return ctaCopy[ctaState]
+    })(),
     ctaDisabled,
     ctaTheme,
     isGamePending,

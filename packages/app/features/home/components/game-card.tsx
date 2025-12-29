@@ -1,19 +1,15 @@
 import { Button, Card, Paragraph, Separator, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
-import { ArrowRight } from '@tamagui/lucide-icons'
+import { ArrowRight, Lock, Star, ThumbsDown } from '@tamagui/lucide-icons'
 import { useMemo } from 'react'
 import { useLink } from 'solito/link'
 import { useRouter } from 'solito/router'
 
 import { DEFAULT_WAITLIST_LIMIT } from '@my/config/game'
-import { StatusBadge, StatusNote } from 'app/features/games/components'
-import {
-  deriveAvailabilityStatus,
-  deriveUserBadge,
-  describeAvailability,
-  describeUserBadge,
-} from 'app/features/games/status-helpers'
+import { CombinedStatusBadge, StatusNote } from 'app/features/games/components'
+import { deriveCombinedStatus } from 'app/features/games/status-helpers'
 import type { GameListItem } from 'app/features/games/types'
 import { formatGameKickoffLabel } from 'app/features/games/time-utils'
+import { BRAND_COLORS } from 'app/constants/colors'
 
 type CtaState = 'join' | 'leave-confirmed' | 'leave-waitlisted'
 
@@ -34,36 +30,54 @@ type Props = {
   onJoin: (gameId: string) => void
   onLeave: (gameId: string) => void
   isPending: boolean
+  onConfirmAttendance?: (gameId: string) => void
+  isConfirming?: boolean
 }
 
-export const GameCard = ({ game, onJoin, onLeave, isPending }: Props) => {
+export const GameCard = ({
+  game,
+  onJoin,
+  onLeave,
+  isPending,
+  onConfirmAttendance,
+  isConfirming,
+}: Props) => {
   const startDate = useMemo(() => new Date(game.startTime), [game.startTime])
   const kickoffLabel = useMemo(() => formatGameKickoffLabel(startDate), [startDate])
+  const confirmationWindowStart = useMemo(
+    () => (startDate ? new Date(startDate.getTime() - 48 * 60 * 60 * 1000) : null),
+    [startDate]
+  )
   const ctaState = deriveCtaState(game)
   const waitlistCapacity = game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT
   const waitlistFull = game.waitlistedCount >= waitlistCapacity
-  const canJoin = game.status === 'scheduled' && !waitlistFull
-  const disableButton = isPending || (ctaState === 'join' && !canJoin)
+  const hasStarted = startDate ? Date.now() >= startDate.getTime() : false
+  const isConfirmationOpen =
+    confirmationWindowStart && startDate
+      ? Date.now() >= confirmationWindowStart.getTime() && Date.now() < startDate.getTime()
+      : false
+  const canJoin = game.status !== 'cancelled' && game.status !== 'completed' && !hasStarted
   const router = useRouter()
   const detailHref = `/games/${game.id}`
   const detailLink = useLink({ href: detailHref })
-  const availabilityBadge = deriveAvailabilityStatus({
-    status: game.status,
+  const combinedStatus = deriveCombinedStatus({
+    gameStatus: game.status,
     confirmedCount: game.confirmedCount,
     capacity: game.capacity,
     attendanceConfirmedCount: game.attendanceConfirmedCount ?? 0,
     waitlistedCount: game.waitlistedCount ?? 0,
     waitlistCapacity: game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT,
+    userStatus: game.userStatus === 'none' ? undefined : game.userStatus,
+    attendanceConfirmed: Boolean((game as any).attendanceConfirmedAt),
+    canConfirmAttendance:
+      game.userStatus === 'confirmed' &&
+      !game.attendanceConfirmedAt &&
+      isConfirmationOpen,
   })
-  const userBadge = deriveUserBadge({
-    queueStatus: game.userStatus === 'none' ? undefined : game.userStatus,
-  })
-  const ctaTheme = ctaState === 'join' ? undefined : 'alt2'
-
-  const handlePress = () => {
-    if (ctaState === 'join') onJoin(game.id)
-    else onLeave(game.id)
-  }
+  const showConfirmCta =
+    game.userStatus === 'confirmed' &&
+    !game.attendanceConfirmedAt &&
+    isConfirmationOpen
 
   const waitlistLabel = `${game.waitlistedCount}`
   const spotsLeft = Math.max(game.capacity - game.confirmedCount, 0)
@@ -74,6 +88,25 @@ export const GameCard = ({ game, onJoin, onLeave, isPending }: Props) => {
     } else {
       router.push(detailHref)
     }
+  }
+
+  const ctaTheme = ctaState === 'join' || showConfirmCta ? undefined : 'alt2'
+  const primaryButtonStyle =
+    (ctaState === 'join' || showConfirmCta) && !isPending
+      ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+      : {}
+  const ctaLabel = showConfirmCta ? 'Confirm spot' : ctaCopy[ctaState]
+  const ctaDisabled =
+    isPending ||
+    (ctaState === 'join' && !canJoin) ||
+    (showConfirmCta && isConfirming)
+  const handleCtaPress = () => {
+    if (showConfirmCta && onConfirmAttendance) {
+      onConfirmAttendance(game.id)
+      return
+    }
+    if (ctaState === 'join') onJoin(game.id)
+    else onLeave(game.id)
   }
 
   return (
@@ -89,37 +122,24 @@ export const GameCard = ({ game, onJoin, onLeave, isPending }: Props) => {
       animation="slow"
       enterStyle={{ opacity: 0, y: 25 }}
     >
-      <YStack gap="$2">
+      <YStack gap="$1.5">
         <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
           <SizableText size="$6" fontWeight="600">
             {kickoffLabel}
           </SizableText>
+          <CombinedStatusBadge status={combinedStatus} />
         </XStack>
-        <CombinedGameStatus availability={availabilityBadge} userBadge={userBadge} />
-        <XStack gap="$3" flexWrap="wrap">
-          <YStack flexBasis="48%" gap="$1">
-            <Paragraph theme="alt2" size="$2">
-              Location
-            </Paragraph>
-            <Paragraph fontWeight="600">{game.locationName ?? 'Venue TBD'}</Paragraph>
-          </YStack>
-          <YStack flexBasis="48%" gap="$1">
-            <Paragraph theme="alt2" size="$2">
-              Players signed up
-            </Paragraph>
-            <Paragraph fontWeight="600">
-              {`${game.confirmedCount}/${game.capacity}`}
-            </Paragraph>
-          </YStack>
-        </XStack>
-        <Paragraph theme="alt2" size="$2">
-          {spotsLeft > 0 ? `${spotsLeft} spots open` : 'No spots open'}
-        </Paragraph>
+        <YStack gap="$0.5">
+          <Paragraph theme="alt1" fontWeight="600">
+            {game.locationName ?? 'Venue TBD'}
+          </Paragraph>
+          <Paragraph theme="alt2" size="$2">
+            {`${game.confirmedCount}/${game.capacity} players${game.waitlistedCount > 0 ? ` • ${game.waitlistedCount}/${game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT} on waitlist` : ''}`}
+          </Paragraph>
+        </YStack>
       </YStack>
 
-      <Separator />
-
-      <YStack gap="$3">
+      <YStack gap="$2">
         {game.status !== 'scheduled' || waitlistFull ? (
           <StatusNote status={game.status} waitlistFull={waitlistFull} />
         ) : null}
@@ -129,49 +149,48 @@ export const GameCard = ({ game, onJoin, onLeave, isPending }: Props) => {
             flex={1}
             size="$3"
             br="$10"
-            disabled={disableButton}
-            icon={isPending ? <Spinner size="small" /> : undefined}
+            disabled={ctaDisabled}
+            icon={getPrimaryIcon({ isPending, showConfirmCta, ctaState })}
             theme={ctaTheme}
+            {...primaryButtonStyle}
             onPress={(event) => {
               event?.stopPropagation?.()
-              handlePress()
+              handleCtaPress()
             }}
           >
-            {ctaCopy[ctaState]}
+            {ctaLabel}
           </Button>
           <Button
+            flex={1}
             size="$3"
-            circular
-            chromeless
+            br="$10"
             theme="alt2"
             {...detailLink}
-            onPress={(event) => {
+            onPress={(event: any) => {
               event?.stopPropagation?.()
               detailLink.onPress?.(event)
             }}
           >
-            <ArrowRight />
+            Details
           </Button>
         </XStack>
       </YStack>
     </Card>
   )
 }
-const CombinedGameStatus = ({
-  availability,
-  userBadge,
+
+const getPrimaryIcon = ({
+  isPending,
+  showConfirmCta,
+  ctaState,
 }: {
-  availability: ReturnType<typeof deriveAvailabilityStatus> | null
-  userBadge: ReturnType<typeof deriveUserBadge> | null
+  isPending: boolean
+  showConfirmCta: boolean
+  ctaState: CtaState
 }) => {
-  if (!availability && !userBadge) return null
-  const tone = availability?.tone ?? userBadge?.tone ?? 'neutral'
-  const parts = [describeAvailability(availability), describeUserBadge(userBadge)].filter(Boolean)
-  return (
-    <XStack>
-      <StatusBadge tone={tone} showIcon>
-        {parts.join(' · ')}
-      </StatusBadge>
-    </XStack>
-  )
+  if (isPending) return <Spinner size="small" />
+  if (showConfirmCta) return <Lock size={16} />
+  if (ctaState === 'join') return <Star size={16} />
+  if (ctaState === 'leave-confirmed') return <ThumbsDown size={16} />
+  return undefined
 }

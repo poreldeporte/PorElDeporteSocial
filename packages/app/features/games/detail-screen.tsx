@@ -6,12 +6,20 @@ import {
   ScrollView,
   SizableText,
   Spinner,
+  Separator,
   XStack,
   YStack,
   isWeb,
   useToastController,
 } from '@my/ui/public'
-import { ArrowRight, Calendar, Handshake, Heart, ShieldCheck, Zap } from '@tamagui/lucide-icons'
+import {
+  ArrowRight,
+  Calendar,
+  Handshake,
+  Heart,
+  ShieldCheck,
+  Zap,
+} from '@tamagui/lucide-icons'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { useQueueActions } from 'app/utils/useQueueActions'
@@ -19,18 +27,10 @@ import { useRouter } from 'solito/router'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
 import { useLink } from 'solito/link'
-import { Platform } from 'react-native'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useState, type ReactNode } from 'react'
 
-import { AdminPanel, GameActionBar, RosterSection, StatusBadge } from './components'
-import {
-  deriveAvailabilityStatus,
-  deriveUserBadge,
-  deriveUserStateMessage,
-  describeAvailability,
-  describeUserBadge,
-} from './status-helpers'
+import { AdminPanel, CombinedStatusBadge, GameActionBar, RosterSection } from './components'
+import { deriveCombinedStatus, deriveUserStateMessage } from './status-helpers'
 import { useGameDetailState } from './useGameDetailState'
 import type { GameDetail } from './types'
 
@@ -92,18 +92,19 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
   useGameRealtimeSync(data?.id)
 
   const canManage = !!data && role === 'admin'
-  const availabilityStatus = data
-    ? deriveAvailabilityStatus({
-        status: data.status,
+  const combinedStatus = data
+    ? deriveCombinedStatus({
+        gameStatus: data.status,
         confirmedCount: view.confirmedCount,
         capacity: data.capacity,
         attendanceConfirmedCount: view.confirmedPlayers.filter((player) => Boolean(player.attendanceConfirmedAt)).length,
+        waitlistedCount: view.waitlistedCount,
+        waitlistCapacity: view.waitlistCapacity,
+        userStatus: view.userEntry?.status ?? 'none',
+        attendanceConfirmed: Boolean(view.userEntry?.attendanceConfirmedAt),
+        canConfirmAttendance: view.canConfirmAttendance,
       })
     : null
-  const userStatusBadge = deriveUserBadge({
-    queueStatus: view.userEntry?.status ?? 'none',
-    attendanceConfirmed: Boolean(view.userEntry?.attendanceConfirmedAt),
-  })
   const userStateMessage = deriveUserStateMessage({
     queueStatus: view.userEntry?.status ?? 'none',
     attendanceConfirmed: Boolean(view.userEntry?.attendanceConfirmedAt),
@@ -151,14 +152,11 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
             : (screenContentContainerStyle.paddingBottom ?? 0) + 96,
         }}
       >
-        <YStack gap="$4">
+        <YStack gap="$3">
           <GameHeader
             kickoffLabel={view.kickoffLabel}
-            formattedStart={view.formattedStart}
             locationName={data.locationName}
-            costCents={data.costCents}
-            availabilityStatus={availabilityStatus}
-            userStatusBadge={userStatusBadge}
+            status={combinedStatus}
           />
 
           <YStack gap="$2">
@@ -206,15 +204,7 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
             }}
           />
 
-          <SectionTitle
-            meta={
-              view.waitlistCapacity
-                ? `${view.waitlistedCount}/${view.waitlistCapacity}`
-                : `${view.waitlistedCount}`
-            }
-          >
-            Waitlist
-          </SectionTitle>
+          <SectionTitle>Waitlist</SectionTitle>
           <RosterSection
             entries={view.waitlistedPlayers}
             emptyLabel="No one on the waitlist yet."
@@ -245,29 +235,23 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
 
 const GameHeader = ({
   kickoffLabel,
-  formattedStart,
   locationName,
-  costCents,
-  availabilityStatus,
-  userStatusBadge,
+  status,
 }: {
   kickoffLabel: string
-  formattedStart: string
   locationName?: string | null
-  costCents: number | null
-  availabilityStatus: ReturnType<typeof deriveAvailabilityStatus> | null
-  userStatusBadge: ReturnType<typeof deriveUserBadge> | null
+  status: ReturnType<typeof deriveCombinedStatus>
 }) => {
-  const meta = [formattedStart || 'Date to be announced', locationName ?? 'Venue TBD', formatCurrency(costCents)]
   return (
-    <YStack gap="$1">
-      <SizableText size="$7" fontWeight="700">
-        {kickoffLabel || 'Kickoff TBD'}
-      </SizableText>
-      <YStack pt="$0.5" pb="$0.5">
-        <CombinedStatusBadge availability={availabilityStatus} userBadge={userStatusBadge} />
-      </YStack>
-      <MetaRow items={meta} />
+    <YStack gap="$2">
+      <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
+        <SizableText size="$6" fontWeight="600">
+          {kickoffLabel || 'Kickoff TBD'}
+        </SizableText>
+        <CombinedStatusBadge status={status} />
+      </XStack>
+      <Paragraph>{locationName ?? 'Venue TBD'}</Paragraph>
+      <Separator my="$1" />
     </YStack>
   )
 }
@@ -296,7 +280,7 @@ const AttendanceCard = ({
   const buttonTheme = theme === 'alt2' ? 'alt2' : undefined
   const isConfirmation = canConfirmAttendance && Boolean(confirmationWindowStart)
   const handler = isConfirmation ? onConfirmAttendance : onCta
-  const label = isConfirmation ? 'Confirm attendance' : ctaLabel
+  const label = isConfirmation ? 'Confirm spot' : ctaLabel
   const detail =
     !isConfirmation && confirmationWindowStart
       ? `Confirmation opens ${confirmationWindowStart.toLocaleString(undefined, {
@@ -419,9 +403,9 @@ const getDraftStatusContent = (
 
 const SectionTitle = ({ children, meta }: { children: string; meta?: string }) => (
   <XStack ai="center" jc="space-between" gap="$2">
-    <Paragraph theme="alt1" fontWeight="600">
+    <SizableText size="$5" fontWeight="600">
       {children}
-    </Paragraph>
+    </SizableText>
     {meta ? (
       <Paragraph theme="alt2" size="$2">
         {meta}
@@ -429,53 +413,6 @@ const SectionTitle = ({ children, meta }: { children: string; meta?: string }) =
     ) : null}
   </XStack>
 )
-
-const MetaRow = ({ items }: { items: (string | null | undefined)[] }) => {
-  const filtered = items.filter((item): item is string => Boolean(item && item.trim()))
-  if (!filtered.length) return null
-  return (
-    <XStack gap="$1" flexWrap="wrap" ai="center">
-      {filtered.map((text, index) => (
-        <XStack key={`${text}-${index}`} ai="center" gap="$1">
-          {index > 0 ? (
-            <Paragraph theme="alt2" size="$2">
-              •
-            </Paragraph>
-          ) : null}
-          <Paragraph theme="alt2" size="$2">
-            {text}
-          </Paragraph>
-        </XStack>
-      ))}
-    </XStack>
-  )
-}
-
-const CombinedStatusBadge = ({
-  availability,
-  userBadge,
-}: {
-  availability: ReturnType<typeof deriveAvailabilityStatus> | null
-  userBadge: ReturnType<typeof deriveUserBadge> | null
-}) => {
-  if (!availability && !userBadge) return null
-
-  const userLabel =
-    userBadge?.label === 'Dropped' ? null : describeUserBadge(userBadge)
-  const labelParts = [describeAvailability(availability), userLabel].filter(Boolean)
-  if (labelParts.length === 0) return null
-
-  const tone = availability?.tone ?? (userLabel ? userBadge?.tone : undefined) ?? 'neutral'
-  const label = labelParts.join(' · ')
-
-  return (
-    <XStack>
-      <StatusBadge tone={tone} showIcon>
-        {label}
-      </StatusBadge>
-    </XStack>
-  )
-}
 
 const shouldShowMatchSummary = ({
   result,
@@ -533,13 +470,12 @@ const ResultSummary = ({
     return { team, variant, score, captainName, captainProfileId }
   })
 
-  const introText = result
-    ? pending
-      ? 'Awaiting confirmation.'
-      : 'Result confirmed.'
-    : draftStatus === 'in_progress'
+  const introText =
+    draftStatus === 'in_progress'
       ? 'Captains are drafting—teams update live.'
-      : null
+      : result && pending
+        ? 'Awaiting confirmation.'
+        : null
 
   return (
     <Card bordered $platform-native={{ borderWidth: 0 }} px="$3" py="$2" gap="$2">
@@ -578,43 +514,96 @@ const ResultTeamSection = ({
   captainName?: string | null
   captainProfileId?: string | null
   score?: number | null
-}) => (
-  <YStack borderWidth={1} borderColor="$color4" br="$5" p="$2" gap="$1.5">
-    <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-      <Paragraph fontWeight="600">{team.name}</Paragraph>
-      <XStack gap="$2" ai="center">
-        {variant === 'winner' ? <StatusBadge tone="success">Winner</StatusBadge> : null}
-        {variant === 'loser' ? <StatusBadge tone="neutral">Loser</StatusBadge> : null}
+}) => {
+  const tone =
+    variant === 'winner'
+      ? {
+          borderColor: '$green7',
+          bg: '$green2',
+          scoreColor: '$green11',
+          chipBg: '$green3',
+          chipBorder: '$green7',
+          chipText: '$green11',
+          chipBadgeBg: '$green9',
+        }
+      : variant === 'loser'
+        ? {
+            borderColor: '$color4',
+            bg: '$color1',
+            scoreColor: '$color12',
+            chipBg: '$color2',
+            chipBorder: '$color5',
+            chipText: '$color12',
+            chipBadgeBg: '$color8',
+          }
+        : {
+            borderColor: '$color4',
+            bg: '$color1',
+            scoreColor: '$color11',
+            chipBg: '$color2',
+            chipBorder: '$color5',
+            chipText: '$color11',
+            chipBadgeBg: '$color8',
+          }
+
+  const roster =
+    (team.members ?? []).map((member) => ({
+      member,
+      isCaptain: captainProfileId ? member.profileId === captainProfileId : false,
+    })) ?? []
+
+  return (
+    <YStack borderWidth={1} borderColor={tone.borderColor as any} br="$4" p="$2" gap="$1.5" bg={tone.bg as any}>
+      <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
+        <SizableText size="$7" fontWeight="800" color={tone.scoreColor as any}>
+          {team.name}
+        </SizableText>
         {score != null ? (
-          <Paragraph theme="alt1" size="$2">
-            Score {score}
-          </Paragraph>
+          <SizableText size="$9" fontWeight="900" color={tone.scoreColor as any}>
+            {score}
+          </SizableText>
         ) : null}
       </XStack>
-    </XStack>
-    <YStack gap="$1">
-      {captainName ? (
-        <XStack ai="center" gap="$2">
-          <Paragraph theme="alt1" fontWeight="600">
-            {captainName}
-          </Paragraph>
-          <StatusBadge tone="neutral" showIcon={false}>
-            Captain
-          </StatusBadge>
-        </XStack>
-      ) : null}
-      {(team.members ?? [])
-        .filter((member) =>
-          captainProfileId ? member.profileId !== captainProfileId : true
-        )
-        .map((member) => (
-          <Paragraph key={member.profileId} theme="alt2" size="$2">
-            {member.player.name ?? 'Anonymous Player'}
-          </Paragraph>
-        ))}
+      <XStack gap="$1" flexWrap="wrap">
+        {roster.map(({ member, isCaptain }) => {
+          const name = member.player.name ?? (isCaptain && captainName ? captainName : 'Anonymous Player')
+          return (
+            <XStack
+              key={member.profileId ?? member.player.id}
+              ai="center"
+              gap="$1"
+              px="$2"
+              py="$1"
+              br="$3"
+              bg={tone.chipBg as any}
+              borderWidth={1}
+              borderColor={tone.chipBorder as any}
+            >
+              {isCaptain ? (
+                <XStack
+                  w={18}
+                  h={18}
+                  ai="center"
+                  jc="center"
+                  br="$10"
+                  bg={tone.chipBadgeBg as any}
+                  flexShrink={0}
+                >
+                  <SizableText size="$1" color="$color1" fontWeight="700">
+                    C
+                  </SizableText>
+                </XStack>
+              ) : null}
+              <Paragraph size="$2" fontWeight={isCaptain ? '700' : '600'} color={tone.chipText as any}>
+                {name}
+              </Paragraph>
+            </XStack>
+          )
+        })}
+      </XStack>
     </YStack>
-  </YStack>
-)
+  )
+}
 
 const CommunityGuidelinesSection = () => (
   <Card bordered $platform-native={{ borderWidth: 0 }} px="$3" py="$2">
@@ -654,8 +643,3 @@ const IconBadge = ({ children }: { children: ReactNode }) => (
     {children}
   </XStack>
 )
-
-const formatCurrency = (cents: number | null) => {
-  if (!Number.isFinite(cents ?? Number.NaN) || !cents || cents <= 0) return 'Free'
-  return `$${((cents ?? 0) / 100).toFixed(2)}`
-}

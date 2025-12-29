@@ -84,7 +84,7 @@ const syncPendingGameLockState = async (supabase: SupabaseClient<Database>, game
   if (gameError) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
   if (!game || game.draft_status !== 'pending' || !game.capacity) return
 
-  const { count, error: countError } = await supabase
+  const { count: confirmedCount, error: countError } = await supabase
     .from('game_queue')
     .select('id', { count: 'exact', head: true })
     .eq('game_id', gameId)
@@ -92,15 +92,29 @@ const syncPendingGameLockState = async (supabase: SupabaseClient<Database>, game
 
   if (countError) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: countError.message })
 
-  const confirmed = count ?? 0
-  if (confirmed >= game.capacity && game.status !== 'locked') {
+  const { count: attendanceConfirmedCount, error: attendanceCountError } = await supabase
+    .from('game_queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('game_id', gameId)
+    .eq('status', 'confirmed')
+    .not('attendance_confirmed_at', 'is', null)
+
+  if (attendanceCountError) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: attendanceCountError.message })
+  }
+
+  const confirmed = confirmedCount ?? 0
+  const attendanceConfirmed = attendanceConfirmedCount ?? 0
+  const shouldLock = confirmed >= game.capacity && attendanceConfirmed >= game.capacity
+
+  if (shouldLock && game.status !== 'locked') {
     await supabase
       .from('games')
       .update({ status: 'locked' })
       .eq('id', gameId)
       .eq('status', 'scheduled')
       .eq('draft_status', 'pending')
-  } else if (confirmed < game.capacity && game.status === 'locked') {
+  } else if (!shouldLock && game.status === 'locked') {
     await supabase
       .from('games')
       .update({ status: 'scheduled' })
@@ -166,6 +180,29 @@ export const queueRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await ensureAdmin(ctx.supabase, ctx.user.id)
 
+      const { data: queueRow, error: queueFetchError } = await supabaseAdmin
+        .from('game_queue')
+        .select('game_id')
+        .eq('id', input.queueId)
+        .maybeSingle()
+
+      if (queueFetchError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: queueFetchError.message })
+      }
+      if (!queueRow) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
+      }
+
+      const { data: gameRow, error: gameError } = await supabaseAdmin
+        .from('games')
+        .select('draft_status')
+        .eq('id', queueRow.game_id)
+        .maybeSingle()
+
+      if (gameError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
+      }
+
       const { data, error } = await supabaseAdmin
         .from('game_queue')
         .update({
@@ -186,6 +223,9 @@ export const queueRouter = createTRPCRouter({
       }
 
       await promoteNextWaitlisted(supabaseAdmin, data.game_id)
+      if (gameRow?.draft_status === 'completed') {
+        await resetDraftForGame({ gameId: data.game_id, supabaseAdmin, actorId: ctx.user.id })
+      }
       await syncPendingGameLockState(supabaseAdmin, data.game_id)
 
       return { gameId: data.game_id }

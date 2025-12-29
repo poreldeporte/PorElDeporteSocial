@@ -1,20 +1,34 @@
+import { Paragraph, SizableText, YStack } from '@my/ui/public'
 import { useMemo } from 'react'
 
 import type { GameListItem } from 'app/features/games/types'
-import {
-  deriveAvailabilityStatus,
-  deriveUserBadge,
-  describeAvailability,
-  describeUserBadge,
-} from 'app/features/games/status-helpers'
 import { ScheduleTeaserCard } from './ScheduleTeaserCard'
+import { GameCard } from './game-card'
+import { formatGameKickoffLabel } from 'app/features/games/time-utils'
 
 type QuickJoinCardProps = {
   game?: GameListItem | null
   variant?: 'schedule' | 'draft'
+  titleOverride?: string
+  onJoin?: (gameId: string) => void
+  onLeave?: (gameId: string) => void
+  onConfirmAttendance?: (gameId: string) => void
+  isPending?: boolean
+  pendingGameId?: string | null
+  isConfirming?: boolean
 }
 
-export const QuickJoinCard = ({ game, variant = 'schedule' }: QuickJoinCardProps) => {
+export const QuickJoinCard = ({
+  game,
+  variant = 'schedule',
+  titleOverride,
+  onJoin,
+  onLeave,
+  onConfirmAttendance,
+  isPending,
+  pendingGameId,
+  isConfirming,
+}: QuickJoinCardProps) => {
   const kickoff = useMemo(() => (game ? new Date(game.startTime) : null), [game?.startTime])
   const timeLabel = kickoff
     ? kickoff.toLocaleString(undefined, {
@@ -23,51 +37,73 @@ export const QuickJoinCard = ({ game, variant = 'schedule' }: QuickJoinCardProps
         minute: '2-digit',
       })
     : null
-
-  const availability = game
-    ? deriveAvailabilityStatus({
-        status: game.status,
-        confirmedCount: game.confirmedCount,
-        capacity: game.capacity,
-        attendanceConfirmedCount: game.attendanceConfirmedCount ?? 0,
-        waitlistedCount: game.waitlistedCount ?? 0,
-        waitlistCapacity: game.waitlistCapacity ?? 0,
-      })
-    : null
-  const userBadge = game
-    ? deriveUserBadge({
-        queueStatus: game.userStatus === 'none' ? undefined : game.userStatus,
-      })
-    : null
-
-  const statusLine = [describeAvailability(availability), describeUserBadge(userBadge)]
-    .filter(Boolean)
-    .join(' · ')
+  const kickoffLabel = kickoff ? formatGameKickoffLabel(kickoff) : null
 
   const isDraftCard = variant === 'draft' && Boolean(game)
+  const isDraftLive = isDraftCard && game?.draftStatus === 'in_progress'
+
+  if (isDraftCard && !isDraftLive) return null
+  if (game && !isDraftCard) {
+    const card = (
+      <GameCard
+        game={game}
+        onJoin={onJoin ?? (() => {})}
+        onLeave={onLeave ?? (() => {})}
+        onConfirmAttendance={onConfirmAttendance}
+        isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
+        isConfirming={isConfirming}
+      />
+    )
+    return titleOverride ? (
+      <YStack gap="$1.5">
+        <SizableText size="$5" fontWeight="600">
+          {titleOverride}
+        </SizableText>
+        {card}
+      </YStack>
+    ) : (
+      card
+    )
+  }
+
+  const draftDescription = game && isDraftCard
+    ? `Don't miss the draft. Matchups drop for ${kickoffLabel ?? 'this run'}.`
+    : "Don't miss out on the draft. Make sure to tune in and see the matchups."
   const description = game
     ? isDraftCard
-      ? 'Captains are drafting live. Tap to follow every pick.'
-      : [statusLine, timeLabel ? `${timeLabel} @ ${game.locationName ?? 'Location TBA'}` : null]
-          .filter(Boolean)
-          .join(' · ')
-    : isDraftCard
-      ? 'No drafts live—check back once rosters fill.'
-      : 'No open runs right now—check the schedule to find your next run.'
+      ? draftDescription
+      : ''
+    : 'No open runs right now—check the schedule to find your next run.'
+  const meta =
+    game && !isDraftCard
+      ? [
+          timeLabel ? timeLabel : null,
+          game.locationName ? game.locationName : null,
+        ].filter(Boolean)
+      : game && isDraftCard
+        ? [kickoffLabel, game.locationName ?? null].filter(Boolean)
+        : []
+
   return (
     <ScheduleTeaserCard
       gameId={game?.id}
       variant={isDraftCard ? 'draft' : 'schedule'}
       title={
-        isDraftCard
-          ? game
-            ? 'Draft room'
+        titleOverride ??
+        (isDraftCard
+          ? isDraftLive
+            ? 'Draft is happening now'
             : 'Draft room'
           : game
             ? 'Next kickoff'
-            : 'Schedule'
+            : 'Schedule')
       }
       description={description}
+      badgeContent={null}
+      meta={meta}
+      ctaLabel={isDraftCard ? undefined : game ? undefined : 'See schedule'}
+      liveIndicator={isDraftLive}
+      showArrow={isDraftCard}
     />
   )
 }

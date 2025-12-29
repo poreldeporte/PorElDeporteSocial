@@ -1,4 +1,5 @@
 import { AnimatePresence, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
+import { useRouter } from 'solito/router'
 
 type StatsCardProps = {
   stats: { wins: number; losses: number; games: number }
@@ -6,17 +7,33 @@ type StatsCardProps = {
 }
 
 export const StatsCard = ({ stats, isLoading }: StatsCardProps) => (
-  <Card px="$4" py="$4" bordered $platform-native={{ borderWidth: 0 }}>
+  <YStack gap="$1.5">
     <SizableText size="$5" fontWeight="600">
       My record
     </SizableText>
-    <XStack gap="$4" mt="$3">
-      <StatBlock label="Wins" value={stats.wins} loading={isLoading} />
-      <StatBlock label="Losses" value={stats.losses} loading={isLoading} />
-      <StatBlock label="Games" value={stats.games} loading={isLoading} />
-    </XStack>
-  </Card>
+    <StatsCardBody stats={stats} isLoading={isLoading} />
+  </YStack>
 )
+
+const StatsCardBody = ({ stats, isLoading }: StatsCardProps) => {
+  const router = useRouter()
+  return (
+    <Card
+      px="$4"
+      py="$4"
+      bordered
+      $platform-native={{ borderWidth: 0 }}
+      onPress={() => router.push('/profile')}
+      pressStyle={{ opacity: 0.9 }}
+    >
+      <XStack gap="$4">
+        <StatBlock label="Wins" value={stats.wins} loading={isLoading} />
+        <StatBlock label="Losses" value={stats.losses} loading={isLoading} />
+        <StatBlock label="Games" value={stats.games} loading={isLoading} />
+      </XStack>
+    </Card>
+  )
+}
 
 const StatBlock = ({ label, value, loading }: { label: string; value: number; loading: boolean }) => (
   <YStack flex={1} ai="center" gap="$1">

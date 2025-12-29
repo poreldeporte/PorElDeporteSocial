@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@my/ui/public'
 import { Crown as CrownIcon } from '@tamagui/lucide-icons'
+import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { useMemo, useState } from 'react'
@@ -32,6 +33,12 @@ const normalizeEntry = (entry: RawEntry): Entry => ({
   winRate: entry.winRate ?? (entry.games ? entry.wins / entry.games : 0),
   recent: entry.recent ?? [],
 })
+
+const PODIUM_COLORS = {
+  1: BRAND_COLORS.primary,
+  2: '#6CACE4',
+  3: '#4b5320',
+} as const
 
 export const LeaderboardScreen = () => {
   const [metric, setMetric] = useState<Metric>('wins')
@@ -210,9 +217,9 @@ const InitialsBadge = ({ name }: { name: string }) => (
 
 const GlowRow = ({ entries }: { entries: Entry[] }) => {
   const slots = [
-    { rank: 2, entry: entries[1], glow: '#06b6d4', scale: 0.9, trend: 'up' as const },
-    { rank: 1, entry: entries[0], glow: '#facc15', scale: 1.5, crown: true },
-    { rank: 3, entry: entries[2], glow: '#a855f7', scale: 0.9, trend: 'down' as const },
+    { rank: 2, entry: entries[1], glow: PODIUM_COLORS[2], scale: 0.9, trend: 'up' as const },
+    { rank: 1, entry: entries[0], glow: PODIUM_COLORS[1], scale: 1.5, crown: true },
+    { rank: 3, entry: entries[2], glow: PODIUM_COLORS[3], scale: 0.9, trend: 'down' as const },
   ]
 
   return (
@@ -231,14 +238,14 @@ const GlowRow = ({ entries }: { entries: Entry[] }) => {
                     width={140}
                     height={140}
                     br={70}
-                    backgroundColor="rgba(251,191,36,0.05)"
-                    shadowColor="#fbbf24"
+                    backgroundColor="rgba(241,95,34,0.08)"
+                    shadowColor={BRAND_COLORS.primary}
                     shadowRadius={14}
                   />
                 ) : null}
                 {slot.crown ? (
                   <YStack position="absolute" top={-18}>
-                    <CrownIcon size={20} color="#f97316" />
+                    <CrownIcon size={20} color={BRAND_COLORS.primary} />
                   </YStack>
                 ) : null}
                 {slot.rank !== 1 ? (
@@ -274,7 +281,6 @@ const GlowRow = ({ entries }: { entries: Entry[] }) => {
 
 const GlowCircle = ({ name, glowColor, scale = 1, rank }: { name: string; glowColor: string; scale?: number; rank: number }) => {
   const size = 72 * scale
-  const initialSize = rank === 1 ? '$6' : '$4'
   return (
     <YStack
       width={size}
@@ -286,21 +292,13 @@ const GlowCircle = ({ name, glowColor, scale = 1, rank }: { name: string; glowCo
       borderColor={glowColor}
       borderWidth={2}
       shadowColor={glowColor}
-      shadowRadius={12}
+      shadowOpacity={0.25}
+      shadowRadius={18}
       overflow="hidden"
       position="relative"
     >
-      <Paragraph color="#fff" fontWeight="700" size={initialSize}>
+      <Paragraph color="#fff" fontWeight="700" size={rank === 1 ? '$6' : '$4'}>
         {initials(name)}
-      </Paragraph>
-      <Paragraph
-        color="#fff"
-        fontWeight="800"
-        position="absolute"
-        bottom={6}
-        size={rank === 1 ? '$3' : '$2'}
-      >
-        {rank}
       </Paragraph>
     </YStack>
   )

@@ -47,10 +47,13 @@ export const CreateGameForm = ({ onSuccess }: { onSuccess: () => void }) => {
         {(fields) => (
           <YStack gap="$3">
             <Paragraph theme="alt1">
-              Set the schedule, venue, and roster caps. Members will see new games instantly on the
+              Set the kickoff, venue, and roster cap. Members will see new games instantly on the
               dashboard.
             </Paragraph>
-            {Object.values(fields)}
+            {fields.start_time}
+            {fields.start_time_time}
+            {fields.location_name}
+            {fields.capacity}
           </YStack>
         )}
       </SchemaForm>
