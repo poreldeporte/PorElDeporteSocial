@@ -39,11 +39,12 @@ export type SignUpFieldValues = z.infer<typeof signUpFieldSchema>
 export const profileUpdateFieldSchema = z.object({
   firstName: schemaFields.firstName,
   lastName: schemaFields.lastName,
+  email: schemaFields.email,
   phone: schemaFields.phone,
   address: schemaFields.address.optional(),
   birthDate: schemaFields.birthDate,
   jerseyNumber: schemaFields.jerseyNumber,
-  position: schemaFields.positionOptional,
+  position: schemaFields.position,
 })
 
 export type ProfileUpdateFieldValues = z.infer<typeof profileUpdateFieldSchema>

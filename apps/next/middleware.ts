@@ -1,4 +1,6 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
+import { PROFILE_COMPLETION_FIELDS, isProfileComplete } from 'app/utils/auth/profileCompletion'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -7,13 +9,16 @@ import type { NextRequest } from 'next/server'
 // put the public routes here - these will be accessed by both guests and users
 const publicRoutes = ['/terms-of-service', '/privacy-policy']
 // put the authentication routes here - these will only be accessed by guests
-const authRoutes = ['/sign-in', '/sign-up', '/reset-password']
+const authRoutes = ['/sign-in', '/sign-up']
+const profileOnboardingRoute = '/onboarding/profile'
+const profileReviewRoute = '/onboarding/review'
 
 export async function middleware(req: NextRequest) {
   // we need to create a response and hand it to the supabase client to be able to modify the response headers.
   const res = NextResponse.next()
+  const pathname = req.nextUrl.pathname
   // public routes - no need for Supabase
-  if (publicRoutes.some((route) => req.nextUrl.pathname.startsWith(route))) {
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return res
   }
   // create authenticated Supabase Client.
@@ -22,13 +27,43 @@ export async function middleware(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const isAuthRoute = authRoutes.some((route) => req.nextUrl.pathname.startsWith(route))
-  const isResetRoute = req.nextUrl.pathname.startsWith('/reset-password')
-  // redirect if a logged in user is accessing an auth route (e.g. /sign-in)
-  if (user && isAuthRoute && !isResetRoute) {
-    const redirectUrl = req.nextUrl.clone()
-    redirectUrl.pathname = '/'
-    return NextResponse.redirect(redirectUrl)
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
+  const isProfileOnboarding = pathname.startsWith(profileOnboardingRoute)
+  const isProfileReview = pathname.startsWith(profileReviewRoute)
+  if (user) {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select(`${PROFILE_COMPLETION_FIELDS},${PROFILE_APPROVAL_FIELDS}`)
+      .eq('id', user.id)
+      .maybeSingle()
+    const profileComplete = !error && isProfileComplete(profile)
+    const profileApproved = !error && isProfileApproved(profile)
+    if (isAuthRoute) {
+      const redirectUrl = req.nextUrl.clone()
+      if (!profileComplete) {
+        redirectUrl.pathname = profileOnboardingRoute
+      } else if (!profileApproved) {
+        redirectUrl.pathname = profileReviewRoute
+      } else {
+        redirectUrl.pathname = '/'
+      }
+      return NextResponse.redirect(redirectUrl)
+    }
+    if (!profileComplete && !isProfileOnboarding) {
+      const redirectUrl = req.nextUrl.clone()
+      redirectUrl.pathname = profileOnboardingRoute
+      return NextResponse.redirect(redirectUrl)
+    }
+    if (profileComplete && !profileApproved && !isProfileReview && !isProfileOnboarding) {
+      const redirectUrl = req.nextUrl.clone()
+      redirectUrl.pathname = profileReviewRoute
+      return NextResponse.redirect(redirectUrl)
+    }
+    if (profileComplete && profileApproved && (isProfileOnboarding || isProfileReview)) {
+      const redirectUrl = req.nextUrl.clone()
+      redirectUrl.pathname = '/'
+      return NextResponse.redirect(redirectUrl)
+    }
   }
   // show auth routes for guests
   if (!user && isAuthRoute) {

@@ -1,6 +1,5 @@
 import { Button, Card, Paragraph, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
 import { ArrowRight } from '@tamagui/lucide-icons'
-import { useMemo } from 'react'
 import { useLink } from 'solito/link'
 
 import type { GameListItem } from 'app/features/games/types'
@@ -17,10 +16,7 @@ export const PastGamesSection = ({ mode }: PastGamesSectionProps) => {
   const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'past' })
   useGamesListRealtime(true)
   const games = data ?? []
-  const visibleGames = useMemo(
-    () => (mode === 'admin' ? games : games.filter((game) => game.userStatus === 'confirmed')),
-    [games, mode]
-  )
+  const visibleGames = games
   const title = 'Recent games'
   return (
     <YStack gap="$2">
@@ -44,14 +40,10 @@ export const PastGamesSection = ({ mode }: PastGamesSectionProps) => {
               </Button>
             </YStack>
           ) : visibleGames.length === 0 ? (
-            <Paragraph theme="alt2">
-              {mode === 'admin'
-                ? 'No previous games yet.'
-                : 'You have not played any games yet.'}
-            </Paragraph>
+            <Paragraph theme="alt2">No games played yet.</Paragraph>
           ) : (
             <YStack gap="$2">
-              {visibleGames.slice(0, 5).map((game, index) => (
+              {visibleGames.slice(0, 10).map((game, index) => (
                 <PastGameRow key={game.id} game={game} index={index} />
               ))}
             </YStack>

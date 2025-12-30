@@ -1,5 +1,5 @@
 import { Avatar, Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack } from '@my/ui/public'
-import { Shield, Share2, Sparkles, Trophy, UserCog } from '@tamagui/lucide-icons'
+import { Shield, Share2, Sparkles, Trophy, UserCog, Users } from '@tamagui/lucide-icons'
 import { pedLogo } from 'app/assets'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import type { GameListItem } from 'app/features/games/types'
@@ -44,6 +44,7 @@ export const ProfileScreen = () => {
           avatarUrl={data.avatarUrl}
           userId={data.userId}
           onEdit={data.onEdit}
+          onReviewMembers={data.onReviewMembers}
           onLogout={data.onLogout}
         />
         <PerformanceSection
@@ -79,6 +80,7 @@ const useProfileData = () => {
   const { profile, avatarUrl, user, displayName, role } = useUser()
   useStatsRealtime(Boolean(user))
   const editLink = useLink({ href: '/profile/edit' })
+  const approvalsLink = useLink({ href: '/admin/approvals' })
   const supabase = useSupabase()
   const scheduleLink = useLink({ href: '/games' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
@@ -108,6 +110,7 @@ const useProfileData = () => {
     role,
     userId: user?.id ?? '',
     onEdit: editLink.onPress,
+    onReviewMembers: role === 'admin' ? approvalsLink.onPress : undefined,
     onLogout: () => supabase.auth.signOut(),
     stats,
     performance,
@@ -118,7 +121,7 @@ const useProfileData = () => {
     historyError: Boolean(historyQuery.error),
     onHistoryRetry: historyQuery.refetch,
     historyLink: scheduleLink,
-    profileEmail: user?.email ?? null,
+    profileEmail: profile?.email ?? user?.email ?? null,
   }
 }
 
@@ -128,6 +131,7 @@ const ProfileHero = ({
   avatarUrl,
   userId,
   onEdit,
+  onReviewMembers,
   onLogout,
 }: {
   name: string
@@ -135,6 +139,7 @@ const ProfileHero = ({
   avatarUrl: string
   userId: string
   onEdit?: () => void
+  onReviewMembers?: () => void
   onLogout?: () => void
 }) => {
   return (
@@ -152,6 +157,9 @@ const ProfileHero = ({
       </XStack>
       <XStack mt="$1" gap="$2" flexWrap="wrap">
         <ActionButton icon={UserCog} label="Edit profile" onPress={onEdit} />
+        {onReviewMembers ? (
+          <ActionButton icon={Users} label="Review members" onPress={onReviewMembers} />
+        ) : null}
         <ActionButton icon={Shield} label="Log out" onPress={onLogout} theme="alt2" />
       </XStack>
     </Card>

@@ -1,10 +1,12 @@
 import {
   Avatar,
+  Button,
   Checkbox,
   FormWrapper,
   FullscreenSpinner,
   Paragraph,
   Label,
+  SizableText,
   SubmitButton,
   Theme,
   View,
@@ -12,7 +14,7 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { pedLogo } from 'app/assets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
@@ -24,7 +26,6 @@ import { useFormContext } from 'react-hook-form'
 import { Check as CheckIcon } from '@tamagui/lucide-icons'
 
 import { api } from '../../utils/api'
-import { UploadAvatar } from '../settings/components/upload-avatar'
 import {
   profileUpdateFieldSchema,
   POSITION_OPTIONS,
@@ -33,39 +34,46 @@ import {
 
 const { useParams } = createParam<{ edit_name?: '1' }>()
 export const EditProfileScreen = () => {
+  return <ProfileFormScreen />
+}
+
+const ProfileSchema = profileUpdateFieldSchema
+
+type ProfileFormScreenProps = {
+  submitLabel?: string
+  onComplete?: () => void
+}
+
+export const ProfileFormScreen = ({ submitLabel, onComplete }: ProfileFormScreenProps) => {
   const { profile, user } = useUser()
 
   if (!profile || !user?.id) {
     return <FullscreenSpinner />
   }
+  const approvalStatus = profile.approval_status === 'approved' ? 'approved' : 'pending'
   return (
     <EditProfileForm
       userId={user.id}
-      initial={{
-        firstName: profile.first_name ?? '',
-        lastName: profile.last_name ?? '',
-        phone: profile.phone ?? '',
-        address: profile.address ?? '',
-        birthDate: profile.birth_date
-          ? { dateValue: new Date(profile.birth_date) }
-          : undefined,
-        jerseyNumber: profile.jersey_number ?? undefined,
-        position: profile.position
-          ? profile.position.split(',').map((p) => p.trim()).filter(Boolean)
-          : [],
-      }}
+      initial={buildProfileFormInitial(profile, user)}
+      submitLabel={submitLabel}
+      approvalStatus={approvalStatus}
+      onComplete={onComplete}
     />
   )
 }
 
-const ProfileSchema = profileUpdateFieldSchema
-
 const EditProfileForm = ({
   initial,
   userId,
+  submitLabel = 'Update Profile',
+  approvalStatus,
+  onComplete,
 }: {
-  initial: Partial<ProfileUpdateFieldValues>
+  initial: ProfileFormInitial
   userId: string
+  submitLabel?: string
+  approvalStatus: 'draft' | 'pending' | 'approved'
+  onComplete?: () => void
 }) => {
   const { params } = useParams()
   const supabase = useSupabase()
@@ -75,25 +83,39 @@ const EditProfileForm = ({
   const apiUtils = api.useUtils()
   const mutation = useMutation({
     async mutationFn(data: ProfileUpdateFieldValues) {
-      await supabase
+      const { data: updated, error } = await supabase
         .from('profiles')
         .update({
           first_name: data.firstName.trim(),
           last_name: data.lastName.trim(),
+          email: data.email.trim(),
           phone: data.phone.trim(),
           address: data.address?.trim() || null,
           name: `${data.firstName} ${data.lastName}`.trim(),
           birth_date: formatDateInput(data.birthDate.dateValue),
           jersey_number: data.jerseyNumber,
           position: data.position?.length ? data.position.join(',') : null,
+          approval_status: approvalStatus,
         })
         .eq('id', userId)
+        .select('id')
+        .maybeSingle()
+      if (error) {
+        throw new Error(error.message)
+      }
+      if (!updated?.id) {
+        throw new Error('Unable to update profile.')
+      }
     },
 
     async onSuccess() {
       toast.show('Successfully updated!')
       await queryClient.invalidateQueries({ queryKey: ['profile', userId] })
       await apiUtils.greeting.invalidate()
+      if (onComplete) {
+        onComplete()
+        return
+      }
       router.back()
     },
 
@@ -112,11 +134,13 @@ const EditProfileForm = ({
           },
           phone: {
             inputMode: 'tel',
+            disabled: true,
           } as any,
         }}
         defaultValues={{
           firstName: initial.firstName,
           lastName: initial.lastName,
+          email: initial.email,
           phone: initial.phone,
           address: initial.address,
           birthDate: initial.birthDate,
@@ -127,7 +151,7 @@ const EditProfileForm = ({
         renderAfter={({ submit }) => (
           <Theme inverse>
             <SubmitButton disabled={mutation.isPending} onPress={() => submit()}>
-              {mutation.isPending ? 'Saving…' : 'Update Profile'}
+              {mutation.isPending ? 'Saving…' : submitLabel}
             </SubmitButton>
           </Theme>
         )}
@@ -142,6 +166,7 @@ const EditProfileForm = ({
             <YStack gap="$3">
               {fields.firstName}
               {fields.lastName}
+              {fields.email}
               {fields.phone}
               <PositionCheckboxes />
               {fields.jerseyNumber}
@@ -152,6 +177,124 @@ const EditProfileForm = ({
         )}
       </SchemaForm>
     </FormWrapper>
+  )
+}
+
+type ProfileRow = {
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  birth_date: string | null
+  jersey_number: number | null
+  position: string | null
+}
+
+type ProfileFormInitial = {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  address?: string
+  birthDate?: { dateValue: Date }
+  jerseyNumber?: number
+  position: string[]
+}
+
+const buildProfileFormInitial = (
+  profile: ProfileRow,
+  user?: { email?: string | null; phone?: string | null }
+) => ({
+  firstName: profile.first_name ?? '',
+  lastName: profile.last_name ?? '',
+  email: profile.email ?? user?.email ?? '',
+  phone: profile.phone ?? user?.phone ?? '',
+  address: profile.address ?? '',
+  birthDate: profile.birth_date ? { dateValue: new Date(profile.birth_date) } : undefined,
+  jerseyNumber: profile.jersey_number ?? undefined,
+  position: profile.position
+    ? profile.position.split(',').map((p) => p.trim()).filter(Boolean)
+    : [],
+})
+
+export const AdminProfileEditScreen = ({ profileId }: { profileId: string }) => {
+  const { role, isLoading } = useUser()
+  const supabase = useSupabase()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const profileQuery = useQuery({
+    queryKey: ['profile', profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(
+          'id, first_name, last_name, email, phone, address, birth_date, jersey_number, position, approval_status'
+        )
+        .eq('id', profileId)
+        .single()
+      if (error) throw new Error(error.message)
+      return data
+    },
+    enabled: role === 'admin' && !isLoading && !!profileId,
+  })
+
+  if (isLoading) {
+    return <FullscreenSpinner />
+  }
+
+  if (role !== 'admin') {
+    return (
+      <YStack f={1} ai="center" jc="center" px="$6" gap="$2">
+        <SizableText size="$6" fontWeight="700">
+          Admin access only
+        </SizableText>
+        <Paragraph theme="alt2" textAlign="center">
+          Talk to a club steward if you need approval access.
+        </Paragraph>
+      </YStack>
+    )
+  }
+
+  if (profileQuery.isLoading) {
+    return <FullscreenSpinner />
+  }
+
+  if (profileQuery.isError || !profileQuery.data) {
+    return (
+      <YStack f={1} ai="center" jc="center" px="$4" gap="$3">
+        <Paragraph theme="alt2">
+          {profileQuery.isError ? 'Unable to load this member.' : 'Member not found.'}
+        </Paragraph>
+        <XStack gap="$2">
+          {profileQuery.isError ? (
+            <Button onPress={() => profileQuery.refetch()} disabled={profileQuery.isFetching}>
+              {profileQuery.isFetching ? 'Refreshing...' : 'Retry'}
+            </Button>
+          ) : null}
+          <Button onPress={() => router.back()}>Go back</Button>
+        </XStack>
+      </YStack>
+    )
+  }
+
+  const approvalStatus = profileQuery.data.approval_status ?? 'pending'
+  const initial = buildProfileFormInitial(profileQuery.data, {
+    email: profileQuery.data.email,
+    phone: profileQuery.data.phone,
+  })
+
+  return (
+    <EditProfileForm
+      userId={profileId}
+      initial={initial}
+      approvalStatus={approvalStatus}
+      submitLabel="Save changes"
+      onComplete={() => {
+        void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
+        router.back()
+      }}
+    />
   )
 }
 

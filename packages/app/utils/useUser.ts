@@ -38,6 +38,9 @@ export const useUser = () => {
     if (composed.length) return composed
     const metaName = typeof user?.user_metadata.full_name === 'string' ? user.user_metadata.full_name : ''
     if (metaName.trim()) return metaName
+    if (profile?.email?.trim()) return profile.email
+    if (profile?.phone?.trim()) return profile.phone
+    if (user?.phone) return user.phone
     return user?.email ?? ''
   })()
 

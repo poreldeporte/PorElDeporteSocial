@@ -1,5 +1,7 @@
 import type { Session, SessionContext as SessionContextHelper } from '@supabase/auth-helpers-react'
 import { AuthError, type User } from '@supabase/supabase-js'
+import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
+import { PROFILE_COMPLETION_FIELDS, isProfileComplete } from 'app/utils/auth/profileCompletion'
 import { supabase } from 'app/utils/supabase/client.native'
 import { router, useSegments } from 'expo-router'
 import { createContext, useEffect, useState } from 'react'
@@ -19,7 +21,42 @@ export const AuthProvider = ({ children, initialSession }: AuthProviderProps) =>
   const [session, setSession] = useState<Session | null>(initialSession || null)
   const [error, setError] = useState<AuthError | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  useProtectedRoute(session?.user ?? null)
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>('unknown')
+  useProtectedRoute(session?.user ?? null, profileStatus)
+  useEffect(() => {
+    let active = true
+    if (!session?.user?.id) {
+      setProfileStatus('unknown')
+      return () => {
+        active = false
+      }
+    }
+    setProfileStatus('loading')
+    supabase
+      .from('profiles')
+      .select(`${PROFILE_COMPLETION_FIELDS},${PROFILE_APPROVAL_FIELDS}`)
+      .eq('id', session.user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error || !isProfileComplete(data)) {
+          setProfileStatus('incomplete')
+          return
+        }
+        if (!isProfileApproved(data)) {
+          setProfileStatus('pending')
+          return
+        }
+        setProfileStatus('approved')
+      })
+      .catch(() => {
+        if (!active) return
+        setProfileStatus('incomplete')
+      })
+    return () => {
+      active = false
+    }
+  }, [session?.user?.id])
   useEffect(() => {
     setIsLoading(true)
     supabase.auth
@@ -72,24 +109,46 @@ export const AuthProvider = ({ children, initialSession }: AuthProviderProps) =>
   )
 }
 
-export function useProtectedRoute(user: User | null) {
+type ProfileStatus = 'unknown' | 'loading' | 'incomplete' | 'pending' | 'approved'
+
+export function useProtectedRoute(user: User | null, profileStatus: ProfileStatus) {
   const segments = useSegments()
 
   useEffect(() => {
     const inAuthGroup = segments[0] === '(auth)'
+    const inProfileOnboarding = segments[0] === 'onboarding' && segments[1] === 'profile'
+    const inProfileReview = segments[0] === 'onboarding' && segments[1] === 'review'
+    const publicRoutes = ['terms-of-service', 'privacy-policy']
+    const inPublicRoute = publicRoutes.includes(segments[0] ?? '')
 
     if (
       // If the user is not signed in and the initial segment is not anything in the auth group.
       !user &&
-      !inAuthGroup
+      !inAuthGroup &&
+      !inPublicRoute
     ) {
       // Redirect to the sign-in page.
       replaceRoute('/onboarding')
-    } else if (user && inAuthGroup) {
-      // Redirect away from the sign-in page.
+      return
+    }
+    if (!user) return
+    if (inPublicRoute) return
+    if (profileStatus === 'incomplete' && !inProfileOnboarding && !inProfileReview) {
+      replaceRoute('/onboarding/profile')
+      return
+    }
+    if (profileStatus === 'pending' && !inProfileReview && !inProfileOnboarding) {
+      replaceRoute('/onboarding/review')
+      return
+    }
+    if (profileStatus === 'approved' && (inProfileOnboarding || inProfileReview)) {
+      replaceRoute('/')
+      return
+    }
+    if (profileStatus === 'approved' && inAuthGroup) {
       replaceRoute('/')
     }
-  }, [user, segments])
+  }, [user, segments, profileStatus])
 }
 
 /**

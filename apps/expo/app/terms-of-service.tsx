@@ -8,8 +8,8 @@ const layout = getScreenLayout('legalTerms')
 export default function Screen() {
   return (
     <>
-      <Stack.Screen options={{ headerTitle: layout.title }} />
-      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+      <Stack.Screen options={{ headerTitle: layout.title, headerShown: true }} />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
         <TermsOfServiceScreen />
       </SafeAreaView>
     </>

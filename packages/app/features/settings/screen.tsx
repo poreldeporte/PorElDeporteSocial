@@ -1,5 +1,5 @@
 import { Paragraph, ScrollView, Separator, Settings, YStack, isWeb, useMedia } from '@my/ui/public'
-import { Book, Cog, Info, Lock, LogOut, Mail, Moon, Twitter } from '@tamagui/lucide-icons'
+import { Book, Cog, Info, LogOut, Moon, Twitter } from '@tamagui/lucide-icons'
 import { useThemeSetting } from 'app/provider/theme'
 import { redirect } from 'app/utils/redirect'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
@@ -26,22 +26,6 @@ export const SettingsScreen = () => {
                 accentTheme="green"
               >
                 General
-              </Settings.Item>
-              <Settings.Item
-                icon={Lock}
-                isActive={pathname === '/settings/change-password'}
-                {...useLink({ href: '/settings/change-password' })}
-                accentTheme="green"
-              >
-                Change Password
-              </Settings.Item>
-              <Settings.Item
-                icon={Mail}
-                isActive={pathname === '/settings/change-email'}
-                {...useLink({ href: '/settings/change-email' })}
-                accentTheme="green"
-              >
-                Change Email
               </Settings.Item>
             </Settings.Group>
             {isWeb && <Separator boc="$color3" mx="$-4" bw="$0.25" />}

@@ -680,11 +680,13 @@ export type Database = {
           address: string | null
           first_name: string | null
           last_name: string | null
+          email: string | null
           phone: string | null
           birth_date: string | null
           jersey_number: number | null
           position: string | null
           role: Database["public"]["Enums"]["profile_role"]
+          approval_status: Database["public"]["Enums"]["profile_approval_status"]
         }
         Insert: {
           id: string
@@ -694,11 +696,13 @@ export type Database = {
           address?: string | null
           first_name?: string | null
           last_name?: string | null
+          email?: string | null
           phone?: string | null
           birth_date?: string | null
           jersey_number?: number | null
           position?: string | null
           role?: Database["public"]["Enums"]["profile_role"]
+          approval_status?: Database["public"]["Enums"]["profile_approval_status"]
         }
         Update: {
           id?: string
@@ -708,11 +712,13 @@ export type Database = {
           address?: string | null
           first_name?: string | null
           last_name?: string | null
+          email?: string | null
           phone?: string | null
           birth_date?: string | null
           jersey_number?: number | null
           position?: string | null
           role?: Database["public"]["Enums"]["profile_role"]
+          approval_status?: Database["public"]["Enums"]["profile_approval_status"]
         }
         Relationships: [
           {
@@ -867,6 +873,7 @@ export type Database = {
           waitlisted_count: number
           attendance_confirmed_count: number
           user_status: Database["public"]["Enums"]["game_queue_status"] | null
+          user_attendance_confirmed_at: string | null
         }[]
       }
       get_player_stats: {
@@ -912,6 +919,7 @@ export type Database = {
       game_queue_status: "confirmed" | "waitlisted" | "cancelled"
       game_status: "scheduled" | "locked" | "completed" | "cancelled"
       profile_role: "member" | "captain" | "admin"
+      profile_approval_status: "pending" | "approved" | "draft"
     }
     CompositeTypes: {
       [_ in never]: never

@@ -121,7 +121,7 @@ const CtaButton = (props: ButtonProps) => {
 
 const ProfileMenu = () => {
   const [open, setOpen] = useState(false)
-  const { displayName, user } = useUser()
+  const { displayName, profile, user } = useUser()
   const profileRoutes = getRoutesById(profileMenuRouteIds)
   return (
     <Popover size="$3" stayInFrame={{ padding: 16 }} open={open} onOpenChange={setOpen}>
@@ -143,7 +143,7 @@ const ProfileMenu = () => {
           <YStack>
             <SizableText fontWeight="600">{displayName || 'Member'}</SizableText>
             <SizableText theme="alt2" size="$2">
-              {user?.email ?? ''}
+              {profile?.email ?? user?.phone ?? user?.email ?? ''}
             </SizableText>
           </YStack>
           <Separator />

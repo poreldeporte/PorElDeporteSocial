@@ -7,11 +7,13 @@ export type ScreenLayoutId =
   | 'gameResult'
   | 'profile'
   | 'profileEdit'
+  | 'profileOnboarding'
+  | 'profileReview'
   | 'leaderboard'
   | 'settings'
   | 'settingsGeneral'
-  | 'settingsChangeEmail'
-  | 'settingsChangePassword'
+  | 'adminApprovals'
+  | 'adminMemberEdit'
   | 'create'
   | 'community'
   | 'legalTerms'
@@ -19,7 +21,6 @@ export type ScreenLayoutId =
   | 'legalAbout'
   | 'authSignIn'
   | 'authSignUp'
-  | 'authResetPassword'
   | 'authOnboarding'
   | 'createScreen'
   | 'shop'
@@ -39,20 +40,21 @@ const screenLayouts: Record<ScreenLayoutId, ScreenLayout> = {
   gameResult: { id: 'gameResult', title: 'Game Result' },
   profile: { id: 'profile', title: 'My Profile' },
   profileEdit: { id: 'profileEdit', title: 'Edit Profile' },
+  profileOnboarding: { id: 'profileOnboarding', title: 'Finish Setup' },
+  profileReview: { id: 'profileReview', title: 'Member Review' },
   leaderboard: { id: 'leaderboard', title: 'Leaderboard' },
   settings: { id: 'settings', title: 'Settings' },
   settingsGeneral: { id: 'settingsGeneral', title: 'General' },
-  settingsChangeEmail: { id: 'settingsChangeEmail', title: 'Change Email' },
-  settingsChangePassword: { id: 'settingsChangePassword', title: 'Change Password' },
+  adminApprovals: { id: 'adminApprovals', title: 'Member approvals' },
+  adminMemberEdit: { id: 'adminMemberEdit', title: 'Edit member' },
   create: { id: 'create', title: 'Create', stickyCta: 'primary' },
   community: { id: 'community', title: 'La Familia' },
   legalTerms: { id: 'legalTerms', title: 'Terms of Service' },
   legalPrivacy: { id: 'legalPrivacy', title: 'Privacy Policy' },
   legalAbout: { id: 'legalAbout', title: 'About' },
-  authSignIn: { id: 'authSignIn', title: 'Sign In' },
-  authSignUp: { id: 'authSignUp', title: 'Sign Up' },
-  authResetPassword: { id: 'authResetPassword', title: 'Reset Password' },
-  authOnboarding: { id: 'authOnboarding', title: 'Welcome' },
+  authSignIn: { id: 'authSignIn', title: 'Por El Deporte' },
+  authSignUp: { id: 'authSignUp', title: 'Por El Deporte' },
+  authOnboarding: { id: 'authOnboarding', title: 'Por El Deporte' },
   createScreen: { id: 'createScreen', title: 'Create' },
   shop: { id: 'shop', title: 'Shop' },
 }

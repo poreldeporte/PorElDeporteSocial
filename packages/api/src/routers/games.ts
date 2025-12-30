@@ -133,6 +133,7 @@ export const gamesRouter = createTRPCRouter({
           waitlistedCount: stat.waitlisted_count ?? 0,
           attendanceConfirmedCount: stat.attendance_confirmed_count ?? 0,
           userStatus: (stat.user_status as GameUserStatus | null) ?? 'none',
+          attendanceConfirmedAt: stat.user_attendance_confirmed_at ?? null,
         },
       ])
     )
@@ -156,6 +157,7 @@ export const gamesRouter = createTRPCRouter({
         confirmedCount: stats?.confirmedCount ?? 0,
         waitlistedCount: stats?.waitlistedCount ?? 0,
         userStatus: stats?.userStatus ?? 'none',
+        attendanceConfirmedAt: stats?.attendanceConfirmedAt ?? null,
         cancelledAt: game.cancelled_at,
         captainIds: (game.game_captains ?? []).map((captain) => captain.profile_id),
       }

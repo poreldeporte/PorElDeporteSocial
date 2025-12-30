@@ -68,7 +68,7 @@ export const GameCard = ({
     waitlistedCount: game.waitlistedCount ?? 0,
     waitlistCapacity: game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT,
     userStatus: game.userStatus === 'none' ? undefined : game.userStatus,
-    attendanceConfirmed: Boolean((game as any).attendanceConfirmedAt),
+    attendanceConfirmed: Boolean(game.attendanceConfirmedAt),
     canConfirmAttendance:
       game.userStatus === 'confirmed' &&
       !game.attendanceConfirmedAt &&
@@ -92,9 +92,15 @@ export const GameCard = ({
 
   const ctaTheme = ctaState === 'join' || showConfirmCta ? undefined : 'alt2'
   const primaryButtonStyle =
-    (ctaState === 'join' || showConfirmCta) && !isPending
-      ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
-      : {}
+    !isPending && ctaState === 'join'
+      ? {
+          backgroundColor: 'transparent',
+          borderColor: BRAND_COLORS.primary,
+          color: BRAND_COLORS.primary,
+        }
+      : !isPending && showConfirmCta
+        ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+        : {}
   const ctaLabel = showConfirmCta ? 'Confirm spot' : ctaCopy[ctaState]
   const ctaDisabled =
     isPending ||

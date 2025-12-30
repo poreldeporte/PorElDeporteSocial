@@ -11201,6 +11201,8 @@ __metadata:
     expo-image-picker: "npm:~16.1.4"
     expo-linking: "npm:~7.1.5"
     expo-secure-store: "npm:~14.2.3"
+    i18n-iso-countries: "npm:^7.14.0"
+    libphonenumber-js: "npm:^1.12.33"
     nanoid: "npm:^3.3.8"
     react-dropzone: "npm:^14.2.3"
     react-hook-form: "npm:^7.46.1"
@@ -14119,6 +14121,13 @@ __metadata:
   version: 1.1.0
   resolution: "detect-node-es@npm:1.1.0"
   checksum: 10/e46307d7264644975b71c104b9f028ed1d3d34b83a15b8a22373640ce5ea630e5640b1078b8ea15f202b54641da71e4aa7597093bd4b91f113db520a26a37449
+  languageName: node
+  linkType: hard
+
+"diacritics@npm:1.3.0":
+  version: 1.3.0
+  resolution: "diacritics@npm:1.3.0"
+  checksum: 10/c5a7d6843a3569f1c5aaf643d2e01aaaf695dd369d0f7868300a1c637b91157fe89cf78aa2e87224042d7f4fc87ab39d20aadb7e006c25e0a7c6a2ef92972e74
   languageName: node
   linkType: hard
 
@@ -17943,6 +17952,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"i18n-iso-countries@npm:^7.14.0":
+  version: 7.14.0
+  resolution: "i18n-iso-countries@npm:7.14.0"
+  dependencies:
+    diacritics: "npm:1.3.0"
+  checksum: 10/e042ad6f7d608f76ad1b014b3cb3581e5ebdca952bd9fb1436f6d6ce5c419b8c9414c4388cfeb47234ed0d41b37f1ae3186be4d6e15836d30b2d73c546e3bffe
+  languageName: node
+  linkType: hard
+
 "iconv-lite@npm:0.4.24, iconv-lite@npm:^0.4.24":
   version: 0.4.24
   resolution: "iconv-lite@npm:0.4.24"
@@ -19265,6 +19283,13 @@ __metadata:
     prelude-ls: "npm:^1.2.1"
     type-check: "npm:~0.4.0"
   checksum: 10/2e4720ff79f21ae08d42374b0a5c2f664c5be8b6c8f565bb4e1315c96ed3a8acaa9de788ffed82d7f2378cf36958573de07ef92336cb5255ed74d08b8318c9ee
+  languageName: node
+  linkType: hard
+
+"libphonenumber-js@npm:^1.12.33":
+  version: 1.12.33
+  resolution: "libphonenumber-js@npm:1.12.33"
+  checksum: 10/631a079a5858aa4fc5fcf2273e5f403893f1f4987298b84ac3ad4c9ffb21f8887e86cbdc4e91a0d64825568fd7989c5c91d958a1a6069e5e242c22d6c0863be7
   languageName: node
   linkType: hard
 

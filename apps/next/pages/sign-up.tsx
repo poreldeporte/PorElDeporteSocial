@@ -1,18 +1,9 @@
-import { AuthLayout } from 'app/features/auth/layout.web'
-import { SignUpScreen } from 'app/features/auth/sign-up-screen'
-import Head from 'next/head'
+import type { GetServerSideProps } from 'next'
 
-import { NextPageWithLayout } from './_app'
+const Page = () => null
 
-const Page: NextPageWithLayout = () => (
-  <>
-    <Head>
-      <title>Sign up</title>
-    </Head>
-    <SignUpScreen />
-  </>
-)
-
-Page.getLayout = (children) => <AuthLayout>{children}</AuthLayout>
+export const getServerSideProps: GetServerSideProps = async () => ({
+  redirect: { destination: '/sign-in', permanent: false },
+})
 
 export default Page
