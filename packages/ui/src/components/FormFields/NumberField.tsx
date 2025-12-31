@@ -11,7 +11,7 @@ export const NumberField = (props: Pick<InputProps, 'size' | 'autoFocus'>) => {
     error,
     formState: { isSubmitting },
   } = useTsController<number>()
-  const { label, defaultValue, isOptional, placeholder, minValue, maxValue } = useNumberFieldInfo()
+  const { label, defaultValue, isOptional, placeholder } = useNumberFieldInfo()
   const id = useId()
   const disabled = isSubmitting
 
@@ -36,14 +36,6 @@ export const NumberField = (props: Pick<InputProps, 'size' | 'autoFocus'>) => {
               }
               const num = Number(text)
               if (Number.isNaN(num)) return
-              if (typeof maxValue !== 'undefined' && num > maxValue) {
-                field.onChange(maxValue)
-                return
-              }
-              if (typeof minValue !== 'undefined' && num < minValue) {
-                field.onChange(minValue)
-                return
-              }
               field.onChange(num)
             }}
             onBlur={field.onBlur}

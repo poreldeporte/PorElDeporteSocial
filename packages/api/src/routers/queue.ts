@@ -6,6 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { ensureAdmin } from '../utils/ensureAdmin'
+import { notifyRosterJoinedGlobal, notifyRosterLocked, notifyWaitlistPromoted } from '../services/notifications'
 
 const joinInput = z.object({
   gameId: z.string().uuid('Invalid game id'),
@@ -15,7 +16,7 @@ const leaveInput = joinInput
 const confirmInput = joinInput
 
 type QueueStatus = Database['public']['Enums']['game_queue_status'] | 'cancelled'
-type RpcResult = { status: QueueStatus }
+type RpcResult = { status: QueueStatus; promoted_profile_id?: string | null }
 
 const mapRpcError = (error: PostgrestError) => {
   switch (error.message) {
@@ -42,10 +43,40 @@ const unwrapRpcResult = (result: RpcResult | null) => {
   return result.status
 }
 
+const fetchGameStatus = async (supabase: SupabaseClient<Database>, gameId: string) => {
+  const { data, error } = await supabase.from('games').select('status').eq('id', gameId).maybeSingle()
+  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  return data?.status ?? null
+}
+
+const fetchUserQueueStatus = async (
+  supabase: SupabaseClient<Database>,
+  gameId: string,
+  profileId: string
+) => {
+  const { data, error } = await supabase
+    .from('game_queue')
+    .select('status')
+    .eq('game_id', gameId)
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  return (data?.status as QueueStatus | undefined) ?? null
+}
+
+const safelyNotify = async (action: () => Promise<void>) => {
+  try {
+    await action()
+  } catch {
+    return
+  }
+}
+
 const promoteNextWaitlisted = async (supabase: SupabaseClient<Database>, gameId: string) => {
   const { data, error } = await supabase
     .from('game_queue')
-    .select('id')
+    .select('id, profile_id')
     .eq('game_id', gameId)
     .eq('status', 'waitlisted')
     .order('joined_at', { ascending: true })
@@ -56,7 +87,7 @@ const promoteNextWaitlisted = async (supabase: SupabaseClient<Database>, gameId:
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   }
 
-  if (!data) return false
+  if (!data) return null
 
   const { error: promoteError } = await supabase
     .from('game_queue')
@@ -71,7 +102,7 @@ const promoteNextWaitlisted = async (supabase: SupabaseClient<Database>, gameId:
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: promoteError.message })
   }
 
-  return true
+  return data.profile_id ?? null
 }
 
 const syncPendingGameLockState = async (supabase: SupabaseClient<Database>, gameId: string) => {
@@ -126,28 +157,62 @@ const syncPendingGameLockState = async (supabase: SupabaseClient<Database>, game
 
 export const queueRouter = createTRPCRouter({
   join: protectedProcedure.input(joinInput).mutation(async ({ ctx, input }) => {
+    const statusBefore = await fetchGameStatus(ctx.supabase, input.gameId)
+    const userStatusBefore = await fetchUserQueueStatus(ctx.supabase, input.gameId, ctx.user.id)
     const { data, error } = await ctx.supabase.rpc('join_game_queue', {
       p_game_id: input.gameId,
     })
 
     if (error) throw mapRpcError(error)
 
-    return { status: unwrapRpcResult(data as RpcResult | null) }
+    const result = data as RpcResult | null
+    const joinStatus = unwrapRpcResult(result)
+    if (userStatusBefore !== 'confirmed' && joinStatus === 'confirmed') {
+      await safelyNotify(() =>
+        notifyRosterJoinedGlobal({ supabaseAdmin, gameId: input.gameId, profileId: ctx.user.id })
+      )
+    }
+
+    const statusAfter = await fetchGameStatus(ctx.supabase, input.gameId)
+    if (statusBefore !== 'locked' && statusAfter === 'locked') {
+      await safelyNotify(() => notifyRosterLocked({ supabaseAdmin, gameId: input.gameId }))
+    }
+
+    return { status: joinStatus }
   }),
 
   leave: protectedProcedure.input(leaveInput).mutation(async ({ ctx, input }) => {
+    const statusBefore = await fetchGameStatus(ctx.supabase, input.gameId)
     const { data, error } = await ctx.supabase.rpc('leave_game_queue', {
       p_game_id: input.gameId,
     })
 
     if (error) throw mapRpcError(error)
 
-    return { status: unwrapRpcResult(data as RpcResult | null) }
+    const result = data as RpcResult | null
+    const leaveStatus = unwrapRpcResult(result)
+    const promotedProfileId = result?.promoted_profile_id ?? null
+    if (promotedProfileId) {
+      await safelyNotify(() =>
+        notifyWaitlistPromoted({ supabaseAdmin, gameId: input.gameId, profileId: promotedProfileId })
+      )
+      await safelyNotify(() =>
+        notifyRosterJoinedGlobal({ supabaseAdmin, gameId: input.gameId, profileId: promotedProfileId })
+      )
+    }
+
+    const statusAfter = await fetchGameStatus(ctx.supabase, input.gameId)
+    if (statusBefore !== 'locked' && statusAfter === 'locked') {
+      await safelyNotify(() => notifyRosterLocked({ supabaseAdmin, gameId: input.gameId }))
+    }
+
+    return { status: leaveStatus }
   }),
 
   confirmAttendance: protectedProcedure
     .input(confirmInput)
     .mutation(async ({ ctx, input }) => {
+      const statusBefore = await fetchGameStatus(ctx.supabase, input.gameId)
       const { data, error } = await ctx.supabase
         .from('game_queue')
         .update({
@@ -172,6 +237,10 @@ export const queueRouter = createTRPCRouter({
       }
 
       await syncPendingGameLockState(ctx.supabase, input.gameId)
+      const statusAfter = await fetchGameStatus(ctx.supabase, input.gameId)
+      if (statusBefore !== 'locked' && statusAfter === 'locked') {
+        await safelyNotify(() => notifyRosterLocked({ supabaseAdmin, gameId: input.gameId }))
+      }
       return { gameId: input.gameId }
     }),
 
@@ -203,6 +272,7 @@ export const queueRouter = createTRPCRouter({
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
       }
 
+      const statusBefore = await fetchGameStatus(supabaseAdmin, queueRow.game_id)
       const { data, error } = await supabaseAdmin
         .from('game_queue')
         .update({
@@ -222,11 +292,23 @@ export const queueRouter = createTRPCRouter({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
       }
 
-      await promoteNextWaitlisted(supabaseAdmin, data.game_id)
+      const promotedProfileId = await promoteNextWaitlisted(supabaseAdmin, data.game_id)
+      if (promotedProfileId) {
+        await safelyNotify(() =>
+          notifyWaitlistPromoted({ supabaseAdmin, gameId: data.game_id, profileId: promotedProfileId })
+        )
+        await safelyNotify(() =>
+          notifyRosterJoinedGlobal({ supabaseAdmin, gameId: data.game_id, profileId: promotedProfileId })
+        )
+      }
       if (gameRow?.draft_status === 'completed') {
         await resetDraftForGame({ gameId: data.game_id, supabaseAdmin, actorId: ctx.user.id })
       }
       await syncPendingGameLockState(supabaseAdmin, data.game_id)
+      const statusAfter = await fetchGameStatus(supabaseAdmin, data.game_id)
+      if (statusBefore !== 'locked' && statusAfter === 'locked') {
+        await safelyNotify(() => notifyRosterLocked({ supabaseAdmin, gameId: data.game_id }))
+      }
 
       return { gameId: data.game_id }
     }),

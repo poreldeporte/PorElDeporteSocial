@@ -1,5 +1,5 @@
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements'
-import { createContext, forwardRef, useContext, useState } from 'react'
+import { type ComponentProps, createContext, forwardRef, useContext, useState } from 'react'
 import { KeyboardAvoidingView, Platform } from 'react-native'
 import {
   ScrollView,
@@ -54,9 +54,13 @@ const Wrapper = forwardRef<TamaguiElement, YStackProps>(function Wrapper(props, 
   )
 })
 
-const Body = forwardRef<TamaguiElement, YStackProps>(function Body(props, ref) {
+type BodyProps = YStackProps & {
+  scrollProps?: ComponentProps<typeof ScrollView>
+}
+
+const Body = forwardRef<TamaguiElement, BodyProps>(function Body({ scrollProps, ...props }, ref) {
   return (
-    <ScrollView>
+    <ScrollView {...scrollProps} f={1}>
       <YStack p="$4" ref={ref} gap="$2" pb="$8" {...props} />
     </ScrollView>
   )

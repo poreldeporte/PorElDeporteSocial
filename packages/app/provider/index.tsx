@@ -3,6 +3,7 @@ import { Session } from '@supabase/supabase-js'
 import React from 'react'
 
 import { AuthProvider } from './auth'
+import { NotificationsProvider } from './notifications'
 import { QueryClientProvider } from './react-query'
 import { SafeAreaProvider } from './safe-area'
 import { TamaguiProvider } from './tamagui'
@@ -46,4 +47,5 @@ const Providers = compose([
   TamaguiProvider,
   ToastProvider,
   QueryClientProvider,
+  NotificationsProvider,
 ])

@@ -7,6 +7,7 @@ export const ProfileOnboardingScreen = () => {
   return (
     <ProfileFormScreen
       submitLabel="Finish setup"
+      showStatusBadge={false}
       onComplete={() => router.replace('/onboarding/review')}
     />
   )

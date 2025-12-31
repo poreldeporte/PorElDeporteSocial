@@ -1,5 +1,5 @@
-import { Button, Card, Paragraph, Separator, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
-import { ArrowRight, Lock, Star, ThumbsDown } from '@tamagui/lucide-icons'
+import { Button, Card, Paragraph, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
+import { Star, ThumbsDown } from '@tamagui/lucide-icons'
 import { useMemo } from 'react'
 import { useLink } from 'solito/link'
 import { useRouter } from 'solito/router'
@@ -30,8 +30,6 @@ type Props = {
   onJoin: (gameId: string) => void
   onLeave: (gameId: string) => void
   isPending: boolean
-  onConfirmAttendance?: (gameId: string) => void
-  isConfirming?: boolean
 }
 
 export const GameCard = ({
@@ -39,8 +37,6 @@ export const GameCard = ({
   onJoin,
   onLeave,
   isPending,
-  onConfirmAttendance,
-  isConfirming,
 }: Props) => {
   const startDate = useMemo(() => new Date(game.startTime), [game.startTime])
   const kickoffLabel = useMemo(() => formatGameKickoffLabel(startDate), [startDate])
@@ -60,6 +56,10 @@ export const GameCard = ({
   const router = useRouter()
   const detailHref = `/games/${game.id}`
   const detailLink = useLink({ href: detailHref })
+  const canConfirmAttendance =
+    game.userStatus === 'confirmed' &&
+    !game.attendanceConfirmedAt &&
+    isConfirmationOpen
   const combinedStatus = deriveCombinedStatus({
     gameStatus: game.status,
     confirmedCount: game.confirmedCount,
@@ -69,15 +69,8 @@ export const GameCard = ({
     waitlistCapacity: game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT,
     userStatus: game.userStatus === 'none' ? undefined : game.userStatus,
     attendanceConfirmed: Boolean(game.attendanceConfirmedAt),
-    canConfirmAttendance:
-      game.userStatus === 'confirmed' &&
-      !game.attendanceConfirmedAt &&
-      isConfirmationOpen,
+    canConfirmAttendance,
   })
-  const showConfirmCta =
-    game.userStatus === 'confirmed' &&
-    !game.attendanceConfirmedAt &&
-    isConfirmationOpen
 
   const waitlistLabel = `${game.waitlistedCount}`
   const spotsLeft = Math.max(game.capacity - game.confirmedCount, 0)
@@ -90,7 +83,7 @@ export const GameCard = ({
     }
   }
 
-  const ctaTheme = ctaState === 'join' || showConfirmCta ? undefined : 'alt2'
+  const ctaTheme = ctaState === 'join' ? undefined : 'alt2'
   const primaryButtonStyle =
     !isPending && ctaState === 'join'
       ? {
@@ -98,19 +91,10 @@ export const GameCard = ({
           borderColor: BRAND_COLORS.primary,
           color: BRAND_COLORS.primary,
         }
-      : !isPending && showConfirmCta
-        ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
-        : {}
-  const ctaLabel = showConfirmCta ? 'Confirm spot' : ctaCopy[ctaState]
-  const ctaDisabled =
-    isPending ||
-    (ctaState === 'join' && !canJoin) ||
-    (showConfirmCta && isConfirming)
+      : {}
+  const ctaLabel = ctaCopy[ctaState]
+  const ctaDisabled = isPending || (ctaState === 'join' && !canJoin)
   const handleCtaPress = () => {
-    if (showConfirmCta && onConfirmAttendance) {
-      onConfirmAttendance(game.id)
-      return
-    }
     if (ctaState === 'join') onJoin(game.id)
     else onLeave(game.id)
   }
@@ -156,7 +140,7 @@ export const GameCard = ({
             size="$3"
             br="$10"
             disabled={ctaDisabled}
-            icon={getPrimaryIcon({ isPending, showConfirmCta, ctaState })}
+            icon={getPrimaryIcon({ isPending, ctaState })}
             theme={ctaTheme}
             {...primaryButtonStyle}
             onPress={(event) => {
@@ -187,15 +171,12 @@ export const GameCard = ({
 
 const getPrimaryIcon = ({
   isPending,
-  showConfirmCta,
   ctaState,
 }: {
   isPending: boolean
-  showConfirmCta: boolean
   ctaState: CtaState
 }) => {
   if (isPending) return <Spinner size="small" />
-  if (showConfirmCta) return <Lock size={16} />
   if (ctaState === 'join') return <Star size={16} />
   if (ctaState === 'leave-confirmed') return <ThumbsDown size={16} />
   return undefined

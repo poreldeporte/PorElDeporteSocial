@@ -623,6 +623,47 @@ export type Database = {
           },
         ]
       }
+      user_devices: {
+        Row: {
+          id: string
+          user_id: string
+          expo_push_token: string
+          platform: string
+          app_version: string | null
+          last_seen_at: string
+          created_at: string
+          disabled_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          expo_push_token: string
+          platform: string
+          app_version?: string | null
+          last_seen_at?: string
+          created_at?: string
+          disabled_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          expo_push_token?: string
+          platform?: string
+          app_version?: string | null
+          last_seen_at?: string
+          created_at?: string
+          disabled_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           category_id: string | null
@@ -911,6 +952,7 @@ export type Database = {
         }
         Returns: {
           status: Database["public"]["Enums"]["game_queue_status"]
+          promoted_profile_id?: string | null
         }
       }
     }

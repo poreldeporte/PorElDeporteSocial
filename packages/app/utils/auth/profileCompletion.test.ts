@@ -4,6 +4,7 @@ const completeProfile = {
   first_name: 'Jules',
   last_name: 'Winnfield',
   email: 'jules@example.com',
+  phone: '+1 305 555 1234',
   jersey_number: 8,
   position: 'Defender',
   birth_date: '1980-06-12',
@@ -18,6 +19,7 @@ describe('isProfileComplete', () => {
     expect(isProfileComplete({ ...completeProfile, first_name: '' })).toBe(false)
     expect(isProfileComplete({ ...completeProfile, last_name: null })).toBe(false)
     expect(isProfileComplete({ ...completeProfile, email: ' ' })).toBe(false)
+    expect(isProfileComplete({ ...completeProfile, phone: '' })).toBe(false)
     expect(isProfileComplete({ ...completeProfile, jersey_number: null })).toBe(false)
     expect(isProfileComplete({ ...completeProfile, position: '' })).toBe(false)
     expect(isProfileComplete({ ...completeProfile, birth_date: null })).toBe(false)

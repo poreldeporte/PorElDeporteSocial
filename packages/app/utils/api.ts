@@ -3,6 +3,7 @@ import { httpBatchLink } from '@trpc/client'
 import { createTRPCNext } from '@trpc/next'
 import SuperJSON from 'superjson'
 
+import { queryClient } from 'app/provider/react-query/QueryProvider'
 import { getBaseUrl } from './getBaseUrl'
 
 export const api = createTRPCNext<AppRouter>({
@@ -13,9 +14,7 @@ export const api = createTRPCNext<AppRouter>({
   transformer: SuperJSON,
   config() {
     return {
-      queryClientConfig: {
-        // web query config
-      },
+      queryClient,
       links: [
         httpBatchLink({
           transformer: SuperJSON,

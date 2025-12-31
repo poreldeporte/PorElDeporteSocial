@@ -6,6 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { startDraftForGame } from '../services/draft'
+import { notifyDraftStarted, notifyGameCreatedGlobal } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
 type GameRow = Database['public']['Tables']['games']['Row']
@@ -378,6 +379,10 @@ export const gamesRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'Unable to create game' })
     }
 
+    try {
+      await notifyGameCreatedGlobal({ supabaseAdmin, gameId: data.id })
+    } catch {}
+
     return data
   }),
 
@@ -490,6 +495,10 @@ export const gamesRouter = createTRPCRouter({
         supabaseAdmin,
         actorId: ctx.user.id,
       })
+
+      try {
+        await notifyDraftStarted({ supabaseAdmin, gameId: input.gameId })
+      } catch {}
 
       return { ok: true, draftStatus: 'in_progress' as const }
     }),

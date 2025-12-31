@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+import { type ComponentProps, forwardRef } from 'react'
 import {
   ScrollView,
   type TamaguiElement,
@@ -29,9 +29,13 @@ const Wrapper = forwardRef<TamaguiElement, YStackProps>(function Wrapper(props, 
   )
 })
 
-const Body = forwardRef<TamaguiElement, YStackProps>(function Body(props, ref) {
+type BodyProps = YStackProps & {
+  scrollProps?: ComponentProps<typeof ScrollView>
+}
+
+const Body = forwardRef<TamaguiElement, BodyProps>(function Body({ scrollProps, ...props }, ref) {
   return (
-    <ScrollView>
+    <ScrollView {...scrollProps}>
       <YStack p="$4" ref={ref} gap="$2" pb="$8" {...props} />
     </ScrollView>
   )

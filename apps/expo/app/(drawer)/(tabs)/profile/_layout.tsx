@@ -16,6 +16,7 @@ export default function Layout() {
         name="edit"
         options={{
           headerTitle: editLayout.title,
+          headerBackTitleVisible: false,
         }}
       />
     </Stack>

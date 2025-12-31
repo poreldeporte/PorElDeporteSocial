@@ -12,10 +12,8 @@ type QuickJoinCardProps = {
   titleOverride?: string
   onJoin?: (gameId: string) => void
   onLeave?: (gameId: string) => void
-  onConfirmAttendance?: (gameId: string) => void
   isPending?: boolean
   pendingGameId?: string | null
-  isConfirming?: boolean
 }
 
 export const QuickJoinCard = ({
@@ -24,10 +22,8 @@ export const QuickJoinCard = ({
   titleOverride,
   onJoin,
   onLeave,
-  onConfirmAttendance,
   isPending,
   pendingGameId,
-  isConfirming,
 }: QuickJoinCardProps) => {
   const kickoff = useMemo(() => (game ? new Date(game.startTime) : null), [game?.startTime])
   const timeLabel = kickoff
@@ -49,9 +45,7 @@ export const QuickJoinCard = ({
         game={game}
         onJoin={onJoin ?? (() => {})}
         onLeave={onLeave ?? (() => {})}
-        onConfirmAttendance={onConfirmAttendance}
         isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
-        isConfirming={isConfirming}
       />
     )
     return titleOverride ? (

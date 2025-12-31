@@ -1,13 +1,13 @@
 import { Button, H2, Paragraph, YStack } from '@my/ui/public'
 import { pedLogo } from 'app/assets'
+import { useLogout } from 'app/utils/auth/logout'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
-import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
 
 export const PendingReviewScreen = () => {
   const router = useRouter()
-  const supabase = useSupabase()
+  const logout = useLogout()
   const insets = useSafeAreaInsets()
   const contentPaddingTop = Math.max(insets.top, 24) + 24
 
@@ -32,7 +32,7 @@ export const PendingReviewScreen = () => {
           fontWeight="600"
           onPress={() => router.push('/onboarding/profile')}
         >
-          Edit profile
+          Edit application
         </Button>
         <Button
           height={50}
@@ -40,7 +40,7 @@ export const PendingReviewScreen = () => {
           fontSize={16}
           fontWeight="600"
           variant="outlined"
-          onPress={() => supabase.auth.signOut()}
+          onPress={() => logout()}
         >
           Log out
         </Button>

@@ -29,6 +29,7 @@ import {
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { usePathname } from 'app/utils/usePathname'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { SolitoImage } from 'solito/image'
@@ -57,6 +58,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const router = useRouter()
   const { isLoadingSession } = useUser()
   const insets = useSafeAreaInsets()
+  const pathname = usePathname()
   const [step, setStep] = useState<'phone' | 'code'>('phone')
   const [phone, setPhone] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'sending' | 'verifying'>('idle')
@@ -74,6 +76,16 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
     () => Boolean(parsePhoneToE164(phoneValue ?? '', country)),
     [country, phoneValue]
   )
+
+  useEffect(() => {
+    if (pathname !== '/sign-in') return
+    setStep('phone')
+    setPhone(null)
+    setStatus('idle')
+    setResendSeconds(0)
+    phoneForm.reset({ phone: '' })
+    codeForm.reset({ code: '' })
+  }, [codeForm, pathname, phoneForm])
 
   useEffect(() => {
     if (!phoneValue) return
@@ -180,7 +192,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   return (
     <YStack f={1} bg="$color1">
       <FormWrapper f={1} jc="space-between" gap="$0">
-        <FormWrapper.Body p="$0">
+      <FormWrapper.Body p="$0" scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
           {step === 'phone' ? (
             <YStack key="phone-step" px="$6" gap="$5" ai="center" style={{ paddingTop: contentPaddingTop }}>
               <AuthHeader title={title} subtitle={subtitle} />

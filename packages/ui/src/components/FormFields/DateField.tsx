@@ -21,6 +21,13 @@ export const DateField = (props: Pick<InputProps, 'size'>) => {
   const { label } = useFieldInfo()
   const id = useId()
   const disabled = isSubmitting
+  const rawErrorMessage = error?.dateValue?.errorMessage ?? error?.errorMessage
+  const errorMessage =
+    rawErrorMessage === 'Required' && label
+      ? `${label} is required`
+      : rawErrorMessage === 'Invalid date'
+      ? 'Enter a valid date'
+      : rawErrorMessage
 
   const inputRef = useRef<HTMLInputElement>(null) // Initialize with null
 
@@ -33,7 +40,7 @@ export const DateField = (props: Pick<InputProps, 'size'>) => {
       </Label>
 
       <XStack $sm={{ fd: 'column' }} $gtSm={{ fw: 'wrap' }} gap="$4">
-        <Theme name={error?.dateValue ? 'red' : null} forceClassName>
+        <Theme name={errorMessage ? 'red' : null} forceClassName>
           <Fieldset $gtSm={{ fb: 0 }} f={1}>
             <Shake shakeKey={error?.dateValue?.errorMessage}>
               <DatePickerExample
@@ -50,7 +57,7 @@ export const DateField = (props: Pick<InputProps, 'size'>) => {
                 {...props}
               />
             </Shake>
-            <FieldError message={error?.dateValue?.errorMessage} />
+            <FieldError message={errorMessage} />
           </Fieldset>
         </Theme>
       </XStack>

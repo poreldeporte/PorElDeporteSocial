@@ -1,8 +1,8 @@
 import { Paragraph, ScrollView, Separator, Settings, YStack, isWeb, useMedia } from '@my/ui/public'
 import { Book, Cog, Info, LogOut, Moon, Twitter } from '@tamagui/lucide-icons'
 import { useThemeSetting } from 'app/provider/theme'
+import { useLogout } from 'app/utils/auth/logout'
 import { redirect } from 'app/utils/redirect'
-import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { usePathname } from 'app/utils/usePathname'
 import { useLink } from 'solito/link'
 
@@ -95,10 +95,10 @@ const SettingsThemeAction = () => {
 }
 
 const SettingsItemLogoutAction = () => {
-  const supabase = useSupabase()
+  const logout = useLogout()
 
   return (
-    <Settings.Item icon={LogOut} accentTheme="red" onPress={() => supabase.auth.signOut()}>
+    <Settings.Item icon={LogOut} accentTheme="red" onPress={() => logout()}>
       Log Out
     </Settings.Item>
   )

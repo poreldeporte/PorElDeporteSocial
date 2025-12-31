@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
+import { useLogout } from './auth/logout'
 import { useSessionContext } from './supabase/useSessionContext'
 import { useSupabase } from './supabase/useSupabase'
 
@@ -7,6 +8,7 @@ function useProfile() {
   const { session } = useSessionContext()
   const user = session?.user
   const supabase = useSupabase()
+  const logout = useLogout()
   const { data, isPending, refetch } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
@@ -15,7 +17,7 @@ function useProfile() {
       if (error) {
         // no rows - edge case of user being deleted
         if (error.code === 'PGRST116') {
-          await supabase.auth.signOut()
+          await logout({ userId: user.id })
           return null
         }
         throw new Error(error.message)

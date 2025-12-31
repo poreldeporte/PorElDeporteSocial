@@ -3,8 +3,8 @@ import { Shield, Share2, Sparkles, Trophy, UserCog, Users } from '@tamagui/lucid
 import { pedLogo } from 'app/assets'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import type { GameListItem } from 'app/features/games/types'
+import { useLogout } from 'app/utils/auth/logout'
 import { useStatsRealtime } from 'app/utils/useRealtimeSync'
-import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { api } from 'app/utils/api'
 import { SolitoImage } from 'solito/image'
@@ -81,7 +81,7 @@ const useProfileData = () => {
   useStatsRealtime(Boolean(user))
   const editLink = useLink({ href: '/profile/edit' })
   const approvalsLink = useLink({ href: '/admin/approvals' })
-  const supabase = useSupabase()
+  const logout = useLogout()
   const scheduleLink = useLink({ href: '/games' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
   const historyQuery = api.games.list.useQuery({ scope: 'past' })
@@ -111,7 +111,7 @@ const useProfileData = () => {
     userId: user?.id ?? '',
     onEdit: editLink.onPress,
     onReviewMembers: role === 'admin' ? approvalsLink.onPress : undefined,
-    onLogout: () => supabase.auth.signOut(),
+    onLogout: () => logout({ userId: user?.id ?? null }),
     stats,
     performance,
     recentForm,

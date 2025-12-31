@@ -6,6 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { recordDraftEvent, resetDraftForGame, startDraftForGame } from '../services/draft'
+import { notifyDraftCompleted, notifyDraftPick, notifyDraftStarted } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 import { markGameCompletedIfNeeded } from '../utils/markGameCompleted'
 import { nextSnakeTurn } from '../domain/draft'
@@ -178,6 +179,10 @@ export const teamsRouter = createTRPCRouter({
       actorId: user.id,
     })
 
+    try {
+      await notifyDraftStarted({ supabaseAdmin, gameId: input.gameId })
+    } catch {}
+
     return { ok: true }
   }),
 
@@ -270,6 +275,15 @@ export const teamsRouter = createTRPCRouter({
       },
     })
 
+    try {
+      await notifyDraftPick({
+        supabaseAdmin,
+        gameId: input.gameId,
+        profileId: input.profileId,
+        pickOrder,
+      })
+    } catch {}
+
     return { ok: true }
   }),
 
@@ -322,6 +336,10 @@ export const teamsRouter = createTRPCRouter({
       action: 'finalize',
       createdBy: user.id,
     })
+
+    try {
+      await notifyDraftCompleted({ supabaseAdmin, gameId: input.gameId })
+    } catch {}
 
     return { ok: true }
   }),

@@ -13,8 +13,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'solito/router'
+
+import { useMemberApprovalsRealtime } from './member-approvals-realtime'
 
 type PendingProfile = {
   id: string
@@ -41,6 +43,11 @@ export const MemberApprovalsScreen = () => {
   const queryClient = useQueryClient()
   const router = useRouter()
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const realtimeEnabled = role === 'admin' && !isLoading
+  const scheduleInvalidate = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
+  }, [queryClient])
+  useMemberApprovalsRealtime(realtimeEnabled, scheduleInvalidate)
 
   const pendingQuery = useQuery({
     queryKey: ['member-approvals', 'pending'],

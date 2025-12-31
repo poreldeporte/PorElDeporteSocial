@@ -80,7 +80,11 @@ export const EditGameForm = ({
       {(fields) => (
         <YStack gap="$3">
           <Paragraph theme="alt1">Adjust schedule, venue, roster cap, or status.</Paragraph>
-          {Object.values(fields)}
+          {fields.start_time}
+          {fields.start_time_time}
+          {fields.location_name}
+          {fields.capacity}
+          {fields.status}
         </YStack>
       )}
     </SchemaForm>

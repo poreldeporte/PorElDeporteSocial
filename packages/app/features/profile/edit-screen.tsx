@@ -1,7 +1,9 @@
 import {
   Avatar,
   Button,
+  Card,
   Checkbox,
+  FieldError,
   FormWrapper,
   FullscreenSpinner,
   Paragraph,
@@ -42,9 +44,14 @@ const ProfileSchema = profileUpdateFieldSchema
 type ProfileFormScreenProps = {
   submitLabel?: string
   onComplete?: () => void
+  showStatusBadge?: boolean
 }
 
-export const ProfileFormScreen = ({ submitLabel, onComplete }: ProfileFormScreenProps) => {
+export const ProfileFormScreen = ({
+  submitLabel,
+  onComplete,
+  showStatusBadge = true,
+}: ProfileFormScreenProps) => {
   const { profile, user } = useUser()
 
   if (!profile || !user?.id) {
@@ -57,6 +64,7 @@ export const ProfileFormScreen = ({ submitLabel, onComplete }: ProfileFormScreen
       initial={buildProfileFormInitial(profile, user)}
       submitLabel={submitLabel}
       approvalStatus={approvalStatus}
+      showStatusBadge={showStatusBadge}
       onComplete={onComplete}
     />
   )
@@ -67,12 +75,14 @@ const EditProfileForm = ({
   userId,
   submitLabel = 'Update Profile',
   approvalStatus,
+  showStatusBadge = true,
   onComplete,
 }: {
   initial: ProfileFormInitial
   userId: string
   submitLabel?: string
   approvalStatus: 'draft' | 'pending' | 'approved'
+  showStatusBadge?: boolean
   onComplete?: () => void
 }) => {
   const { params } = useParams()
@@ -124,9 +134,13 @@ const EditProfileForm = ({
     },
   })
 
+  const displayName = buildProfileDisplayName(initial)
+  const statusLabel = buildProfileStatusLabel(approvalStatus)
+
   return (
-    <FormWrapper>
+    <FormWrapper jc="flex-start">
       <SchemaForm
+        bare
         schema={ProfileSchema}
         props={{
           firstName: {
@@ -150,30 +164,105 @@ const EditProfileForm = ({
         onSubmit={(values) => mutation.mutate(values)}
         renderAfter={({ submit }) => (
           <Theme inverse>
-            <SubmitButton disabled={mutation.isPending} onPress={() => submit()}>
-              {mutation.isPending ? 'Saving…' : submitLabel}
-            </SubmitButton>
+            <YStack>
+              <SubmitButton disabled={mutation.isPending} onPress={() => submit()}>
+                {mutation.isPending ? 'Saving…' : submitLabel}
+              </SubmitButton>
+            </YStack>
           </Theme>
         )}
       >
         {(fields) => (
-          <>
-            <YStack mb="$4" ai="center">
+          <FormWrapper.Body
+            p={0}
+            px="$4"
+            pt="$4"
+            pb="$8"
+            scrollProps={{ contentInsetAdjustmentBehavior: 'never' }}
+          >
+            <YStack ai="center" gap="$2" mb="$2">
               <View>
                 <UserAvatar />
               </View>
+              <SizableText size="$7" fontWeight="700" textAlign="center">
+                {displayName}
+              </SizableText>
+              {showStatusBadge ? <StatusBadge label={statusLabel} /> : null}
+              <Paragraph theme="alt2" size="$2" textAlign="center">
+                Private club details for lineups and access.
+              </Paragraph>
             </YStack>
-            <YStack gap="$3">
-              {fields.firstName}
-              {fields.lastName}
-              {fields.email}
-              {fields.phone}
-              <PositionCheckboxes />
-              {fields.jerseyNumber}
-              {fields.birthDate}
-              {fields.address}
+            <YStack gap="$4">
+              <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                <YStack gap="$3">
+                  <YStack gap="$1">
+                    <SizableText size="$5" fontWeight="700">
+                      Identity
+                    </SizableText>
+                    <Paragraph theme="alt2" size="$2">
+                      Keep this aligned with your membership details.
+                    </Paragraph>
+                  </YStack>
+                  <XStack gap="$3" $sm={{ fd: 'column' }}>
+                    <YStack f={1}>{fields.firstName}</YStack>
+                    <YStack f={1}>{fields.lastName}</YStack>
+                  </XStack>
+                  <YStack gap="$1">
+                    {fields.email}
+                    <Paragraph theme="alt2" size="$2">
+                      Used for member updates and scheduling.
+                    </Paragraph>
+                  </YStack>
+                  <YStack gap="$1">
+                    {fields.phone}
+                    <Paragraph theme="alt2" size="$2">
+                      Verified via SMS. Contact the club to change it.
+                    </Paragraph>
+                  </YStack>
+                </YStack>
+              </Card>
+              <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                <YStack gap="$3">
+                  <YStack gap="$1">
+                    <SizableText size="$5" fontWeight="700">
+                      Player details
+                    </SizableText>
+                    <Paragraph theme="alt2" size="$2">
+                      This helps us balance teams and matchups.
+                    </Paragraph>
+                  </YStack>
+                  <PositionCheckboxes />
+                  <XStack gap="$3" $sm={{ fd: 'column' }}>
+                    <YStack f={1} gap="$1">
+                      {fields.jerseyNumber}
+                      <Paragraph theme="alt2" size="$2">
+                        1-99. Match your kit number.
+                      </Paragraph>
+                    </YStack>
+                    <YStack f={1} gap="$1">
+                      {fields.birthDate}
+                      <Paragraph theme="alt2" size="$2">
+                        Used for birthdays and eligibility.
+                      </Paragraph>
+                    </YStack>
+                  </XStack>
+                </YStack>
+              </Card>
+              <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                <YStack gap="$3">
+                  <YStack gap="$1">
+                    <SizableText size="$5" fontWeight="700">
+                      Location
+                    </SizableText>
+                    <Paragraph theme="alt2" size="$2">
+                      Optional for local game planning.
+                    </Paragraph>
+                  </YStack>
+                  {fields.address}
+                </YStack>
+              </Card>
             </YStack>
-          </>
+          </FormWrapper.Body>
         )}
       </SchemaForm>
     </FormWrapper>
@@ -217,6 +306,36 @@ const buildProfileFormInitial = (
     ? profile.position.split(',').map((p) => p.trim()).filter(Boolean)
     : [],
 })
+
+const buildProfileDisplayName = (initial: ProfileFormInitial) => {
+  const name = [initial.firstName, initial.lastName].filter(Boolean).join(' ').trim()
+  return name || 'Member profile'
+}
+
+const buildProfileStatusLabel = (status: 'draft' | 'pending' | 'approved') => {
+  if (status === 'approved') return 'Membership Active'
+  if (status === 'draft') return 'Setup incomplete'
+  return 'Review pending'
+}
+
+const StatusBadge = ({ label }: { label: string }) => {
+  return (
+    <XStack
+      ai="center"
+      jc="center"
+      px="$2.5"
+      py="$1"
+      borderRadius="$10"
+      borderWidth={1}
+      borderColor="$borderColor"
+      backgroundColor="$background"
+    >
+      <Paragraph size="$2" fontWeight="600">
+        {label}
+      </Paragraph>
+    </XStack>
+  )
+}
 
 export const AdminProfileEditScreen = ({ profileId }: { profileId: string }) => {
   const { role, isLoading } = useUser()
@@ -299,8 +418,17 @@ export const AdminProfileEditScreen = ({ profileId }: { profileId: string }) => 
 }
 
 const PositionCheckboxes = () => {
-  const { watch, setValue } = useFormContext<ProfileUpdateFieldValues>()
+  const {
+    watch,
+    setValue,
+    formState: { errors },
+  } = useFormContext<ProfileUpdateFieldValues>()
   const selected = watch('position') ?? []
+  const positionError = errors.position
+  const errorMessage =
+    typeof positionError?.message === 'string'
+      ? positionError.message
+      : (positionError as { errorMessage?: string } | undefined)?.errorMessage
 
   const toggle = (value: string) => {
     const next = selected.includes(value)
@@ -311,7 +439,7 @@ const PositionCheckboxes = () => {
 
   return (
     <YStack gap="$2">
-      <Paragraph theme="alt2">Positions</Paragraph>
+      <Paragraph theme="alt2">Preferred positions</Paragraph>
       <YStack gap="$2">
         {POSITION_OPTIONS.map((option) => (
           <XStack key={option} ai="center" gap="$2">
@@ -331,6 +459,7 @@ const PositionCheckboxes = () => {
           </XStack>
         ))}
       </YStack>
+      <FieldError message={errorMessage} />
     </YStack>
   )
 }

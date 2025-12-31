@@ -39,7 +39,7 @@ export const GameEditScreen = ({ gameId }: { gameId: string }) => {
   }
 
   return (
-    <YStack px="$4" py="$4" gap="$4">
+    <YStack f={1} px="$4" py="$4" gap="$4">
       <Paragraph theme="alt1">Make sure any roster changes are communicated to the players.</Paragraph>
       <EditGameForm game={data} onSuccess={() => router.back()} />
     </YStack>

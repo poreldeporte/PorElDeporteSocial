@@ -1,7 +1,7 @@
 import { Button, SizableText, XStack, useTheme } from '@my/ui/public'
 import { Plus, ShoppingBag, User } from '@tamagui/lucide-icons'
 import { router, Stack, Tabs, usePathname } from 'expo-router'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Pressable } from 'react-native'
 
 import { getRoutesById, navRoutes, nativeTabRouteIds } from '@my/app/navigation/routes'
 import { getScreenLayout, type ScreenLayoutId } from '@my/app/navigation/layouts'
@@ -11,7 +11,6 @@ export default function Layout() {
   const { accentColor, color1 } = useTheme()
   const headerBackground = color1?.val ?? '#fff'
   const pathname = usePathname()
-  const insets = useSafeAreaInsets()
   const tabRoutes = getRoutesById(nativeTabRouteIds)
   const createSegment = navRoutes.create.nativeSegment ?? navRoutes.create.href
   const { role } = useUser()
@@ -36,7 +35,7 @@ export default function Layout() {
     if (activeRoute.id === 'leaderboard') return 'Leaderboard'
     return getScreenLayout(activeLayoutId).title
   })()
-  const tabPaddingBottom = insets.bottom + 20
+  const tabBarHeight = 60
 
   if (__DEV__) {
     console.log('pathname', pathname)
@@ -103,21 +102,16 @@ export default function Layout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarShowLabel: true,
+          tabBarShowLabel: false,
           headerTintColor: accentColor.val,
           tabBarStyle: {
-            paddingTop: 10,
-            paddingBottom: tabPaddingBottom,
-            height: 60,
+            height: tabBarHeight,
             alignContent: 'center',
             justifyContent: 'center',
           },
-          tabBarItemStyle: {
-            paddingBottom: 10,
-          },
-          tabBarLabelStyle: {
-            fontSize: 12,
-          },
+          tabBarButton: (props) => (
+            <Pressable {...props} style={[props.style, { flex: 1 }]} />
+          ),
         }}
       >
         {tabRoutes.map((route) => {

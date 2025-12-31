@@ -125,7 +125,7 @@ export const SchemaForm = ({ bare, ...props }: SchemaFormProps) => {
         const rendered = props.children ? props.children(fields, context) : Object.values(fields)
         if (bare) {
           return (
-            <YStack minWidth="100%" $platform-native={{ miw: '100%' }}>
+            <YStack minWidth="100%" $platform-native={{ miw: '100%' }} f={1}>
               {rendered}
             </YStack>
           )

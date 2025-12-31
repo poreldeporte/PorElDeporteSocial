@@ -15,7 +15,7 @@ export function HomeScreen() {
   const gamesQuery = api.games.list.useQuery({ scope: 'upcoming' }, { enabled: Boolean(user) })
   useGamesListRealtime(Boolean(user))
   useStatsRealtime(Boolean(user))
-  const { join, leave, confirmAttendance, pendingGameId, isPending, isConfirming } = useQueueActions()
+  const { join, leave, pendingGameId, isPending } = useQueueActions()
 
   const myDraftGame = useMemo(() => {
     if (!gamesQuery.data || !user?.id) return null
@@ -76,10 +76,8 @@ export function HomeScreen() {
             titleOverride="Next kickoff"
             onJoin={join}
             onLeave={leave}
-            onConfirmAttendance={confirmAttendance}
             isPending={isPending}
             pendingGameId={pendingGameId}
-            isConfirming={isConfirming}
           />
         ) : null}
         {nextAvailableGame &&
@@ -89,10 +87,8 @@ export function HomeScreen() {
             titleOverride="Next available"
             onJoin={join}
             onLeave={leave}
-            onConfirmAttendance={confirmAttendance}
             isPending={isPending}
             pendingGameId={pendingGameId}
-            isConfirming={isConfirming}
           />
         ) : null}
         <PastGamesSection mode={role === 'admin' ? 'admin' : 'player'} />

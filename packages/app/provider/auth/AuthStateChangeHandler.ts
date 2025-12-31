@@ -1,6 +1,9 @@
-import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useEffect } from 'react'
+import { Platform } from 'react-native'
 import { useRouter } from 'solito/router'
+
+import { useSupabase } from 'app/utils/supabase/useSupabase'
+const signedOutRoute = Platform.OS === 'web' ? '/sign-in' : '/onboarding'
 
 const useRedirectAfterSignOut = () => {
   const supabase = useSupabase()
@@ -8,7 +11,7 @@ const useRedirectAfterSignOut = () => {
   useEffect(() => {
     const signOutListener = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
-        router.replace('/sign-in')
+        router.replace(signedOutRoute)
       }
     })
     return () => {

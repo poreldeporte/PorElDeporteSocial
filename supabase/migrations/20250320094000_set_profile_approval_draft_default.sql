@@ -8,6 +8,7 @@ UPDATE public.profiles
       first_name IS NULL OR trim(first_name) = ''
       OR last_name IS NULL OR trim(last_name) = ''
       OR email IS NULL OR trim(email) = ''
+      OR phone IS NULL OR trim(phone) = ''
       OR jersey_number IS NULL
       OR position IS NULL OR trim(position) = ''
       OR birth_date IS NULL
