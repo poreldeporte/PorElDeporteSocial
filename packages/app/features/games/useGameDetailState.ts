@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { DEFAULT_WAITLIST_LIMIT } from '@my/config/game'
+import { CONFIRMATION_WINDOW_MS, DEFAULT_WAITLIST_LIMIT } from '@my/config/game'
 import { formatGameKickoffLabel } from './time-utils'
 import type { GameDetail, QueueEntry } from './types'
 
@@ -20,7 +20,7 @@ export type GameDetailViewState = ReturnType<typeof computeGameDetailState>
 
 const statusCopy: Record<GameDetail['status'], { label: string; tone: 'default' | 'warning' }> = {
   scheduled: { label: 'Spots open', tone: 'default' },
-  locked: { label: 'Awaiting confirmation', tone: 'warning' },
+  locked: { label: 'Roster full', tone: 'warning' },
   cancelled: { label: 'Cancelled', tone: 'warning' },
   completed: { label: 'Completed', tone: 'default' },
 }
@@ -67,7 +67,6 @@ export const computeGameDetailState = ({
   const confirmedCount = game?.confirmedCount ?? 0
   const waitlistedCount = game?.waitlistedCount ?? 0
   const waitlistCapacity = game?.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT
-  const waitlistFull = waitlistedCount >= waitlistCapacity
   const spotsLeft = game ? Math.max(game.capacity - confirmedCount, 0) : 0
 
   const confirmedPlayers = sortConfirmed(
@@ -99,7 +98,7 @@ export const computeGameDetailState = ({
   const userStatusMessage = userStatusCopy[userStatus]
 
   const confirmationWindowStart = startDate
-    ? new Date(startDate.getTime() - 48 * 60 * 60 * 1000)
+    ? new Date(startDate.getTime() - CONFIRMATION_WINDOW_MS)
     : null
   const isConfirmationOpen =
     confirmationWindowStart && startDate
@@ -117,7 +116,6 @@ export const computeGameDetailState = ({
     confirmedCount,
     waitlistedCount,
     waitlistCapacity,
-    waitlistFull,
     spotsLeft,
     statusMeta,
     userEntry,
@@ -126,8 +124,8 @@ export const computeGameDetailState = ({
     ctaLabel: (() => {
       if (!game) return ctaCopy[ctaState]
       if (game.status === 'cancelled') return 'Game cancelled'
-      if (game.status === 'completed' || hasStarted) return 'Game completed'
-      if (game.status === 'locked' && ctaState === 'join') return 'Join waitlist'
+      if (game.status === 'completed' || hasStarted) return 'Rate the game'
+      if (ctaState === 'join' && spotsLeft === 0) return 'Join waitlist'
       return ctaCopy[ctaState]
     })(),
     ctaDisabled,

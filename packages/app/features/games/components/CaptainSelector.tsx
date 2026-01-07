@@ -21,17 +21,43 @@ type CaptainSelectorProps = {
 }
 
 export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainSelectorProps) => {
-  const initialSlot0 = captains.find((captain) => captain.slot === 1)?.profileId ?? null
-  const initialSlot1 = captains.find((captain) => captain.slot === 2)?.profileId ?? null
-  const [slot0, setSlot0] = useState<string | null>(initialSlot0)
-  const [slot1, setSlot1] = useState<string | null>(initialSlot1)
+  const confirmedCount = confirmedPlayers.length
+  const availableCaptainCounts = useMemo(() => {
+    const counts: number[] = []
+    for (let i = 2; i <= confirmedCount; i += 1) {
+      if (confirmedCount % i === 0) counts.push(i)
+    }
+    return counts
+  }, [confirmedCount])
+  const initialCaptainCount =
+    captains.length >= 2 && confirmedCount % captains.length === 0
+      ? captains.length
+      : availableCaptainCounts[0] ?? 2
+  const [captainCount, setCaptainCount] = useState(initialCaptainCount)
+  const [slots, setSlots] = useState<Array<string | null>>(() => {
+    const next = Array.from({ length: initialCaptainCount }, () => null)
+    captains.forEach((captain) => {
+      if (captain.slot && captain.slot <= next.length) {
+        next[captain.slot - 1] = captain.profileId
+      }
+    })
+    return next
+  })
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => {
-    setSlot0(initialSlot0)
-    setSlot1(initialSlot1)
+    setCaptainCount(initialCaptainCount)
+    setSlots(() => {
+      const next = Array.from({ length: initialCaptainCount }, () => null)
+      captains.forEach((captain) => {
+        if (captain.slot && captain.slot <= next.length) {
+          next[captain.slot - 1] = captain.profileId
+        }
+      })
+      return next
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialSlot0, initialSlot1])
+  }, [initialCaptainCount, captains])
 
   const toast = useToastController()
   const utils = api.useUtils()
@@ -46,6 +72,16 @@ export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainS
     },
     onError: (error) => toast.show('Unable to start draft', { message: error.message }),
   })
+  const clearCaptainsMutation = api.games.clearCaptains.useMutation({
+    onSuccess: async () => {
+      toast.show('Captains cleared')
+      await Promise.all([
+        utils.games.byId.invalidate({ id: gameId }),
+        utils.teams.state.invalidate({ gameId }),
+      ])
+    },
+    onError: (error) => toast.show('Unable to clear captains', { message: error.message }),
+  })
 
   const handleSave = () => {
     if (disabled) return
@@ -53,26 +89,56 @@ export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainS
   }
 
   const handleConfirmStart = () => {
-    if (!slot0 || !slot1) return
+    if (!slots.every(Boolean)) return
     mutation.mutate({
       gameId,
-      captains: [
-        { profileId: slot0 },
-        { profileId: slot1 },
-      ],
+      captains: slots.filter(Boolean).map((profileId) => ({ profileId: profileId as string })),
     })
   }
 
   const rows = useMemo(
     () =>
       confirmedPlayers.map((player) => ({
-        id: player.player.id,
+        id: player.profileId,
         name: player.player.name ?? 'Member',
       })),
     [confirmedPlayers]
   )
+  const nameById = useMemo(() => new Map(rows.map((row) => [row.id, row.name])), [rows])
+  const selectedIds = slots.filter(Boolean) as string[]
+  const uniqueSelected = new Set(selectedIds).size === selectedIds.length
+  const disabled = !slots.every(Boolean) || !uniqueSelected || mutation.isPending
+  const teamSize = captainCount > 0 ? Math.floor(confirmedCount / captainCount) : 0
 
-  const disabled = !slot0 || !slot1 || slot0 === slot1 || mutation.isPending
+  const handleCaptainCountChange = (count: number) => {
+    setCaptainCount(count)
+    setSlots((prev) => {
+      const next = Array.from({ length: count }, () => null)
+      prev.slice(0, count).forEach((profileId, index) => {
+        next[index] = profileId
+      })
+      return next
+    })
+  }
+
+  const toggleCaptain = (profileId: string) => {
+    setSlots((prev) => {
+      const existingIndex = prev.findIndex((id) => id === profileId)
+      if (existingIndex !== -1) {
+        const next = [...prev]
+        next[existingIndex] = null
+        return next
+      }
+      const emptyIndex = prev.findIndex((id) => !id)
+      if (emptyIndex === -1) {
+        toast.show('All captain slots are filled')
+        return prev
+      }
+      const next = [...prev]
+      next[emptyIndex] = profileId
+      return next
+    })
+  }
 
   return (
     <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3">
@@ -80,38 +146,79 @@ export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainS
         Assign captains
       </SizableText>
       <Paragraph theme="alt2">
-        Choose two confirmed players to lead the draft. Once confirmed, the draft starts immediately.
+        Choose confirmed players to lead the draft. Once confirmed, the draft starts immediately.
       </Paragraph>
+      {availableCaptainCounts.length ? (
+        <XStack gap="$2" flexWrap="wrap">
+          {availableCaptainCounts.map((count) => (
+            <Button
+              key={count}
+              size="$2"
+              theme={count === captainCount ? 'active' : undefined}
+              onPress={() => handleCaptainCountChange(count)}
+            >
+              {`${count} captains`}
+            </Button>
+          ))}
+        </XStack>
+      ) : null}
+      {teamSize ? (
+        <Paragraph theme="alt2" size="$2">
+          Teams of {teamSize}
+        </Paragraph>
+      ) : null}
       <YStack gap="$2">
-        {rows.map((player) => (
-          <XStack key={player.id} ai="center" jc="space-between">
-            <Paragraph>{player.name}</Paragraph>
-            <XStack gap="$2">
-              <Button
-                size="$2"
-                theme={slot0 === player.id ? 'active' : undefined}
-                onPress={() => setSlot0(player.id)}
-              >
-                Captain A
-              </Button>
-              <Button
-                size="$2"
-                theme={slot1 === player.id ? 'active' : undefined}
-                onPress={() => setSlot1(player.id)}
-              >
-                Captain B
-              </Button>
+        {slots.map((profileId, index) => (
+          <XStack key={index} ai="center" jc="space-between">
+            <Paragraph theme="alt2">Captain {index + 1}</Paragraph>
+            <XStack ai="center" gap="$2">
+              <Paragraph fontWeight="600">
+                {profileId ? nameById.get(profileId) ?? 'Member' : 'Tap a player to assign'}
+              </Paragraph>
+              {profileId ? (
+                <Button size="$2" variant="outlined" onPress={() => toggleCaptain(profileId)}>
+                  Remove
+                </Button>
+              ) : null}
             </XStack>
           </XStack>
         ))}
       </YStack>
-      <Button disabled={disabled} onPress={handleSave}>
-        Start draft with captains
-      </Button>
+      <YStack gap="$2">
+        {rows.map((player, index) => (
+          <XStack key={`${player.id || 'player'}-${index}`} ai="center" jc="space-between">
+            <Paragraph>{player.name}</Paragraph>
+            <Button
+              size="$2"
+              theme={selectedIds.includes(player.id) ? 'active' : undefined}
+              onPress={() => toggleCaptain(player.id)}
+            >
+              {selectedIds.includes(player.id)
+                ? `Captain ${slots.findIndex((id) => id === player.id) + 1}`
+                : 'Assign'}
+            </Button>
+          </XStack>
+        ))}
+      </YStack>
+      <XStack gap="$2" flexWrap="wrap">
+        <Button disabled={disabled} onPress={handleSave}>
+          Start draft with captains
+        </Button>
+        {captains.length ? (
+          <Button
+            variant="outlined"
+            onPress={() => clearCaptainsMutation.mutate({ gameId })}
+            disabled={clearCaptainsMutation.isPending}
+          >
+            {clearCaptainsMutation.isPending ? 'Clearing…' : 'Clear captains'}
+          </Button>
+        ) : null}
+      </XStack>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay
+            key="overlay"
             animation="medium"
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}
@@ -119,6 +226,7 @@ export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainS
             backgroundColor="$color5"
           />
           <AlertDialog.Content
+            key="content"
             elevate
             animation="medium"
             enterStyle={{ opacity: 0, scale: 0.95 }}
@@ -134,21 +242,17 @@ export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainS
               All remaining picks must be made by the captains.
             </AlertDialog.Description>
             <XStack gap="$3">
-              <AlertDialog.Cancel asChild>
-                <Button theme="alt1" flex={1} onPress={() => setConfirmOpen(false)}>
-                  Cancel
-                </Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button
-                  flex={1}
-                  onPress={handleConfirmStart}
-                  disabled={mutation.isPending}
-                  iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
-                >
-                  {mutation.isPending ? 'Starting…' : 'Start draft'}
-                </Button>
-              </AlertDialog.Action>
+              <Button theme="alt1" flex={1} onPress={() => setConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                flex={1}
+                onPress={handleConfirmStart}
+                disabled={mutation.isPending}
+                iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
+              >
+                {mutation.isPending ? 'Starting…' : 'Start draft'}
+              </Button>
             </XStack>
           </AlertDialog.Content>
         </AlertDialog.Portal>

@@ -1,3 +1,6 @@
+import type { ScrollViewProps } from 'react-native'
+import { useState, type ReactNode } from 'react'
+
 import {
   Button,
   Card,
@@ -10,16 +13,27 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
-import { useRouter } from 'solito/router'
+import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { useTeamsState } from 'app/utils/useTeamsState'
-import { useState } from 'react'
+import { useRouter } from 'solito/router'
 
 type Props = {
   gameId: string
 }
 
-export const GameResultScreen = ({ gameId }: Props) => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const GameResultScreen = ({
+  gameId,
+  scrollProps,
+  headerSpacer,
+  topInset,
+}: Props & ScrollHeaderProps) => {
   const router = useRouter()
   const utils = api.useUtils()
   const { teams, query } = useTeamsState({ gameId })
@@ -29,6 +43,7 @@ export const GameResultScreen = ({ gameId }: Props) => {
   const [winnerScore, setWinnerScore] = useState('')
   const [loserScore, setLoserScore] = useState('')
   const draftStatus = query.data?.game?.draft_status ?? 'pending'
+  const isMultiTeam = teams.length > 2
 
   const mutation = api.teams.reportResult.useMutation({
     onSuccess: async () => {
@@ -49,15 +64,17 @@ export const GameResultScreen = ({ gameId }: Props) => {
     mutation.mutate({
       gameId,
       winningTeamId,
-      losingTeamId: losingTeamId ?? teams.find((team) => team.id !== winningTeamId)?.id,
-      winnerScore: winnerScore ? Number(winnerScore) : null,
-      loserScore: loserScore ? Number(loserScore) : null,
+      losingTeamId: isMultiTeam
+        ? null
+        : losingTeamId ?? teams.find((team) => team.id !== winningTeamId)?.id ?? null,
+      winnerScore: isMultiTeam ? null : winnerScore ? Number(winnerScore) : null,
+      loserScore: isMultiTeam ? null : loserScore ? Number(loserScore) : null,
     })
   }
 
   if (query.isLoading) {
     return (
-      <YStack f={1} ai="center" jc="center">
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
         <FullscreenSpinner />
       </YStack>
     )
@@ -65,21 +82,33 @@ export const GameResultScreen = ({ gameId }: Props) => {
 
   if (!teams.length) {
     return (
-      <YStack f={1} ai="center" jc="center">
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
         <Paragraph theme="alt2">Teams not ready yet. Complete the draft first.</Paragraph>
       </YStack>
     )
   }
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const baseContentStyle = headerSpacer
+    ? { ...screenContentContainerStyle, paddingTop: 0 }
+    : screenContentContainerStyle
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle]
+    : [baseContentStyle, contentContainerStyle]
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16 }}>
+    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+      {headerSpacer}
       <YStack gap="$4">
         <Card px="$4" py="$4" bordered $platform-native={{ borderWidth: 0 }}>
           <YStack gap="$3">
             <SizableText size="$6" fontWeight="700">
               Report result
             </SizableText>
-            <Paragraph theme="alt2">Select the winning team and optionally add the score.</Paragraph>
+            <Paragraph theme="alt2">
+              {isMultiTeam
+                ? 'Select the winning team. Scores are not tracked for multi-team games.'
+                : 'Select the winning team and optionally add the score.'}
+            </Paragraph>
             <YStack gap="$2">
               {teams.map((team) => (
                 <Button
@@ -87,7 +116,7 @@ export const GameResultScreen = ({ gameId }: Props) => {
                   theme={winningTeamId === team.id ? 'active' : 'alt1'}
                   onPress={() => {
                     setWinningTeamId(team.id)
-                    setLosingTeamId(teams.find((t) => t.id !== team.id)?.id ?? null)
+                    setLosingTeamId(isMultiTeam ? null : teams.find((t) => t.id !== team.id)?.id ?? null)
                   }}
                 >
                   {team.name}
@@ -95,21 +124,23 @@ export const GameResultScreen = ({ gameId }: Props) => {
               ))}
             </YStack>
 
-            <YStack gap="$2">
-              <Paragraph theme="alt1">Scores (optional)</Paragraph>
-              <Input
-                keyboardType="numeric"
-                placeholder="Winner score"
-                value={winnerScore}
-                onChangeText={setWinnerScore}
-              />
-              <Input
-                keyboardType="numeric"
-                placeholder="Loser score"
-                value={loserScore}
-                onChangeText={setLoserScore}
-              />
-            </YStack>
+            {!isMultiTeam ? (
+              <YStack gap="$2">
+                <Paragraph theme="alt1">Scores (optional)</Paragraph>
+                <Input
+                  keyboardType="numeric"
+                  placeholder="Winner score"
+                  value={winnerScore}
+                  onChangeText={setWinnerScore}
+                />
+                <Input
+                  keyboardType="numeric"
+                  placeholder="Loser score"
+                  value={loserScore}
+                  onChangeText={setLoserScore}
+                />
+              </YStack>
+            ) : null}
 
             <Button
               disabled={!winningTeamId || mutation.isPending || draftStatus !== 'completed'}

@@ -46,15 +46,19 @@ export default function HomeLayout() {
     })
   }, [])
 
-  const onLayoutRootView = useCallback(async () => {
-    if (fontLoaded && sessionLoadAttempted) {
-      await SplashScreen.hideAsync()
-    }
-  }, [fontLoaded, sessionLoadAttempted])
+  const isAppReady = fontLoaded && sessionLoadAttempted && themeLoaded
 
-  if (!themeLoaded || !fontLoaded || !sessionLoadAttempted) {
-    return null
-  }
+  useEffect(() => {
+    if (isAppReady) {
+      void SplashScreen.hideAsync()
+    }
+  }, [isAppReady])
+
+  const onLayoutRootView = useCallback(() => {
+    if (isAppReady) {
+      void SplashScreen.hideAsync()
+    }
+  }, [isAppReady])
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -74,6 +78,8 @@ const AppStack = () => {
     <Stack
       screenOptions={{
         headerShown: false,
+        headerTitleAlign: 'center',
+        headerBackTitleVisible: false,
         headerStyle: { backgroundColor: headerBackground },
       }}
     />

@@ -15,6 +15,9 @@ import {
   Theme,
   YStack,
 } from '@my/ui/public'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { BirthDateField } from 'app/components/BirthDateField'
+import { BirthDateSchema } from 'app/utils/birthDate'
 import { DateField, DateSchema } from '@my/ui/src/components/FormFields/DateField'
 import {
   ImagePickerField,
@@ -37,6 +40,7 @@ const imageOptionalField = createUniqueFieldSchema(
   ImagePickerSchema.optional(),
   'image_optional'
 )
+const birthDateField = createUniqueFieldSchema(BirthDateSchema, 'birth_date')
 const passwordField = createUniqueFieldSchema(z.string(), 'password')
 
 export const formFields = {
@@ -71,6 +75,7 @@ export const formFields = {
   address: addressField,
   addressOptional: addressOptionalField,
   date: createUniqueFieldSchema(DateSchema, 'date'),
+  birthDate: birthDateField,
   image: imageField,
   imageOptional: imageOptionalField,
 }
@@ -92,6 +97,7 @@ const mapping = [
   [formFields.address, AddressField] as const,
   [formFields.addressOptional, AddressField] as const,
   [formFields.date, DateField] as const,
+  [formFields.birthDate, BirthDateField] as const,
   [formFields.image, ImagePickerField] as const,
   [formFields.imageOptional, ImagePickerField] as const,
   [formFields.password, TextField] as const,
@@ -112,11 +118,19 @@ const _SchemaForm = createTsForm(mapping, {
 type SchemaFormProps = ComponentProps<typeof _SchemaForm> & {
   bare?: boolean
   children?: ComponentProps<typeof _SchemaForm>['children']
+  bodyProps?: ComponentProps<typeof FormWrapper.Body>
 }
 
-export const SchemaForm = ({ bare, ...props }: SchemaFormProps) => {
+export const SchemaForm = ({ bare, bodyProps, ...props }: SchemaFormProps) => {
   const renderAfter: ComponentProps<typeof _SchemaForm>['renderAfter'] = props.renderAfter
-    ? (vars) => <FormWrapper.Footer>{props.renderAfter?.(vars)}</FormWrapper.Footer>
+    ? (vars) => {
+        const rendered = props.renderAfter?.(vars)
+        return rendered ? (
+          <FormWrapper.Footer px={SCREEN_CONTENT_PADDING.horizontal}>
+            {rendered}
+          </FormWrapper.Footer>
+        ) : null
+      }
     : undefined
 
   return (
@@ -130,8 +144,16 @@ export const SchemaForm = ({ bare, ...props }: SchemaFormProps) => {
             </YStack>
           )
         }
+        const mergedBodyProps = {
+          px: SCREEN_CONTENT_PADDING.horizontal,
+          ...bodyProps,
+        }
         return (
-          <FormWrapper.Body minWidth="100%" $platform-native={{ miw: '100%' }}>
+          <FormWrapper.Body
+            minWidth="100%"
+            $platform-native={{ miw: '100%' }}
+            {...mergedBodyProps}
+          >
             {rendered}
           </FormWrapper.Body>
         )

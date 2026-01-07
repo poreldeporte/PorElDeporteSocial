@@ -1,21 +1,32 @@
-import { FullscreenSpinner, ScrollView, View, YStack } from '@my/ui/public'
+import type { ScrollViewProps } from 'react-native'
+import { useMemo, type ReactNode } from 'react'
+
+import { Card, FullscreenSpinner, Paragraph, ScrollView, SizableText, View, YStack } from '@my/ui/public'
+import { screenContentContainerStyle } from 'app/constants/layout'
+import { getDockSpacer } from 'app/constants/dock'
 import { api } from 'app/utils/api'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
-import { useUser } from 'app/utils/useUser'
 import { useQueueActions } from 'app/utils/useQueueActions'
-import { useMemo } from 'react'
+import { useUser } from 'app/utils/useUser'
+import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
-import { HeroCard, PastGamesSection, QuickJoinCard, ScheduleTeaserCard, StatsCard } from './components'
+import { GameCard, HeroCard, QuickJoinCard, StatsCard } from './components'
 import { useMyStats } from './hooks/useMyStats'
-import { screenContentContainerStyle } from 'app/constants/layout'
 
-export function HomeScreen() {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) {
   const { user, isLoading, role } = useUser()
+  const insets = useSafeAreaInsets()
   const { stats, isLoading: statsLoading } = useMyStats()
   const gamesQuery = api.games.list.useQuery({ scope: 'upcoming' }, { enabled: Boolean(user) })
   useGamesListRealtime(Boolean(user))
   useStatsRealtime(Boolean(user))
-  const { join, leave, pendingGameId, isPending } = useQueueActions()
+  const { join, leave, confirmAttendance, pendingGameId, isPending, isConfirming } = useQueueActions()
 
   const myDraftGame = useMemo(() => {
     if (!gamesQuery.data || !user?.id) return null
@@ -30,69 +41,108 @@ export function HomeScreen() {
     () => gamesQuery.data?.find((game) => game.draftStatus === 'in_progress') ?? null,
     [gamesQuery.data]
   )
-  const { nextKickoffGame, nextAvailableGame } = useMemo(() => {
+  const { myUpcomingGames, nextAvailableGame } = useMemo(() => {
     const games = gamesQuery.data ?? []
-    if (!games.length) return { nextKickoffGame: null, nextAvailableGame: null }
+    if (!games.length) return { myUpcomingGames: [], nextAvailableGame: null }
     const now = Date.now()
     const upcoming = games
       .filter((game) => new Date(game.startTime).getTime() > now && game.status !== 'cancelled')
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
-    const nextKickoff = upcoming[0] ?? null
-
-    const availableGames = upcoming.filter(
-      (game) => game.status === 'scheduled' && game.confirmedCount < game.capacity
+    const myUpcoming = upcoming.filter(
+      (game) => game.userStatus === 'confirmed' || game.userStatus === 'waitlisted'
     )
     const nextAvailable =
-      availableGames.find((game) => (nextKickoff ? game.id !== nextKickoff.id : true)) ?? null
+      upcoming.find(
+        (game) =>
+          game.status === 'scheduled' &&
+          game.confirmedCount < game.capacity &&
+          (game.userStatus === 'none' || game.userStatus === 'cancelled')
+      ) ?? null
 
-    return { nextKickoffGame: nextKickoff, nextAvailableGame: nextAvailable }
+    return { myUpcomingGames: myUpcoming, nextAvailableGame: nextAvailable }
   }, [gamesQuery.data])
 
   if (isLoading) {
     return (
-      <View flex={1} height={'80vh' as any} ai="center" jc="center">
+      <View flex={1} height={'80vh' as any} ai="center" jc="center" pt={topInset ?? 0}>
         <FullscreenSpinner />
       </View>
     )
   }
 
   if (!user) return null
+  const dockSpacer = getDockSpacer(insets.bottom)
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const baseContentStyle = headerSpacer
+    ? { ...screenContentContainerStyle, paddingTop: 0 }
+    : screenContentContainerStyle
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle]
+    : [baseContentStyle, contentContainerStyle]
 
   const draftCardGame = myDraftGame ?? liveDraftGame
-  const isMyDraftCard = Boolean(draftCardGame && myDraftGame && draftCardGame.id === myDraftGame.id)
 
   return (
-    <ScrollView contentContainerStyle={screenContentContainerStyle}>
+    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+      {headerSpacer}
       <YStack gap="$4">
         <HeroCard />
         <StatsCard stats={stats} isLoading={statsLoading} />
         {draftCardGame ? (
           <QuickJoinCard game={draftCardGame} variant='draft' />
         ) : null}
-        {nextKickoffGame ? (
-          <QuickJoinCard
-            game={nextKickoffGame}
-            titleOverride="Next kickoff"
-            onJoin={join}
-            onLeave={leave}
-            isPending={isPending}
-            pendingGameId={pendingGameId}
-          />
-        ) : null}
-        {nextAvailableGame &&
-        !(nextKickoffGame && nextKickoffGame.status === 'scheduled' && nextKickoffGame.confirmedCount < nextKickoffGame.capacity) ? (
+        <YStack gap="$2">
+          <SizableText size="$5" fontWeight="600">
+            My games
+          </SizableText>
+          {myUpcomingGames.length ? (
+            <YStack gap="$3">
+              {myUpcomingGames.map((game) => (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  onJoin={join}
+                  onLeave={leave}
+                  onConfirmAttendance={confirmAttendance}
+                  isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
+                  isConfirming={isConfirming}
+                />
+              ))}
+            </YStack>
+          ) : (
+            <MyGamesEmptyCard />
+          )}
+        </YStack>
+        {nextAvailableGame ? (
           <QuickJoinCard
             game={nextAvailableGame}
-            titleOverride="Next available"
+            titleOverride="Next available kickoff"
             onJoin={join}
             onLeave={leave}
+            onConfirmAttendance={confirmAttendance}
             isPending={isPending}
             pendingGameId={pendingGameId}
+            isConfirming={isConfirming}
           />
         ) : null}
-        <PastGamesSection mode={role === 'admin' ? 'admin' : 'player'} />
       </YStack>
+      <YStack h={dockSpacer} />
     </ScrollView>
+  )
+}
+
+const MyGamesEmptyCard = () => {
+  return (
+    <Card bordered $platform-native={{ borderWidth: 0 }} br="$5" p="$4" gap="$3">
+      <YStack gap="$1.5">
+      <SizableText size="$6" fontWeight="600">
+        No upcoming games yet.
+      </SizableText>
+      <Paragraph theme="alt2">
+        Your next run awaits. Join the next game with the crew.
+      </Paragraph>
+      </YStack>
+    </Card>
   )
 }

@@ -509,6 +509,7 @@ export type Database = {
       game_team_members: {
         Row: {
           id: string
+          game_id: string
           game_team_id: string
           profile_id: string
           assigned_by: string | null
@@ -517,6 +518,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          game_id: string
           game_team_id: string
           profile_id: string
           assigned_by?: string | null
@@ -525,6 +527,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          game_id?: string
           game_team_id?: string
           profile_id?: string
           assigned_by?: string | null
@@ -532,6 +535,13 @@ export type Database = {
           pick_order?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "game_team_members_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "game_team_members_game_team_id_fkey"
             columns: ["game_team_id"]

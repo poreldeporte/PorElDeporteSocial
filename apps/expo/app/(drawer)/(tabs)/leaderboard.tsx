@@ -1,15 +1,27 @@
+import { ShoppingBag } from '@tamagui/lucide-icons'
+import { useRouter } from 'expo-router'
+
+import { getScreenLayout } from '@my/app/navigation/layouts'
 import { LeaderboardScreen } from 'app/features/home/leaderboard-screen'
-import { Stack } from 'expo-router'
+
+import { FloatingHeaderLayout } from '../../../components/FloatingHeaderLayout'
 
 export default function Screen() {
+  const router = useRouter()
+  const layout = getScreenLayout('leaderboard')
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerTitle: 'Leaderboard',
-        }}
-      />
-      <LeaderboardScreen />
-    </>
+    <FloatingHeaderLayout
+      title={layout.title}
+      rightIcon={ShoppingBag}
+      onPressRight={() => router.navigate('/shop')}
+    >
+      {({ scrollProps, HeaderSpacer, topInset }) => (
+        <LeaderboardScreen
+          scrollProps={scrollProps}
+          headerSpacer={HeaderSpacer}
+          topInset={topInset}
+        />
+      )}
+    </FloatingHeaderLayout>
   )
 }

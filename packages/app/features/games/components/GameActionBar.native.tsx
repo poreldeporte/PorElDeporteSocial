@@ -1,69 +1,67 @@
-import { Button, Paragraph, Spinner, XStack, YStack } from '@my/ui/public'
 import type { ThemeName } from '@tamagui/core'
-import { Lock, Star, ThumbsDown } from '@tamagui/lucide-icons'
 
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
+import { Button, XStack, submitButtonBaseProps } from '@my/ui/public'
 import { BRAND_COLORS } from 'app/constants/colors'
+import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
+import { getGameCtaIcon } from 'app/features/games/cta-icons'
 
 import type { GameActionBarProps } from './GameActionBar.types'
 
 export const GameActionBar = ({
   view,
-  userStateMessage,
   onCta,
   onConfirmAttendance,
   isConfirming,
 }: GameActionBarProps) => {
-  const insets = useSafeAreaInsets()
+  const isRateCta = view.ctaLabel === 'Rate the game'
+  const isJoinCta = view.ctaState === 'join'
   const primaryButtonStyle =
-    view.ctaState === 'join'
-      ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+    !view.isGamePending && !isRateCta && isJoinCta
+      ? {
+          backgroundColor: 'transparent',
+          borderColor: BRAND_COLORS.primary,
+          color: BRAND_COLORS.primary,
+        }
       : {}
+  const rateButtonStyle = isRateCta
+    ? { backgroundColor: '$color', borderColor: '$color', color: '$background' }
+    : {}
+  const buttonTheme =
+    isRateCta || isJoinCta ? undefined : (view.ctaTheme as ThemeName | undefined)
   const confirmStyle = { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
-  const primaryIcon =
-    view.isGamePending
-      ? <Spinner size="small" />
-      : view.canConfirmAttendance
-        ? <Lock size={16} />
-        : view.ctaLabel === 'Claim spot'
-          ? <Star size={16} />
-          : view.ctaLabel === 'Drop out'
-            ? <ThumbsDown size={16} />
-            : undefined
+  const showConfirmOnly = view.canConfirmAttendance
+  const primaryIcon = getGameCtaIcon({
+    isPending: view.isGamePending,
+    showConfirm: showConfirmOnly,
+    isRate: isRateCta,
+    ctaState: view.ctaState,
+  })
+  const label = showConfirmOnly
+    ? isConfirming ? 'Confirming…' : 'Confirm spot'
+    : view.ctaLabel
+  const onPress = showConfirmOnly ? onConfirmAttendance : onCta
+  const disabled = showConfirmOnly ? isConfirming : view.ctaDisabled
+  const icon = showConfirmOnly && isConfirming ? undefined : primaryIcon
+  const theme = showConfirmOnly ? undefined : buttonTheme
+  const buttonStyle = showConfirmOnly
+    ? confirmStyle
+    : { ...primaryButtonStyle, ...rateButtonStyle }
 
   return (
-    <YStack backgroundColor="$background" borderTopWidth={1} borderColor="$color4" px="$4" py="$3" pb={Math.max(insets.bottom, 12)} gap="$2" position="absolute" bottom={0} left={0} right={0} zi={10}>
-      <XStack gap="$3" flexWrap="wrap">
+    <FloatingCtaDock>
+      <XStack>
         <Button
+          {...submitButtonBaseProps}
           flex={1}
-          size="$4"
-          br="$10"
-          disabled={view.ctaDisabled}
-          onPress={onCta}
-          icon={primaryIcon}
-          theme={view.ctaTheme as ThemeName | undefined}
-          {...primaryButtonStyle}
+          disabled={disabled}
+          onPress={onPress}
+          icon={icon}
+          theme={theme}
+          {...buttonStyle}
         >
-          {view.ctaLabel}
+          {label}
         </Button>
-        {view.canConfirmAttendance ? (
-          <Button
-            flex={1}
-            size="$4"
-            br="$10"
-            theme={undefined}
-            icon={isConfirming ? undefined : <Lock size={16} />}
-            disabled={isConfirming}
-            onPress={onConfirmAttendance}
-            {...confirmStyle}
-          >
-            {isConfirming ? 'Confirming…' : 'Confirm spot'}
-          </Button>
-        ) : null}
       </XStack>
-      <Paragraph theme="alt2" size="$2" textAlign="center">
-        {userStateMessage}
-      </Paragraph>
-    </YStack>
+    </FloatingCtaDock>
   )
 }

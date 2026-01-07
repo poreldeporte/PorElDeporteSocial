@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ScrollViewProps } from 'react-native'
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
 import { PlusCircle, Send, Trash } from '@tamagui/lucide-icons'
 import { LinearGradient } from '@tamagui/linear-gradient'
@@ -12,12 +13,16 @@ import type { ChatMessage } from 'app/types/chat'
 import { useChatScroll } from 'app/utils/useChatScroll'
 import { useRealtimeChatRoom } from 'app/utils/useRealtimeChatRoom'
 import { api } from 'app/utils/api'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 
 type WhatsAppStyleChatProps = {
   roomId: string | null
   currentUserId?: string | null
   currentUserName?: string | null
   isAdmin?: boolean
+  scrollProps?: ScrollViewProps
+  topInset?: number
+  bottomInset?: number
 }
 
 const logoSize = 35
@@ -32,6 +37,9 @@ export const WhatsAppStyleChat = ({
   currentUserId,
   currentUserName,
   isAdmin = false,
+  scrollProps,
+  topInset,
+  bottomInset,
 }: WhatsAppStyleChatProps) => {
   const chatEnabled = Boolean(roomId && currentUserId && currentUserName)
   const toast = useToastController()
@@ -342,25 +350,34 @@ export const WhatsAppStyleChat = ({
     if (!historyQuery.hasNextPage || historyQuery.isFetchingNextPage) return
     historyQuery.fetchNextPage().catch(() => undefined)
   }, [historyQuery])
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const basePaddingBottom = SCREEN_CONTENT_PADDING.bottom + (bottomInset ?? 0)
+  const basePaddingTop = topInset ? 0 : SCREEN_CONTENT_PADDING.top
+  const baseContentStyle = {
+    paddingHorizontal: SCREEN_CONTENT_PADDING.horizontal,
+    paddingTop: basePaddingTop,
+    gap: 16,
+    flexGrow: 1,
+    justifyContent: renderedMessages.length ? 'flex-start' : 'center',
+    paddingBottom: basePaddingBottom,
+  }
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle]
+    : [baseContentStyle, contentContainerStyle]
 
   const chatShell = (
     <LinearGradient
       colors={['rgba(5,8,13,0.25)', 'rgba(5,8,13,0.65)']}
       style={{ flex: 1, width: '100%', height: '100%' }}
     >
-      <YStack f={1} px="$1" bg="transparent">
+      <YStack f={1} bg="transparent">
         <YStack f={1} bg="rgba(0,0,0,0.38)" overflow="hidden">
           <YStack f={1}>
             <ScrollView
               ref={scrollRef}
               style={{ flex: 1 }}
-              contentContainerStyle={{
-                padding: 8,
-                gap: 16,
-                flexGrow: 1,
-                justifyContent: renderedMessages.length ? 'flex-start' : 'center',
-                paddingBottom: 24,
-              }}
+              {...scrollViewProps}
+              contentContainerStyle={mergedContentStyle}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -395,7 +412,13 @@ export const WhatsAppStyleChat = ({
             </ScrollView>
           </YStack>
 
-          <YStack px="$1" pb="$2" gap="$2" borderTopWidth={1} borderColor="rgba(255,255,255,0.15)">
+          <YStack
+            px={SCREEN_CONTENT_PADDING.horizontal}
+            pb="$2"
+            gap="$2"
+            borderTopWidth={1}
+            borderColor="rgba(255,255,255,0.15)"
+          >
             {status !== 'connected' ? (
               <Paragraph size="$2" theme="alt2">
                 {status === 'connecting' ? 'Connecting…' : 'Offline'}

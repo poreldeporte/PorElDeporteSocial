@@ -29,7 +29,7 @@ BEGIN
     RAISE EXCEPTION 'game_not_found' USING ERRCODE = 'P0001';
   END IF;
 
-  IF v_game.status IN ('cancelled', 'completed', 'locked') THEN
+  IF v_game.status IN ('cancelled', 'completed') THEN
     RAISE EXCEPTION 'game_not_open' USING ERRCODE = 'P0001';
   END IF;
 

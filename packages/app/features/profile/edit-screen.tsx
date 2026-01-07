@@ -8,6 +8,7 @@ import {
   FullscreenSpinner,
   Paragraph,
   Label,
+  isWeb,
   SizableText,
   SubmitButton,
   Theme,
@@ -16,11 +17,17 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
+import type { ScrollViewProps } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { SchemaForm } from 'app/utils/SchemaForm'
 import { pedLogo } from 'app/assets'
+import { getDockSpacer } from 'app/constants/dock'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
+import { SchemaForm } from 'app/utils/SchemaForm'
+import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { type ReactNode, useRef } from 'react'
 import { createParam } from 'solito'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
@@ -29,14 +36,20 @@ import { Check as CheckIcon } from '@tamagui/lucide-icons'
 
 import { api } from '../../utils/api'
 import {
+  emptyBirthDateParts,
+  formatBirthDateParts,
+  parseBirthDateParts,
+  type BirthDateParts,
+} from '../../utils/birthDate'
+import {
   profileUpdateFieldSchema,
   POSITION_OPTIONS,
   type ProfileUpdateFieldValues,
 } from './profile-field-schema'
 
 const { useParams } = createParam<{ edit_name?: '1' }>()
-export const EditProfileScreen = () => {
-  return <ProfileFormScreen />
+export const EditProfileScreen = (props: ScrollHeaderProps) => {
+  return <ProfileFormScreen floatingCta {...props} />
 }
 
 const ProfileSchema = profileUpdateFieldSchema
@@ -45,17 +58,32 @@ type ProfileFormScreenProps = {
   submitLabel?: string
   onComplete?: () => void
   showStatusBadge?: boolean
+  floatingCta?: boolean
+}
+
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
 }
 
 export const ProfileFormScreen = ({
   submitLabel,
   onComplete,
   showStatusBadge = true,
-}: ProfileFormScreenProps) => {
+  floatingCta = false,
+  scrollProps,
+  headerSpacer,
+  topInset,
+}: ProfileFormScreenProps & ScrollHeaderProps) => {
   const { profile, user } = useUser()
 
   if (!profile || !user?.id) {
-    return <FullscreenSpinner />
+    return (
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
+        <FullscreenSpinner />
+      </YStack>
+    )
   }
   const approvalStatus = profile.approval_status === 'approved' ? 'approved' : 'pending'
   return (
@@ -66,6 +94,9 @@ export const ProfileFormScreen = ({
       approvalStatus={approvalStatus}
       showStatusBadge={showStatusBadge}
       onComplete={onComplete}
+      floatingCta={floatingCta}
+      scrollProps={scrollProps}
+      headerSpacer={headerSpacer}
     />
   )
 }
@@ -77,6 +108,9 @@ const EditProfileForm = ({
   approvalStatus,
   showStatusBadge = true,
   onComplete,
+  floatingCta = false,
+  scrollProps,
+  headerSpacer,
 }: {
   initial: ProfileFormInitial
   userId: string
@@ -84,8 +118,15 @@ const EditProfileForm = ({
   approvalStatus: 'draft' | 'pending' | 'approved'
   showStatusBadge?: boolean
   onComplete?: () => void
+  floatingCta?: boolean
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
 }) => {
   const { params } = useParams()
+  const insets = useSafeAreaInsets()
+  const showFloatingCta = floatingCta && !isWeb
+  const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
+  const submitRef = useRef<(() => void) | null>(null)
   const supabase = useSupabase()
   const toast = useToastController()
   const queryClient = useQueryClient()
@@ -93,6 +134,10 @@ const EditProfileForm = ({
   const apiUtils = api.useUtils()
   const mutation = useMutation({
     async mutationFn(data: ProfileUpdateFieldValues) {
+      const birthDate = formatBirthDateParts(data.birthDate)
+      if (!birthDate) {
+        throw new Error('Enter a valid birth date.')
+      }
       const { data: updated, error } = await supabase
         .from('profiles')
         .update({
@@ -102,7 +147,7 @@ const EditProfileForm = ({
           phone: data.phone.trim(),
           address: data.address?.trim() || null,
           name: `${data.firstName} ${data.lastName}`.trim(),
-          birth_date: formatDateInput(data.birthDate.dateValue),
+          birth_date: birthDate,
           jersey_number: data.jerseyNumber,
           position: data.position?.length ? data.position.join(',') : null,
           approval_status: approvalStatus,
@@ -136,6 +181,25 @@ const EditProfileForm = ({
 
   const displayName = buildProfileDisplayName(initial)
   const statusLabel = buildProfileStatusLabel(approvalStatus)
+  const mergedScrollProps = {
+    ...scrollProps,
+    contentInsetAdjustmentBehavior: 'never',
+  }
+  const handleSubmit = () => submitRef.current?.()
+  const renderAfter = showFloatingCta
+    ? ({ submit }: { submit: () => void }) => {
+        submitRef.current = submit
+        return null
+      }
+    : ({ submit }: { submit: () => void }) => (
+        <Theme inverse>
+          <YStack>
+            <SubmitButton disabled={mutation.isPending} onPress={() => submit()}>
+              {mutation.isPending ? 'Saving…' : submitLabel}
+            </SubmitButton>
+          </YStack>
+        </Theme>
+      )
 
   return (
     <FormWrapper jc="flex-start">
@@ -162,110 +226,135 @@ const EditProfileForm = ({
           position: initial.position ?? [],
         }}
         onSubmit={(values) => mutation.mutate(values)}
-        renderAfter={({ submit }) => (
-          <Theme inverse>
-            <YStack>
-              <SubmitButton disabled={mutation.isPending} onPress={() => submit()}>
-                {mutation.isPending ? 'Saving…' : submitLabel}
-              </SubmitButton>
-            </YStack>
-          </Theme>
-        )}
+        renderAfter={renderAfter}
       >
         {(fields) => (
-          <FormWrapper.Body
-            p={0}
-            px="$4"
-            pt="$4"
-            pb="$8"
-            scrollProps={{ contentInsetAdjustmentBehavior: 'never' }}
-          >
-            <YStack ai="center" gap="$2" mb="$2">
-              <View>
-                <UserAvatar />
-              </View>
-              <SizableText size="$7" fontWeight="700" textAlign="center">
-                {displayName}
-              </SizableText>
-              {showStatusBadge ? <StatusBadge label={statusLabel} /> : null}
-              <Paragraph theme="alt2" size="$2" textAlign="center">
-                Private club details for lineups and access.
-              </Paragraph>
-            </YStack>
-            <YStack gap="$4">
-              <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
-                <YStack gap="$3">
-                  <YStack gap="$1">
-                    <SizableText size="$5" fontWeight="700">
-                      Identity
-                    </SizableText>
-                    <Paragraph theme="alt2" size="$2">
-                      Keep this aligned with your membership details.
-                    </Paragraph>
-                  </YStack>
-                  <XStack gap="$3" $sm={{ fd: 'column' }}>
-                    <YStack f={1}>{fields.firstName}</YStack>
-                    <YStack f={1}>{fields.lastName}</YStack>
-                  </XStack>
-                  <YStack gap="$1">
-                    {fields.email}
-                    <Paragraph theme="alt2" size="$2">
-                      Used for member updates and scheduling.
-                    </Paragraph>
-                  </YStack>
-                  <YStack gap="$1">
-                    {fields.phone}
-                    <Paragraph theme="alt2" size="$2">
-                      Verified via SMS. Contact the club to change it.
-                    </Paragraph>
-                  </YStack>
-                </YStack>
-              </Card>
-              <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
-                <YStack gap="$3">
-                  <YStack gap="$1">
-                    <SizableText size="$5" fontWeight="700">
-                      Player details
-                    </SizableText>
-                    <Paragraph theme="alt2" size="$2">
-                      This helps us balance teams and matchups.
-                    </Paragraph>
-                  </YStack>
-                  <PositionCheckboxes />
-                  <XStack gap="$3" $sm={{ fd: 'column' }}>
-                    <YStack f={1} gap="$1">
-                      {fields.jerseyNumber}
+          <>
+            <FormWrapper.Body
+              p={0}
+              px={SCREEN_CONTENT_PADDING.horizontal}
+              pt={headerSpacer ? 0 : SCREEN_CONTENT_PADDING.top}
+              pb={SCREEN_CONTENT_PADDING.bottom}
+              scrollProps={mergedScrollProps}
+            >
+              {headerSpacer}
+              <YStack ai="center" gap="$2" mb="$2">
+                <View>
+                  <UserAvatar />
+                </View>
+                <SizableText size="$7" fontWeight="700" textAlign="center">
+                  {displayName}
+                </SizableText>
+                {showStatusBadge ? <StatusBadge label={statusLabel} /> : null}
+                <Paragraph theme="alt2" size="$2" textAlign="center">
+                  Private club details for lineups and access.
+                </Paragraph>
+              </YStack>
+              <YStack gap="$4">
+                <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                  <YStack gap="$3">
+                    <YStack gap="$1">
+                      <SizableText size="$5" fontWeight="700">
+                        Identity
+                      </SizableText>
                       <Paragraph theme="alt2" size="$2">
-                        1-99. Match your kit number.
+                        Keep this aligned with your membership details.
                       </Paragraph>
                     </YStack>
-                    <YStack f={1} gap="$1">
-                      {fields.birthDate}
+                    <XStack gap="$3" $sm={{ fd: 'column' }}>
+                      <YStack f={1}>{fields.firstName}</YStack>
+                      <YStack f={1}>{fields.lastName}</YStack>
+                    </XStack>
+                    <YStack gap="$1">
+                      {fields.email}
                       <Paragraph theme="alt2" size="$2">
-                        Used for birthdays and eligibility.
+                        Used for member updates and scheduling.
                       </Paragraph>
                     </YStack>
-                  </XStack>
-                </YStack>
-              </Card>
-              <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
-                <YStack gap="$3">
-                  <YStack gap="$1">
-                    <SizableText size="$5" fontWeight="700">
-                      Location
-                    </SizableText>
-                    <Paragraph theme="alt2" size="$2">
-                      Optional for local game planning.
-                    </Paragraph>
+                    <YStack gap="$1">
+                      {fields.phone}
+                      <Paragraph theme="alt2" size="$2">
+                        Verified via SMS. Contact the club to change it.
+                      </Paragraph>
+                    </YStack>
                   </YStack>
-                  {fields.address}
-                </YStack>
-              </Card>
-            </YStack>
-          </FormWrapper.Body>
+                </Card>
+                <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                  <YStack gap="$3">
+                    <YStack gap="$1">
+                      <SizableText size="$5" fontWeight="700">
+                        Player details
+                      </SizableText>
+                      <Paragraph theme="alt2" size="$2">
+                        This helps us balance teams and matchups.
+                      </Paragraph>
+                    </YStack>
+                    <PositionCheckboxes />
+                    <XStack gap="$3" $sm={{ fd: 'column' }}>
+                      <YStack f={1} gap="$1">
+                        {fields.jerseyNumber}
+                        <Paragraph theme="alt2" size="$2">
+                          1-99. Match your kit number.
+                        </Paragraph>
+                      </YStack>
+                      <YStack f={1} gap="$1">
+                        {fields.birthDate}
+                        <Paragraph theme="alt2" size="$2">
+                          Used for birthdays and eligibility.
+                        </Paragraph>
+                      </YStack>
+                    </XStack>
+                  </YStack>
+                </Card>
+                <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                  <YStack gap="$3">
+                    <YStack gap="$1">
+                      <SizableText size="$5" fontWeight="700">
+                        Location
+                      </SizableText>
+                      <Paragraph theme="alt2" size="$2">
+                        Optional for local game planning.
+                      </Paragraph>
+                    </YStack>
+                    {fields.address}
+                  </YStack>
+                </Card>
+              </YStack>
+              {showFloatingCta ? <YStack h={dockSpacer} /> : null}
+            </FormWrapper.Body>
+            {showFloatingCta ? (
+              <FloatingSubmitBar
+                label={mutation.isPending ? 'Saving…' : submitLabel}
+                onPress={handleSubmit}
+                disabled={mutation.isPending}
+              />
+            ) : null}
+          </>
         )}
       </SchemaForm>
     </FormWrapper>
+  )
+}
+
+const FloatingSubmitBar = ({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string
+  onPress: () => void
+  disabled: boolean
+}) => {
+  return (
+    <FloatingCtaDock>
+      <Theme inverse>
+        <XStack>
+          <SubmitButton flex={1} onPress={onPress} disabled={disabled}>
+            {label}
+          </SubmitButton>
+        </XStack>
+      </Theme>
+    </FloatingCtaDock>
   )
 }
 
@@ -286,7 +375,7 @@ type ProfileFormInitial = {
   email: string
   phone: string
   address?: string
-  birthDate?: { dateValue: Date }
+  birthDate: BirthDateParts
   jerseyNumber?: number
   position: string[]
 }
@@ -300,7 +389,7 @@ const buildProfileFormInitial = (
   email: profile.email ?? user?.email ?? '',
   phone: profile.phone ?? user?.phone ?? '',
   address: profile.address ?? '',
-  birthDate: profile.birth_date ? { dateValue: new Date(profile.birth_date) } : undefined,
+  birthDate: parseBirthDateParts(profile.birth_date) ?? emptyBirthDateParts(),
   jerseyNumber: profile.jersey_number ?? undefined,
   position: profile.position
     ? profile.position.split(',').map((p) => p.trim()).filter(Boolean)
@@ -337,7 +426,12 @@ const StatusBadge = ({ label }: { label: string }) => {
   )
 }
 
-export const AdminProfileEditScreen = ({ profileId }: { profileId: string }) => {
+export const AdminProfileEditScreen = ({
+  profileId,
+  scrollProps,
+  headerSpacer,
+  topInset,
+}: { profileId: string } & ScrollHeaderProps) => {
   const { role, isLoading } = useUser()
   const supabase = useSupabase()
   const router = useRouter()
@@ -359,12 +453,16 @@ export const AdminProfileEditScreen = ({ profileId }: { profileId: string }) => 
   })
 
   if (isLoading) {
-    return <FullscreenSpinner />
+    return (
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
+        <FullscreenSpinner />
+      </YStack>
+    )
   }
 
   if (role !== 'admin') {
     return (
-      <YStack f={1} ai="center" jc="center" px="$6" gap="$2">
+      <YStack f={1} ai="center" jc="center" px="$6" gap="$2" pt={topInset ?? 0}>
         <SizableText size="$6" fontWeight="700">
           Admin access only
         </SizableText>
@@ -376,12 +474,16 @@ export const AdminProfileEditScreen = ({ profileId }: { profileId: string }) => 
   }
 
   if (profileQuery.isLoading) {
-    return <FullscreenSpinner />
+    return (
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
+        <FullscreenSpinner />
+      </YStack>
+    )
   }
 
   if (profileQuery.isError || !profileQuery.data) {
     return (
-      <YStack f={1} ai="center" jc="center" px="$4" gap="$3">
+      <YStack f={1} ai="center" jc="center" px="$4" gap="$3" pt={topInset ?? 0}>
         <Paragraph theme="alt2">
           {profileQuery.isError ? 'Unable to load this member.' : 'Member not found.'}
         </Paragraph>
@@ -413,6 +515,8 @@ export const AdminProfileEditScreen = ({ profileId }: { profileId: string }) => 
         void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
         router.back()
       }}
+      scrollProps={scrollProps}
+      headerSpacer={headerSpacer}
     />
   )
 }
@@ -470,11 +574,4 @@ const UserAvatar = () => {
       <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={128} height={128} />
     </Avatar>
   )
-}
-
-export const formatDateInput = (date: Date) => {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  return `${year}-${month}-${day}`
 }

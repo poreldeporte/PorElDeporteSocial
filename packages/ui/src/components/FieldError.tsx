@@ -16,6 +16,7 @@ export const FieldError = ({ message }: FieldErrorProps) => {
           animation="200ms"
           mt="$2"
           theme="alt2"
+          color="$red11"
           enterStyle={{
             y: -4,
             scaleY: 0.2,

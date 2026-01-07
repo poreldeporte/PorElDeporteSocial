@@ -24,7 +24,7 @@ const schemaFields = {
     .min(6, 'Password must be at least 6 characters')
     .describe(describeProfileField('password')),
   address: formFields.text.describe(describeProfileField('address')),
-  birthDate: formFields.date.describe(describeProfileField('birthDate')),
+  birthDate: formFields.birthDate.describe(describeProfileField('birthDate')),
   jerseyNumber: formFields.number
     .int()
     .min(1, 'Jersey number must be between 1 and 99')

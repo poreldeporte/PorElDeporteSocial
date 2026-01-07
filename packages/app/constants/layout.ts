@@ -1,5 +1,5 @@
 export const SCREEN_CONTENT_PADDING = {
-  horizontal: 16,
+  horizontal: 12,
   top: 16,
   bottom: 48,
 } as const

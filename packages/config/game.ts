@@ -1,2 +1,2 @@
 export const DEFAULT_WAITLIST_LIMIT = 50
-
+export const CONFIRMATION_WINDOW_MS = 24 * 60 * 60 * 1000

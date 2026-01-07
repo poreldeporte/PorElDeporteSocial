@@ -5,8 +5,21 @@ import { z } from 'zod'
 import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
+import {
+  fetchDraftStartSnapshot,
+  getDraftStartBlocker,
+  resetDraftForGame,
+  startDraftForGame,
+} from '../services/draft'
 import { ensureAdmin } from '../utils/ensureAdmin'
-import { notifyRosterJoinedGlobal, notifyRosterLocked, notifyWaitlistPromoted } from '../services/notifications'
+import {
+  notifyDraftReady,
+  notifyDraftReset,
+  notifyDraftStarted,
+  notifyRosterJoinedGlobal,
+  notifyRosterLocked,
+  notifyWaitlistPromoted,
+} from '../services/notifications'
 
 const joinInput = z.object({
   gameId: z.string().uuid('Invalid game id'),
@@ -63,6 +76,22 @@ const fetchUserQueueStatus = async (
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return (data?.status as QueueStatus | undefined) ?? null
+}
+
+const isProfileCaptain = async (
+  supabase: SupabaseClient<Database>,
+  gameId: string,
+  profileId: string
+) => {
+  const { data, error } = await supabase
+    .from('game_captains')
+    .select('profile_id')
+    .eq('game_id', gameId)
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  return Boolean(data)
 }
 
 const safelyNotify = async (action: () => Promise<void>) => {
@@ -206,6 +235,27 @@ export const queueRouter = createTRPCRouter({
       await safelyNotify(() => notifyRosterLocked({ supabaseAdmin, gameId: input.gameId }))
     }
 
+    const { data: draftRow, error: draftError } = await supabaseAdmin
+      .from('games')
+      .select('draft_status')
+      .eq('id', input.gameId)
+      .maybeSingle()
+
+    if (draftError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: draftError.message })
+    }
+
+    if (draftRow?.draft_status && draftRow.draft_status !== 'pending') {
+      const leavingCaptain = await isProfileCaptain(supabaseAdmin, input.gameId, ctx.user.id)
+      await resetDraftForGame({
+        gameId: input.gameId,
+        supabaseAdmin,
+        actorId: ctx.user.id,
+        preserveCaptains: !leavingCaptain,
+      })
+      await safelyNotify(() => notifyDraftReset({ supabaseAdmin, gameId: input.gameId }))
+    }
+
     return { status: leaveStatus }
   }),
 
@@ -241,6 +291,50 @@ export const queueRouter = createTRPCRouter({
       if (statusBefore !== 'locked' && statusAfter === 'locked') {
         await safelyNotify(() => notifyRosterLocked({ supabaseAdmin, gameId: input.gameId }))
       }
+
+      const { data: captainRows, error: captainsError } = await supabaseAdmin
+        .from('game_captains')
+        .select('profile_id')
+        .eq('game_id', input.gameId)
+        .order('slot', { ascending: true })
+
+      if (captainsError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: captainsError.message })
+      }
+
+      const captainIds = (captainRows ?? [])
+        .map((captain) => captain.profile_id)
+        .filter((profileId): profileId is string => Boolean(profileId))
+
+      if (captainIds.length >= 2) {
+        const snapshot = await fetchDraftStartSnapshot(supabaseAdmin, input.gameId)
+        const blocker = getDraftStartBlocker({ snapshot, captainCount: captainIds.length })
+        if (!blocker) {
+          const { data: readyGame, error: readyError } = await supabaseAdmin
+            .from('games')
+            .update({ draft_status: 'ready' })
+            .eq('id', input.gameId)
+            .eq('draft_status', 'pending')
+            .select('id')
+            .maybeSingle()
+
+          if (readyError) {
+            throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: readyError.message })
+          }
+
+          if (readyGame) {
+            await safelyNotify(() => notifyDraftReady({ supabaseAdmin, gameId: input.gameId }))
+            await startDraftForGame({
+              gameId: input.gameId,
+              captainProfileIds: captainIds,
+              supabaseAuthed: ctx.supabase,
+              supabaseAdmin,
+              actorId: ctx.user.id,
+            })
+            await safelyNotify(() => notifyDraftStarted({ supabaseAdmin, gameId: input.gameId }))
+          }
+        }
+      }
       return { gameId: input.gameId }
     }),
 
@@ -251,7 +345,7 @@ export const queueRouter = createTRPCRouter({
 
       const { data: queueRow, error: queueFetchError } = await supabaseAdmin
         .from('game_queue')
-        .select('game_id')
+        .select('game_id, profile_id')
         .eq('id', input.queueId)
         .maybeSingle()
 
@@ -271,6 +365,10 @@ export const queueRouter = createTRPCRouter({
       if (gameError) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
       }
+
+      const isCaptain = queueRow.profile_id
+        ? await isProfileCaptain(supabaseAdmin, queueRow.game_id, queueRow.profile_id)
+        : false
 
       const statusBefore = await fetchGameStatus(supabaseAdmin, queueRow.game_id)
       const { data, error } = await supabaseAdmin
@@ -301,8 +399,14 @@ export const queueRouter = createTRPCRouter({
           notifyRosterJoinedGlobal({ supabaseAdmin, gameId: data.game_id, profileId: promotedProfileId })
         )
       }
-      if (gameRow?.draft_status === 'completed') {
-        await resetDraftForGame({ gameId: data.game_id, supabaseAdmin, actorId: ctx.user.id })
+      if (gameRow?.draft_status && gameRow.draft_status !== 'pending') {
+        await resetDraftForGame({
+          gameId: data.game_id,
+          supabaseAdmin,
+          actorId: ctx.user.id,
+          preserveCaptains: !isCaptain,
+        })
+        await safelyNotify(() => notifyDraftReset({ supabaseAdmin, gameId: data.game_id }))
       }
       await syncPendingGameLockState(supabaseAdmin, data.game_id)
       const statusAfter = await fetchGameStatus(supabaseAdmin, data.game_id)

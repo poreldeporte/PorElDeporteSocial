@@ -51,63 +51,81 @@ export const ScheduleTeaserCard = ({
     handlePress()
   }
   const showArrowFinal = showArrow ?? !ctaLabel
+  const metaLine =
+    meta
+      ?.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .join(' • ') ?? ''
   return (
     <AnimatePresence>
       <Card
         key={`${variant}-${title}`}
-        px="$4"
-        py="$4"
+        p="$4"
         bordered
         $platform-native={{ borderWidth: 0 }}
-        gap="$3"
-        pressStyle={{ opacity: 0.85 }}
-        hoverStyle={{ opacity: 0.95 }}
+        br="$5"
+        gap="$4"
+        hoverStyle={{ backgroundColor: '$color2' }}
+        pressStyle={{ backgroundColor: '$color3' }}
         onPress={handlePress}
         animation="slow"
         enterStyle={{ opacity: 0, y: 20 }}
       >
-        <YStack gap="$2">
+        <YStack gap="$1.5">
           <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-            <SizableText size="$5" fontWeight="600">
-              <XStack ai="center" gap="$1.5">
-                {liveIndicator ? <BlinkDot /> : null}
+            <XStack ai="center" gap="$1.5">
+              {liveIndicator ? <BlinkDot /> : null}
+              <SizableText size="$6" fontWeight="600">
                 {title}
+              </SizableText>
+            </XStack>
+            {badgeContent || showArrowFinal ? (
+              <XStack ai="center" gap="$2">
+                {badgeContent}
+                {showArrowFinal ? <ArrowRight size={20} /> : null}
               </XStack>
-            </SizableText>
-            {badgeContent}
+            ) : null}
           </XStack>
-          {meta?.length ? (
-            <YStack gap="$0.5">
-              {meta.filter(Boolean).map((item, index) => (
-                <Paragraph key={index}>{item}</Paragraph>
-              ))}
-            </YStack>
+          {description ? (
+            <Paragraph theme="alt2" size="$2">
+              {description}
+            </Paragraph>
           ) : null}
-          <XStack ai="center" jc="space-between" gap="$2">
-            {ctaLabel ? (
-              <Button size="$3" onPress={handleCta} disabled={ctaDisabled}>
+          {metaLine ? (
+            <Paragraph theme="alt2" size="$2">
+              {metaLine}
+            </Paragraph>
+          ) : null}
+          {ctaLabel ? (
+            <XStack ai="center">
+              <Button size="$3" br="$10" onPress={handleCta} disabled={ctaDisabled}>
                 {ctaLabel}
               </Button>
-            ) : (
-              <XStack />
-            )}
-            {showArrowFinal ? <ArrowRight size={20} /> : null}
-          </XStack>
+            </XStack>
+          ) : null}
         </YStack>
       </Card>
     </AnimatePresence>
   )
 }
 
-const BlinkDot = () => (
-  <XStack
-    w={10}
-    h={10}
-    br="$10"
-    bg={BRAND_COLORS.primary}
-    borderWidth={1}
-    borderColor="$color6"
-    animation="pulse"
-    animationDuration="800ms"
-  />
-)
+const BlinkDot = () => {
+  const [blinkOn, setBlinkOn] = useState(true)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBlinkOn((prev) => !prev)
+    }, 600)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <XStack
+      w={6}
+      h={6}
+      br="$10"
+      bg="$red9"
+      opacity={blinkOn ? 1 : 0.25}
+      animation="100ms"
+    />
+  )
+}

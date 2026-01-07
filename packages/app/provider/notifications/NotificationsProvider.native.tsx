@@ -9,6 +9,7 @@ import { Platform } from 'react-native'
 import { api } from 'app/utils/api'
 import { isProfileApproved } from 'app/utils/auth/profileApproval'
 import { storePushToken } from 'app/utils/notifications/pushToken'
+import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 
 const PROMPT_KEY_PREFIX = '@push_prompted:'
@@ -62,6 +63,7 @@ const getExpoToken = async () => {
 
 export const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
   const { user, profile } = useUser()
+  const supabase = useSupabase()
   const registerDevice = api.notifications.registerDevice.useMutation()
   const isApproved = isProfileApproved(profile)
 
@@ -99,9 +101,22 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
       await storePushToken(user.id, token)
       const platform = Platform.OS === 'ios' ? 'ios' : 'android'
       const appVersion = Constants.expoConfig?.version ?? null
+      const payload = {
+        user_id: user.id,
+        expo_push_token: token,
+        platform,
+        app_version: appVersion,
+        last_seen_at: new Date().toISOString(),
+        disabled_at: null,
+      }
       try {
         await registerDevice.mutateAsync({ expoPushToken: token, platform, appVersion })
-      } catch {}
+      } catch {
+        const { error } = await supabase
+          .from('user_devices')
+          .upsert(payload, { onConflict: 'expo_push_token' })
+        if (error) return
+      }
     }
 
     register()
@@ -109,7 +124,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     return () => {
       active = false
     }
-  }, [user?.id, isApproved, registerDevice])
+  }, [user?.id, isApproved, registerDevice, supabase])
 
   return children
 }

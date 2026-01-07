@@ -1,11 +1,26 @@
+import type { ScrollViewProps } from 'react-native'
+import { type ReactNode } from 'react'
+
 import { Button, Paragraph, Spinner, YStack } from '@my/ui/public'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { useUser } from 'app/utils/useUser'
 import { useRouter } from 'solito/router'
 
 import { EditGameForm } from './edit-form'
 
-export const GameEditScreen = ({ gameId }: { gameId: string }) => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const GameEditScreen = ({
+  gameId,
+  scrollProps,
+  headerSpacer,
+  topInset,
+}: { gameId: string } & ScrollHeaderProps) => {
   const { role } = useUser()
   const router = useRouter()
   const { data, isLoading, error } = api.games.byId.useQuery(
@@ -15,7 +30,7 @@ export const GameEditScreen = ({ gameId }: { gameId: string }) => {
 
   if (role !== 'admin') {
     return (
-      <YStack f={1} ai="center" jc="center" px="$4">
+      <YStack f={1} ai="center" jc="center" px={SCREEN_CONTENT_PADDING.horizontal} pt={topInset ?? 0}>
         <Paragraph theme="alt2">Only admins can edit games.</Paragraph>
       </YStack>
     )
@@ -23,7 +38,7 @@ export const GameEditScreen = ({ gameId }: { gameId: string }) => {
 
   if (isLoading) {
     return (
-      <YStack f={1} ai="center" jc="center">
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
         <Spinner />
       </YStack>
     )
@@ -31,7 +46,7 @@ export const GameEditScreen = ({ gameId }: { gameId: string }) => {
 
   if (error || !data) {
     return (
-      <YStack f={1} ai="center" jc="center" px="$4" gap="$3">
+      <YStack f={1} ai="center" jc="center" px={SCREEN_CONTENT_PADDING.horizontal} gap="$3" pt={topInset ?? 0}>
         <Paragraph theme="alt1">Unable to load this game.</Paragraph>
         <Button onPress={() => router.back()}>Go back</Button>
       </YStack>
@@ -39,9 +54,13 @@ export const GameEditScreen = ({ gameId }: { gameId: string }) => {
   }
 
   return (
-    <YStack f={1} px="$4" py="$4" gap="$4">
-      <Paragraph theme="alt1">Make sure any roster changes are communicated to the players.</Paragraph>
-      <EditGameForm game={data} onSuccess={() => router.back()} />
+    <YStack f={1}>
+      <EditGameForm
+        game={data}
+        onSuccess={() => router.back()}
+        scrollProps={scrollProps}
+        headerSpacer={headerSpacer}
+      />
     </YStack>
   )
 }

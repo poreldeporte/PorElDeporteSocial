@@ -6,14 +6,19 @@ type StatsCardProps = {
   isLoading: boolean
 }
 
-export const StatsCard = ({ stats, isLoading }: StatsCardProps) => (
-  <YStack gap="$1.5">
-    <SizableText size="$5" fontWeight="600">
-      My record
-    </SizableText>
-    <StatsCardBody stats={stats} isLoading={isLoading} />
-  </YStack>
-)
+export const StatsCard = ({ stats, isLoading }: StatsCardProps) => {
+  const router = useRouter()
+  return (
+    <YStack gap="$1.5">
+      <XStack ai="center">
+        <SizableText size="$5" fontWeight="600">
+          My record
+        </SizableText>
+      </XStack>
+      <StatsCardBody stats={stats} isLoading={isLoading} />
+    </YStack>
+  )
+}
 
 const StatsCardBody = ({ stats, isLoading }: StatsCardProps) => {
   const router = useRouter()
@@ -26,11 +31,16 @@ const StatsCardBody = ({ stats, isLoading }: StatsCardProps) => {
       onPress={() => router.push('/profile')}
       pressStyle={{ opacity: 0.9 }}
     >
-      <XStack gap="$4">
+      <YStack gap="$2">
+        <Paragraph theme="alt2" size="$1" textAlign="center">
+          All time
+        </Paragraph>
+        <XStack gap="$4">
         <StatBlock label="Wins" value={stats.wins} loading={isLoading} />
         <StatBlock label="Losses" value={stats.losses} loading={isLoading} />
         <StatBlock label="Games" value={stats.games} loading={isLoading} />
-      </XStack>
+        </XStack>
+      </YStack>
     </Card>
   )
 }

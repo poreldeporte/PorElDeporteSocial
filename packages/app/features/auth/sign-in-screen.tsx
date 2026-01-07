@@ -17,6 +17,7 @@ import {
 import { ChevronDown } from '@tamagui/lucide-icons'
 import { pedLogo } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
 import { PROFILE_COMPLETION_FIELDS, isProfileComplete } from 'app/utils/auth/profileCompletion'
 import {
@@ -26,7 +27,6 @@ import {
   parsePhoneToE164,
   type PhoneCountryOption,
 } from 'app/utils/phone'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { usePathname } from 'app/utils/usePathname'
@@ -57,7 +57,6 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const supabase = useSupabase()
   const router = useRouter()
   const { isLoadingSession } = useUser()
-  const insets = useSafeAreaInsets()
   const pathname = usePathname()
   const [step, setStep] = useState<'phone' | 'code'>('phone')
   const [phone, setPhone] = useState<string | null>(null)
@@ -72,10 +71,6 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const phoneValue = phoneForm.watch('phone')
   const codeValue = codeForm.watch('code')
   const codeDigits = codeValue?.replace(/\D/g, '') ?? ''
-  const isPhoneValid = useMemo(
-    () => Boolean(parsePhoneToE164(phoneValue ?? '', country)),
-    [country, phoneValue]
-  )
 
   useEffect(() => {
     if (pathname !== '/sign-in') return
@@ -184,17 +179,21 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   }
 
   const phoneDisplay = phone ? formatE164ForDisplay(phone) : 'your number'
-  const contentPaddingTop = Math.max(insets.top, 24) + 24
-  const submitDisabled = step === 'phone'
-    ? status !== 'idle' || !isPhoneValid
-    : status !== 'idle' || codeDigits.length < 6
+  const contentPaddingTop = SCREEN_CONTENT_PADDING.top
+  const submitDisabled = status !== 'idle'
 
   return (
     <YStack f={1} bg="$color1">
       <FormWrapper f={1} jc="space-between" gap="$0">
       <FormWrapper.Body p="$0" scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
           {step === 'phone' ? (
-            <YStack key="phone-step" px="$6" gap="$5" ai="center" style={{ paddingTop: contentPaddingTop }}>
+            <YStack
+              key="phone-step"
+              px={SCREEN_CONTENT_PADDING.horizontal}
+              gap="$5"
+              ai="center"
+              style={{ paddingTop: contentPaddingTop }}
+            >
               <AuthHeader title={title} subtitle={subtitle} />
               <Controller
                 control={phoneForm.control}
@@ -218,7 +217,13 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
               />
             </YStack>
           ) : (
-              <YStack key="code-step" px="$6" gap="$5" ai="center" style={{ paddingTop: contentPaddingTop }}>
+              <YStack
+                key="code-step"
+                px={SCREEN_CONTENT_PADDING.horizontal}
+                gap="$5"
+                ai="center"
+                style={{ paddingTop: contentPaddingTop }}
+              >
                 <AuthHeader
                   title="Confirm your number"
                   subtitle="Enter the 6-digit code we texted."
@@ -267,16 +272,16 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
             </YStack>
           )}
         </FormWrapper.Body>
-        <FormWrapper.Footer pb="$6" px="$6">
+        <FormWrapper.Footer pb={SCREEN_CONTENT_PADDING.bottom} px={SCREEN_CONTENT_PADDING.horizontal}>
           <Button
-            backgroundColor="#000"
-            borderColor={PRIMARY_COLOR}
+            backgroundColor="#fff"
+            borderColor="#fff"
             borderWidth={1}
-            color="#fff"
+            color="#000"
             fontSize={17}
             fontWeight="600"
-            height={50}
-            borderRadius={12}
+            height={54}
+            borderRadius={999}
             w="100%"
             onPress={step === 'phone' ? handleSendCode : handleVerifyCode}
             disabled={submitDisabled}
@@ -632,6 +637,7 @@ type OtpInputFieldProps = {
 const OtpInputField = ({ value, onChange, onComplete, error, disabled }: OtpInputFieldProps) => {
   const [focused, setFocused] = useState(false)
   const lastComplete = useRef<string | null>(null)
+  const inputRef = useRef<{ focus?: () => void } | null>(null)
   const digits = (value ?? '').replace(/\D/g, '').slice(0, 6)
 
   useEffect(() => {
@@ -650,9 +656,13 @@ const OtpInputField = ({ value, onChange, onComplete, error, disabled }: OtpInpu
   }
 
   const activeIndex = Math.min(digits.length, 5)
+  const focusInput = () => {
+    if (disabled) return
+    inputRef.current?.focus?.()
+  }
 
   return (
-    <YStack gap="$2" w="100%" ai="center" position="relative">
+    <YStack gap="$2" w="100%" ai="center" position="relative" onPress={focusInput}>
       <XStack gap="$1" jc="space-between" w="100%" maxWidth={360}>
         {Array.from({ length: 6 }).map((_, index) => {
           const digit = digits[index] ?? ''
@@ -678,6 +688,7 @@ const OtpInputField = ({ value, onChange, onComplete, error, disabled }: OtpInpu
         })}
       </XStack>
       <Input
+        ref={inputRef}
         value={digits}
         onChangeText={handleChange}
         onFocus={() => setFocused(true)}

@@ -1,6 +1,6 @@
 import { Paragraph, SizableText, XStack } from '@my/ui/public'
 import { Calendar, ShieldAlert } from '@tamagui/lucide-icons'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import type { CombinedStatus } from '../status-helpers'
 import type { GameStatus } from '../types'
@@ -11,10 +11,20 @@ export const StatusBadge = ({
   tone,
   children,
   showIcon = true,
+  dotColor,
+  blinkDot = false,
+  backgroundColor,
+  borderColor,
+  textColor,
 }: {
   tone: StatusTone
   children: ReactNode
   showIcon?: boolean
+  dotColor?: string
+  blinkDot?: boolean
+  backgroundColor?: string
+  borderColor?: string
+  textColor?: string
 }) => {
   const palette: Record<StatusTone, { bg: string; border: string; dot: string; text: string }> = {
     default: { bg: '$color1', border: '$color4', dot: '$color8', text: '$color11' },
@@ -23,6 +33,19 @@ export const StatusBadge = ({
     neutral: { bg: '$color1', border: '$color4', dot: '$color6', text: '$color11' },
   }
   const styles = palette[tone] ?? palette.default
+  const resolvedDotColor = dotColor ?? styles.dot
+  const resolvedBackground = backgroundColor ?? styles.bg
+  const resolvedBorderColor = borderColor ?? styles.border
+  const resolvedTextColor = textColor ?? styles.text
+  const [blinkOn, setBlinkOn] = useState(true)
+
+  useEffect(() => {
+    if (!blinkDot) return
+    const interval = setInterval(() => {
+      setBlinkOn((prev) => !prev)
+    }, 600)
+    return () => clearInterval(interval)
+  }, [blinkDot])
   return (
     <XStack
       ai="center"
@@ -30,18 +53,25 @@ export const StatusBadge = ({
       px="$2"
       py="$1"
       br="$10"
-      bg={styles.bg as any}
+      bg={resolvedBackground as any}
       borderWidth={1}
-      borderColor={styles.border as any}
+      borderColor={resolvedBorderColor as any}
     >
       {showIcon ? (
         tone === 'warning' ? (
           <ShieldAlert size={14} color="$yellow10" />
         ) : (
-          <XStack w={6} h={6} br="$10" bg={styles.dot as any} />
+          <XStack
+            w={6}
+            h={6}
+            br="$10"
+            bg={resolvedDotColor as any}
+            opacity={blinkDot ? (blinkOn ? 1 : 0.25) : 1}
+            animation={blinkDot ? '100ms' : undefined}
+          />
         )
       ) : null}
-      <SizableText size="$2" color={styles.text as any} fontWeight="600">
+      <SizableText size="$2" color={resolvedTextColor as any} fontWeight="600">
         {children}
       </SizableText>
     </XStack>
@@ -59,26 +89,12 @@ export const CombinedStatusBadge = ({ status }: { status?: CombinedStatus | null
   )
 }
 
-export const StatusNote = ({
-  status,
-  waitlistFull,
-}: {
-  status: GameStatus
-  waitlistFull: boolean
-}) => {
-  if (status === 'locked') {
-    return waitlistFull ? (
-      <Paragraph theme="alt2">Waitlist is full. We’ll alert you if a spot opens.</Paragraph>
-    ) : null
-  }
+export const StatusNote = ({ status }: { status: GameStatus }) => {
   if (status === 'cancelled') {
     return <Paragraph theme="alt2">This game was cancelled.</Paragraph>
   }
   if (status === 'completed') {
     return <Paragraph theme="alt2">This game has already been played.</Paragraph>
-  }
-  if (waitlistFull) {
-    return <Paragraph theme="alt2">Waitlist is full. Spots open when players drop.</Paragraph>
   }
   return null
 }

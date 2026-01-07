@@ -1,8 +1,18 @@
+import type { ScrollViewProps } from 'react-native'
+import { type ReactNode } from 'react'
+
 import { FormWrapper, H2, H4, KVTable, Separator, SizableText, YStack, isWeb, styled } from '@my/ui/public'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { useUser } from 'app/utils/useUser'
 import { Link } from 'solito/link'
 
-export const GeneralSettingsScreen = () => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const GeneralSettingsScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const { user, profile } = useUser()
 
   return (
@@ -12,7 +22,14 @@ export const GeneralSettingsScreen = () => {
           <H2>General</H2>
         </YStack>
       )}
-      <FormWrapper.Body mt="$2" gap="$10">
+      <FormWrapper.Body
+        gap="$10"
+        px={SCREEN_CONTENT_PADDING.horizontal}
+        pt={headerSpacer ? 0 : SCREEN_CONTENT_PADDING.top}
+        pb={SCREEN_CONTENT_PADDING.bottom}
+        scrollProps={scrollProps}
+      >
+        {headerSpacer}
         <Section>
           <KVTable>
             <YStack gap="$4">

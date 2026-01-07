@@ -22,7 +22,7 @@ loadThemePromise.then((val) => {
 })
 
 export const UniversalThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [current, setCurrent] = useState<ThemeName | null>(null) // Start with null
+  const [current, setCurrent] = useState<ThemeName | null>(persistedTheme ?? 'system')
   const systemTheme = useColorScheme() || 'system'
 
   useIsomorphicLayoutEffect(() => {
@@ -50,10 +50,6 @@ export const UniversalThemeProvider = ({ children }: { children: React.ReactNode
     } satisfies ThemeContextValue
   }, [current, systemTheme])
 
-  if (current === null) {
-    return null // Render nothing until theme is loaded
-  }
-
   return (
     <ThemeContext.Provider value={themeContext}>
       <InnerProvider>{children}</InnerProvider>
@@ -63,13 +59,6 @@ export const UniversalThemeProvider = ({ children }: { children: React.ReactNode
 
 const InnerProvider = ({ children }: { children: React.ReactNode }) => {
   const { resolvedTheme } = useThemeSetting()
-
-  // ensure we set color scheme as soon as possible
-  if (resolvedTheme !== Appearance.getColorScheme()) {
-    if (resolvedTheme === 'light' || resolvedTheme === 'dark') {
-      Appearance.setColorScheme(resolvedTheme)
-    }
-  }
 
   return (
     <ThemeProvider value={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}>

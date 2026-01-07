@@ -1,3 +1,7 @@
+import type { ScrollViewProps } from 'react-native'
+import { useMemo, useState, type ReactNode } from 'react'
+
+import { Crown as CrownIcon } from '@tamagui/lucide-icons'
 import {
   Avatar,
   Button,
@@ -9,11 +13,13 @@ import {
   XStack,
   YStack,
 } from '@my/ui/public'
-import { Crown as CrownIcon } from '@tamagui/lucide-icons'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { getDockSpacer } from 'app/constants/dock'
 import { api, type RouterOutputs } from 'app/utils/api'
-import { useMemo, useState } from 'react'
+import { useStatsRealtime } from 'app/utils/useRealtimeSync'
+import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
+import { useUser } from 'app/utils/useUser'
 
 type Metric = 'wins' | 'losses' | 'goal_diff' | 'games'
 type RawEntry = RouterOutputs['stats']['leaderboard'][number]
@@ -40,7 +46,16 @@ const PODIUM_COLORS = {
   3: '#4b5320',
 } as const
 
-export const LeaderboardScreen = () => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
+  const insets = useSafeAreaInsets()
+  const { user } = useUser()
+  useStatsRealtime(Boolean(user))
   const [metric, setMetric] = useState<Metric>('wins')
   const queryMetric = metric === 'goal_diff' ? 'goal_diff' : metric === 'wins' ? 'wins' : 'overall'
   const query = api.stats.leaderboard.useQuery({ metric: queryMetric as any })
@@ -68,7 +83,7 @@ export const LeaderboardScreen = () => {
 
   if (query.isLoading) {
     return (
-      <YStack f={1} ai="center" jc="center">
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
         <FullscreenSpinner />
       </YStack>
     )
@@ -76,15 +91,25 @@ export const LeaderboardScreen = () => {
 
   if (query.error) {
     return (
-      <YStack f={1} ai="center" jc="center" gap="$2">
+      <YStack f={1} ai="center" jc="center" gap="$2" pt={topInset ?? 0}>
         <Paragraph theme="alt2">Unable to load leaderboard.</Paragraph>
         <Button onPress={() => query.refetch()}>Retry</Button>
       </YStack>
     )
   }
+  const dockSpacer = getDockSpacer(insets.bottom)
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const basePaddingBottom = screenContentContainerStyle.paddingBottom ?? 0
+  const baseContentStyle = headerSpacer
+    ? { ...screenContentContainerStyle, paddingTop: 0, paddingBottom: basePaddingBottom }
+    : { ...screenContentContainerStyle, paddingBottom: basePaddingBottom }
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle]
+    : [baseContentStyle, contentContainerStyle]
 
   return (
-    <ScrollView contentContainerStyle={screenContentContainerStyle}>
+    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+      {headerSpacer}
       <YStack gap="$4">
         {glowRow.length ? (
           <YStack pt="$2">
@@ -115,14 +140,15 @@ export const LeaderboardScreen = () => {
             <Paragraph theme="alt2" px="$3" py="$3">
               No players to rank yet.
             </Paragraph>
-          ) : (
-            <>
-              <TableHeader />
-              {sorted.map((entry, index) => (<LeaderboardRow key={entry.profileId ?? index} rank={entry.rank || index + 1} entry={entry} />))}
-            </>
-          )}
-        </Card>
+        ) : (
+          <>
+            <TableHeader />
+            {sorted.map((entry, index) => (<LeaderboardRow key={entry.profileId ?? index} rank={entry.rank || index + 1} entry={entry} />))}
+          </>
+        )}
+      </Card>
       </YStack>
+      <YStack h={dockSpacer} />
     </ScrollView>
   )
 }

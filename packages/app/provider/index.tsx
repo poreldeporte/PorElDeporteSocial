@@ -4,6 +4,7 @@ import React from 'react'
 
 import { AuthProvider } from './auth'
 import { NotificationsProvider } from './notifications'
+import { ProfileRealtimeProvider } from './profile-realtime'
 import { QueryClientProvider } from './react-query'
 import { SafeAreaProvider } from './safe-area'
 import { TamaguiProvider } from './tamagui'
@@ -47,5 +48,6 @@ const Providers = compose([
   TamaguiProvider,
   ToastProvider,
   QueryClientProvider,
+  ProfileRealtimeProvider,
   NotificationsProvider,
 ])

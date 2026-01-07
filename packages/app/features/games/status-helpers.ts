@@ -68,6 +68,32 @@ export const deriveUserBadge = ({
 
 export type CombinedStatus = { label: string; tone: StatusTone } | null
 
+export const getConfirmCountdownLabel = ({
+  confirmationWindowStart,
+  isConfirmationOpen,
+  userStatus,
+  attendanceConfirmedAt,
+  gameStatus,
+  now = Date.now(),
+}: {
+  confirmationWindowStart?: Date | null
+  isConfirmationOpen?: boolean
+  userStatus?: QueueStatus | null
+  attendanceConfirmedAt?: string | null
+  gameStatus?: GameStatus
+  now?: number
+}) => {
+  if (userStatus !== 'confirmed') return null
+  if (attendanceConfirmedAt) return null
+  if (isConfirmationOpen) return null
+  if (gameStatus === 'cancelled' || gameStatus === 'completed') return null
+  if (!confirmationWindowStart) return null
+  const remainingMs = confirmationWindowStart.getTime() - now
+  if (remainingMs <= 0) return null
+  const hours = Math.max(1, Math.ceil(remainingMs / (60 * 60 * 1000)))
+  return `Confirm in ${hours}h`
+}
+
 export const deriveCombinedStatus = ({
   gameStatus,
   confirmedCount,
@@ -116,10 +142,10 @@ export const deriveCombinedStatus = ({
   if (userBadge?.label === 'On waitlist') return { label: userBadge.label, tone: userBadge.tone }
 
   if (availability?.state === 'locked' && !isUserOnRoster) {
-    return { label: 'Pending Confirmations', tone: 'neutral' }
+    return { label: 'Roster full', tone: 'neutral' }
   }
   if (availability?.state === 'waitlist') {
-    return { label: 'Waitlist', tone: availability.tone }
+    return { label: 'Waitlist open', tone: availability.tone }
   }
   if (availability?.state === 'open') {
     return { label: 'Spots open', tone: availability.tone }
@@ -131,7 +157,6 @@ export const deriveCombinedStatus = ({
 export const deriveUserStateMessage = ({
   queueStatus,
   attendanceConfirmed,
-  waitlistFull,
   canConfirmAttendance,
   confirmationWindowStart,
   gameStatus,
@@ -139,7 +164,6 @@ export const deriveUserStateMessage = ({
 }: {
   queueStatus?: QueueStatus | null
   attendanceConfirmed?: boolean
-  waitlistFull: boolean
   canConfirmAttendance: boolean
   confirmationWindowStart?: Date | null
   gameStatus: GameStatus
@@ -153,7 +177,7 @@ export const deriveUserStateMessage = ({
     return 'You’re on the roster.'
   }
   if (queueStatus === 'waitlisted') return 'You’re on the waitlist. We’ll ping you if a spot opens.'
-  if (gameStatus === 'locked') return 'Awaiting confirmations.'
+  if (gameStatus === 'locked') return 'Roster full.'
   if (spotsLeft > 0) return 'Spots open—tap to grab one.'
   return 'Join the waitlist and we’ll ping you if a spot opens.'
 }

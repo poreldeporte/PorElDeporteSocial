@@ -1,3 +1,6 @@
+import type { ScrollViewProps } from 'react-native'
+import { useState, type ReactNode } from 'react'
+
 import {
   Button,
   Card,
@@ -5,7 +8,6 @@ import {
   Paragraph,
   ScrollView,
   SizableText,
-  Spinner,
   Separator,
   XStack,
   YStack,
@@ -21,16 +23,19 @@ import {
   Zap,
 } from '@tamagui/lucide-icons'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { BRAND_COLORS } from 'app/constants/colors'
 import { api } from 'app/utils/api'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import { useRouter } from 'solito/router'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
 import { useLink } from 'solito/link'
-import { useState, type ReactNode } from 'react'
+import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
+import { getDockSpacer } from 'app/constants/dock'
 
 import { AdminPanel, CombinedStatusBadge, GameActionBar, RosterSection } from './components'
-import { deriveCombinedStatus, deriveUserStateMessage } from './status-helpers'
+import { getGameCtaIcon, type GameCtaState } from './cta-icons'
+import { deriveCombinedStatus, deriveUserStateMessage, getConfirmCountdownLabel } from './status-helpers'
 import { useGameDetailState } from './useGameDetailState'
 import type { GameDetail } from './types'
 
@@ -62,7 +67,18 @@ const COMMUNITY_GUIDELINES = [
   },
 ] as const
 
-export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const GameDetailScreen = ({
+  gameId,
+  scrollProps,
+  headerSpacer,
+  topInset,
+}: { gameId: string } & ScrollHeaderProps) => {
   const { data, isLoading, error } = api.games.byId.useQuery(
     { id: gameId },
     { enabled: !!gameId }
@@ -72,6 +88,7 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
   const utils = api.useUtils()
   const { join, leave, confirmAttendance, pendingGameId, isPending, isConfirming } = useQueueActions()
   const { role, user } = useUser()
+  const insets = useSafeAreaInsets()
   const draftLink = useLink({ href: `/games/${gameId}/draft` })
   const [removingId, setRemovingId] = useState<string | null>(null)
 
@@ -105,10 +122,22 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
         canConfirmAttendance: view.canConfirmAttendance,
       })
     : null
+  const confirmCountdownLabel = data
+    ? getConfirmCountdownLabel({
+        confirmationWindowStart: view.confirmationWindowStart,
+        isConfirmationOpen: view.isConfirmationOpen,
+        userStatus: view.userEntry?.status ?? data.userStatus ?? 'none',
+        attendanceConfirmedAt: view.userEntry?.attendanceConfirmedAt ?? null,
+        gameStatus: data.status,
+      })
+    : null
+  const displayStatus =
+    confirmCountdownLabel && combinedStatus
+      ? { ...combinedStatus, label: confirmCountdownLabel }
+      : combinedStatus
   const userStateMessage = deriveUserStateMessage({
     queueStatus: view.userEntry?.status ?? 'none',
     attendanceConfirmed: Boolean(view.userEntry?.attendanceConfirmedAt),
-    waitlistFull: view.waitlistFull,
     canConfirmAttendance: view.canConfirmAttendance,
     confirmationWindowStart: view.confirmationWindowStart,
     gameStatus: data?.status ?? 'scheduled',
@@ -126,7 +155,7 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
 
   if (isLoading) {
     return (
-      <YStack f={1} ai="center" jc="center">
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
         <FullscreenSpinner />
       </YStack>
     )
@@ -134,30 +163,36 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
 
   if (error || !data) {
     return (
-      <YStack f={1} ai="center" jc="center" gap="$2" px="$4">
+      <YStack f={1} ai="center" jc="center" gap="$2" px="$4" pt={topInset ?? 0}>
         <Paragraph theme="alt2">We couldn’t load this game.</Paragraph>
         <Button onPress={() => router.push('/games')}>Back to games</Button>
       </YStack>
     )
   }
 
+  const showActionBar = !isWeb
+  const basePaddingBottom = screenContentContainerStyle.paddingBottom ?? 0
+  const actionBarSpacer = showActionBar ? getDockSpacer(insets.bottom) : 0
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const baseContentStyle = {
+    ...screenContentContainerStyle,
+    paddingTop: headerSpacer ? 0 : screenContentContainerStyle.paddingTop,
+    paddingBottom: basePaddingBottom,
+  }
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle]
+    : [baseContentStyle, contentContainerStyle]
+
   return (
     <YStack f={1} bg="$background">
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{
-          ...screenContentContainerStyle,
-          paddingBottom: isWeb
-            ? screenContentContainerStyle.paddingBottom
-            : (screenContentContainerStyle.paddingBottom ?? 0) + 96,
-        }}
+        {...scrollViewProps}
+        contentContainerStyle={mergedContentStyle}
       >
+        {headerSpacer}
         <YStack gap="$3">
-          <GameHeader
-            kickoffLabel={view.kickoffLabel}
-            locationName={data.locationName}
-            status={combinedStatus}
-          />
+          <GameHeader kickoffLabel={view.kickoffLabel} locationName={data.locationName} status={displayStatus} />
 
           <YStack gap="$2">
             {isWeb ? (
@@ -173,7 +208,8 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
                 confirmationWindowStart={view.confirmationWindowStart}
               />
             ) : null}
-            {view.confirmedCount >= data.capacity && data.draftStatus !== 'completed' ? (
+            {data.draftStatus !== 'completed' &&
+            (view.confirmedCount >= data.capacity || data.draftStatus !== 'pending') ? (
               <DraftStatusCard draftStatus={data.draftStatus} canManage={canManage} draftLink={draftLink} />
             ) : null}
           </YStack>
@@ -219,8 +255,9 @@ export const GameDetailScreen = ({ gameId }: { gameId: string }) => {
           <SectionTitle>Community guidelines</SectionTitle>
           <CommunityGuidelinesSection />
         </YStack>
+        <YStack h={actionBarSpacer} />
       </ScrollView>
-      {!isWeb ? (
+      {showActionBar ? (
         <GameActionBar
           view={view}
           userStateMessage={userStateMessage}
@@ -245,13 +282,16 @@ const GameHeader = ({
   return (
     <YStack gap="$2">
       <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-        <SizableText size="$6" fontWeight="600">
+        <SizableText size="$7" fontWeight="700">
           {kickoffLabel || 'Kickoff TBD'}
         </SizableText>
         <CombinedStatusBadge status={status} />
       </XStack>
-      <Paragraph>{locationName ?? 'Venue TBD'}</Paragraph>
-      <Separator my="$1" />
+      <Paragraph fontWeight="600">{locationName ?? 'Venue TBD'}</Paragraph>
+      <Paragraph theme="alt2" size="$2">
+        Arrive 15 minutes early to warm up.
+      </Paragraph>
+      <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
     </YStack>
   )
 }
@@ -277,8 +317,30 @@ const AttendanceCard = ({
   onConfirmAttendance: () => void
   confirmationWindowStart: Date | null
 }) => {
-  const buttonTheme = theme === 'alt2' ? 'alt2' : undefined
+  const isRateCta = ctaLabel === 'Rate the game'
   const isConfirmation = canConfirmAttendance && Boolean(confirmationWindowStart)
+  const isJoinWaitlist = ctaLabel === 'Join waitlist'
+  const isClaimCta = !isConfirmation && (ctaLabel === 'Claim spot' || isJoinWaitlist)
+  const ctaState: GameCtaState | undefined =
+    ctaLabel === 'Drop out'
+      ? 'leave-confirmed'
+      : ctaLabel === 'Leave waitlist'
+        ? 'leave-waitlisted'
+        : ctaLabel === 'Claim spot' || ctaLabel === 'Join waitlist'
+          ? 'join'
+          : undefined
+  const icon = getGameCtaIcon({
+    isPending: isLoading,
+    showConfirm: isConfirmation,
+    isRate: isRateCta,
+    ctaState,
+  })
+  const buttonTheme =
+    isRateCta || isClaimCta || isConfirmation
+      ? undefined
+      : theme === 'alt2'
+        ? 'alt2'
+        : undefined
   const handler = isConfirmation ? onConfirmAttendance : onCta
   const label = isConfirmation ? 'Confirm spot' : ctaLabel
   const detail =
@@ -302,7 +364,26 @@ const AttendanceCard = ({
         <Button
           theme={buttonTheme}
           disabled={disabled}
-          iconAfter={isLoading ? <Spinner size="small" /> : undefined}
+          icon={icon}
+          backgroundColor={
+            isRateCta
+              ? '$color'
+              : isConfirmation
+                ? BRAND_COLORS.primary
+                : isClaimCta
+                  ? 'transparent'
+                  : undefined
+          }
+          borderColor={
+            isRateCta
+              ? '$color'
+              : isConfirmation
+                ? BRAND_COLORS.primary
+                : isClaimCta
+                  ? BRAND_COLORS.primary
+                  : undefined
+          }
+          color={isRateCta ? '$background' : isClaimCta ? BRAND_COLORS.primary : undefined}
           onPress={handler}
         >
           {label}
@@ -383,18 +464,16 @@ const getDraftStatusContent = (
       }
     case 'ready':
       return {
-        headline: canManage ? 'Draft can start anytime' : 'Captains are ready',
-        subline: canManage
-          ? 'Open the draft room once everyone is on the field.'
-          : 'Captains will start picking as soon as the room opens.',
-        hint: canManage ? 'Tap to start draft' : 'Tap to preview room',
+        headline: canManage ? 'Captains set' : 'Draft starting now',
+        subline: canManage ? 'Draft is about to start.' : 'Captains are ready to pick.',
+        hint: 'Tap to enter the draft room',
       }
     case 'pending':
     default:
       return {
         headline: canManage ? 'Pick captains to unlock drafting' : 'Captains coming soon',
         subline: canManage
-          ? 'Choose two confirmed players so we can start picking.'
+          ? 'Choose confirmed captains so we can start picking.'
           : 'We’ll draft as soon as captains are announced.',
         hint: canManage ? 'Tap to set captains' : 'Captains coming soon',
       }
@@ -448,23 +527,22 @@ const ResultSummary = ({
   const showTeamsWithoutResult = !result && draftStatus !== 'pending' && hasTeams
   if (!result && !showTeamsWithoutResult && !showEmptyState) return null
 
+  const isMultiTeam = teams.length > 2
   const captainNameById = new Map(
     captains.map((captain) => [captain.profileId, captain.player.name ?? 'Captain'])
   )
   const pending = Boolean(result && result.status !== 'confirmed')
   const decoratedTeams = teams.map((team) => {
-    const variant: ResultTeamVariant =
-      result?.winningTeamId === team.id
-        ? 'winner'
-        : result?.losingTeamId === team.id
-          ? 'loser'
-          : 'neutral'
-    const score =
-      result?.winningTeamId === team.id
+    const isWinner = result?.winningTeamId === team.id
+    const isLoser = result ? (isMultiTeam ? !isWinner : result?.losingTeamId === team.id) : false
+    const variant: ResultTeamVariant = isWinner ? 'winner' : result && isLoser ? 'loser' : 'neutral'
+    const score = result && !isMultiTeam
+      ? isWinner
         ? result?.winnerScore
         : result?.losingTeamId === team.id
           ? result?.loserScore
           : null
+      : null
     const captainProfileId = team.captainProfileId ?? null
     const captainName = captainProfileId ? captainNameById.get(captainProfileId) ?? null : null
     return { team, variant, score, captainName, captainProfileId }

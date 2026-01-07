@@ -36,3 +36,6 @@
 
 - **settings general tab never marks active**  
   `packages/app/features/settings/screen.tsx` compares `pathname === 'settings/general'`, missing the leading slash, so the “General” entry never highlights even when you are on `/settings/general`. Align the comparison (and related links) with absolute paths.
+
+- **confirmation window enforced client-side only**  
+  `packages/app/features/games/useGameDetailState.ts` and `packages/app/features/home/components/game-card.tsx` gate confirmation to 24 hours pre-kickoff, but `packages/api/src/routers/queue.ts` accepts confirmations any time. Enforce the 24-hour window server-side using the game start time.

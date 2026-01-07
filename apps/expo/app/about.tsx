@@ -1,16 +1,33 @@
-import { AboutScreen } from 'app/features/legal/about-screen'
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { Stack } from 'expo-router'
+import { ChevronLeft } from '@tamagui/lucide-icons'
+import { Stack, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+
+import { getScreenLayout } from '@my/app/navigation/layouts'
+import { AboutScreen } from 'app/features/legal/about-screen'
+
+import { FloatingHeaderLayout } from '../components/FloatingHeaderLayout'
 
 const layout = getScreenLayout('legalAbout')
 
 export default function Screen() {
+  const router = useRouter()
   return (
     <>
-      <Stack.Screen options={{ headerTitle: layout.title }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
-        <AboutScreen />
+        <FloatingHeaderLayout
+          title={layout.title}
+          leftIcon={ChevronLeft}
+          onPressLeft={() => router.back()}
+        >
+        {({ scrollProps, HeaderSpacer, topInset }) => (
+          <AboutScreen
+            scrollProps={scrollProps}
+            headerSpacer={HeaderSpacer}
+            topInset={topInset}
+          />
+        )}
+      </FloatingHeaderLayout>
       </SafeAreaView>
     </>
   )

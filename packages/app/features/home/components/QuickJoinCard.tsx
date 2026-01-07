@@ -12,8 +12,10 @@ type QuickJoinCardProps = {
   titleOverride?: string
   onJoin?: (gameId: string) => void
   onLeave?: (gameId: string) => void
+  onConfirmAttendance?: (gameId: string) => void
   isPending?: boolean
   pendingGameId?: string | null
+  isConfirming?: boolean
 }
 
 export const QuickJoinCard = ({
@@ -22,8 +24,10 @@ export const QuickJoinCard = ({
   titleOverride,
   onJoin,
   onLeave,
+  onConfirmAttendance,
   isPending,
   pendingGameId,
+  isConfirming,
 }: QuickJoinCardProps) => {
   const kickoff = useMemo(() => (game ? new Date(game.startTime) : null), [game?.startTime])
   const timeLabel = kickoff
@@ -37,15 +41,19 @@ export const QuickJoinCard = ({
 
   const isDraftCard = variant === 'draft' && Boolean(game)
   const isDraftLive = isDraftCard && game?.draftStatus === 'in_progress'
+  const isDraftReady = isDraftCard && game?.draftStatus === 'ready'
+  const shouldShowDraftCard = isDraftCard && (isDraftLive || isDraftReady)
 
-  if (isDraftCard && !isDraftLive) return null
+  if (isDraftCard && !shouldShowDraftCard) return null
   if (game && !isDraftCard) {
     const card = (
       <GameCard
         game={game}
         onJoin={onJoin ?? (() => {})}
         onLeave={onLeave ?? (() => {})}
+        onConfirmAttendance={onConfirmAttendance}
         isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
+        isConfirming={isConfirming}
       />
     )
     return titleOverride ? (
@@ -60,12 +68,9 @@ export const QuickJoinCard = ({
     )
   }
 
-  const draftDescription = game && isDraftCard
-    ? `Don't miss the draft. Matchups drop for ${kickoffLabel ?? 'this run'}.`
-    : "Don't miss out on the draft. Make sure to tune in and see the matchups."
   const description = game
     ? isDraftCard
-      ? draftDescription
+      ? ''
       : ''
     : 'No open runs right now—check the schedule to find your next run.'
   const meta =
@@ -87,7 +92,9 @@ export const QuickJoinCard = ({
         (isDraftCard
           ? isDraftLive
             ? 'Draft is happening now'
-            : 'Draft room'
+            : isDraftReady
+              ? 'Draft starting now'
+              : 'Draft room'
           : game
             ? 'Next kickoff'
             : 'Schedule')

@@ -1,8 +1,8 @@
-import { Button, Paragraph, Spinner, XStack, YStack } from '@my/ui/public'
+import { Button, Paragraph, XStack, YStack } from '@my/ui/public'
 import type { ThemeName } from '@tamagui/core'
-import { Lock, Star, ThumbsDown } from '@tamagui/lucide-icons'
 
 import { BRAND_COLORS } from 'app/constants/colors'
+import { getGameCtaIcon } from 'app/features/games/cta-icons'
 import type { GameActionBarProps } from './GameActionBar.types'
 
 export const GameActionBar = ({
@@ -12,21 +12,27 @@ export const GameActionBar = ({
   onConfirmAttendance,
   isConfirming,
 }: GameActionBarProps) => {
+  const isRateCta = view.ctaLabel === 'Rate the game'
+  const isJoinCta = view.ctaState === 'join'
   const primaryButtonStyle =
-    view.ctaState === 'join'
-      ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+    !view.isGamePending && !isRateCta && isJoinCta
+      ? {
+          backgroundColor: 'transparent',
+          borderColor: BRAND_COLORS.primary,
+          color: BRAND_COLORS.primary,
+        }
       : {}
+  const rateButtonStyle = isRateCta
+    ? { backgroundColor: '$color', borderColor: '$color', color: '$background' }
+    : {}
+  const buttonTheme =
+    isRateCta || isJoinCta ? undefined : (view.ctaTheme as ThemeName | undefined)
   const confirmStyle = { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
-  const primaryIcon =
-    view.isGamePending
-      ? <Spinner size="small" />
-      : view.canConfirmAttendance
-        ? <Lock size={16} />
-        : view.ctaLabel === 'Claim spot'
-          ? <Star size={16} />
-          : view.ctaLabel === 'Drop out'
-            ? <ThumbsDown size={16} />
-            : undefined
+  const primaryIcon = getGameCtaIcon({
+    isPending: view.isGamePending,
+    isRate: isRateCta,
+    ctaState: view.ctaState,
+  })
 
   return (
     <YStack backgroundColor="$background" borderTopWidth={1} borderColor="$color4" px="$4" py="$3" gap="$2">
@@ -38,8 +44,9 @@ export const GameActionBar = ({
           disabled={view.ctaDisabled}
           onPress={onCta}
           icon={primaryIcon}
-          theme={view.ctaTheme as ThemeName | undefined}
+          theme={buttonTheme}
           {...primaryButtonStyle}
+          {...rateButtonStyle}
         >
           {view.ctaLabel}
         </Button>
@@ -49,7 +56,7 @@ export const GameActionBar = ({
             size="$4"
             br="$10"
             theme={undefined}
-            icon={isConfirming ? undefined : <Lock size={16} />}
+            icon={isConfirming ? undefined : getGameCtaIcon({ showConfirm: true })}
             disabled={isConfirming}
             onPress={onConfirmAttendance}
             {...confirmStyle}

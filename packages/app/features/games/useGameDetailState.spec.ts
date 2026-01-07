@@ -49,7 +49,7 @@ const baseGame: GameDetail = {
 }
 
 describe('computeGameDetailState', () => {
-  it('disables join when waitlist is full', () => {
+  it('keeps waitlist join available when roster is full', () => {
     const waitlistedState = computeGameDetailState({
       game: {
         ...baseGame,
@@ -67,9 +67,20 @@ describe('computeGameDetailState', () => {
       queueState: { pendingGameId: null, isPending: false },
     })
 
-    expect(waitlistedState.waitlistFull).toBe(true)
-    expect(waitlistedState.canJoin).toBe(false)
-    expect(waitlistedState.ctaDisabled).toBe(true)
+    expect(waitlistedState.ctaLabel).toBe('Join waitlist')
+    expect(waitlistedState.canJoin).toBe(true)
+    expect(waitlistedState.ctaDisabled).toBe(false)
+  })
+
+  it('sets confirmation window to 24 hours before kickoff', () => {
+    const state = computeGameDetailState({
+      game: baseGame,
+      queueState: { pendingGameId: null, isPending: false },
+    })
+
+    expect(state.confirmationWindowStart?.getTime()).toBe(
+      new Date('2025-01-09T10:00:00.000Z').getTime()
+    )
   })
 
   it('returns active user entry and confirmation ability', () => {

@@ -1,3 +1,6 @@
+import type { ScrollViewProps } from 'react-native'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
+
 import {
   Button,
   Card,
@@ -13,7 +16,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
-import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'solito/router'
 
 import { useMemberApprovalsRealtime } from './member-approvals-realtime'
@@ -36,7 +38,17 @@ const buildMemberName = (profile: PendingProfile) => {
   return composed || 'New member'
 }
 
-export const MemberApprovalsScreen = () => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const MemberApprovalsScreen = ({
+  scrollProps,
+  headerSpacer,
+  topInset,
+}: ScrollHeaderProps = {}) => {
   const { role, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
@@ -101,12 +113,16 @@ export const MemberApprovalsScreen = () => {
   const pendingMembers = useMemo(() => pendingQuery.data ?? [], [pendingQuery.data])
 
   if (isLoading) {
-    return <FullscreenSpinner />
+    return (
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
+        <FullscreenSpinner />
+      </YStack>
+    )
   }
 
   if (role !== 'admin') {
     return (
-      <YStack f={1} ai="center" jc="center" px="$6" gap="$2">
+      <YStack f={1} ai="center" jc="center" px="$6" gap="$2" pt={topInset ?? 0}>
         <SizableText size="$6" fontWeight="700">
           Admin access only
         </SizableText>
@@ -118,11 +134,23 @@ export const MemberApprovalsScreen = () => {
   }
 
   if (pendingQuery.isLoading) {
-    return <FullscreenSpinner />
+    return (
+      <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
+        <FullscreenSpinner />
+      </YStack>
+    )
   }
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const baseContentStyle = headerSpacer
+    ? { ...screenContentContainerStyle, paddingTop: 0 }
+    : screenContentContainerStyle
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle]
+    : [baseContentStyle, contentContainerStyle]
 
   return (
-    <ScrollView contentContainerStyle={screenContentContainerStyle}>
+    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+      {headerSpacer}
       <YStack maw={900} mx="auto" w="100%" space="$4" py="$4">
         <YStack gap="$2">
           <SizableText size="$6" fontWeight="700">

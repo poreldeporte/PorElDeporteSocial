@@ -5,8 +5,8 @@ import { DEFAULT_WAITLIST_LIMIT } from '@my/config/game'
 import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
-import { startDraftForGame } from '../services/draft'
-import { notifyDraftStarted, notifyGameCreatedGlobal } from '../services/notifications'
+import { fetchDraftStartSnapshot, getDraftStartBlocker, resetDraftForGame, startDraftForGame } from '../services/draft'
+import { notifyDraftReady, notifyDraftStarted, notifyGameCancelled, notifyGameCreatedGlobal } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
 type GameRow = Database['public']['Tables']['games']['Row']
@@ -49,8 +49,16 @@ type GameDetailRow = GameRow & {
   game_teams: GameTeamRow[] | null
 }
 
+type GameListTeamRow = {
+  id: string
+  draft_order: number
+  profiles: Pick<ProfileRow, 'id' | 'name'> | null
+}
+
 type GameListRow = GameRow & {
   game_captains: Pick<CaptainRow, 'profile_id'>[] | null
+  game_results?: GameResultRow[] | GameResultRow | null
+  game_teams?: GameListTeamRow[] | null
 }
 
 const publicGameFields = `
@@ -74,6 +82,28 @@ const listSelect = `
   ${publicGameFields},
   game_captains (
     profile_id
+  )
+`
+
+const listHistorySelect = `
+  ${publicGameFields},
+  game_captains (
+    profile_id
+  ),
+  game_results (
+    winning_team_id,
+    losing_team_id,
+    winner_score,
+    loser_score,
+    status
+  ),
+  game_teams (
+    id,
+    draft_order,
+    profiles!game_teams_captain_profile_id_fkey (
+      id,
+      name
+    )
   )
 `
 
@@ -102,7 +132,10 @@ const updateGameInput = createGameInput
 export const gamesRouter = createTRPCRouter({
   list: protectedProcedure.input(listInput).query(async ({ ctx, input }) => {
     const nowIso = new Date().toISOString()
-    const query = ctx.supabase.from('games').select(listSelect).limit(50)
+    const query = ctx.supabase
+      .from('games')
+      .select(input.scope === 'past' ? listHistorySelect : listSelect)
+      .limit(50)
     if (input.scope === 'past') {
       query.lte('start_time', nowIso).order('start_time', { ascending: false })
     } else {
@@ -141,6 +174,16 @@ export const gamesRouter = createTRPCRouter({
 
     return rows.map((game) => {
       const stats = statsMap.get(game.id)
+      const rawResult = Array.isArray(game.game_results)
+        ? game.game_results[0] ?? null
+        : game.game_results ?? null
+      const teamCaptains = (game.game_teams ?? [])
+        .map((team) => ({
+          id: team.id,
+          draftOrder: team.draft_order,
+          captainName: team.profiles?.name ?? null,
+        }))
+        .sort((a, b) => a.draftOrder - b.draftOrder)
       return {
         id: game.id,
         name: game.name,
@@ -159,6 +202,16 @@ export const gamesRouter = createTRPCRouter({
         waitlistedCount: stats?.waitlistedCount ?? 0,
         userStatus: stats?.userStatus ?? 'none',
         attendanceConfirmedAt: stats?.attendanceConfirmedAt ?? null,
+        result: rawResult
+          ? {
+              winningTeamId: rawResult.winning_team_id,
+              losingTeamId: rawResult.losing_team_id,
+              winnerScore: rawResult.winner_score,
+              loserScore: rawResult.loser_score,
+              status: rawResult.status,
+            }
+          : null,
+        teamCaptains,
         cancelledAt: game.cancelled_at,
         captainIds: (game.game_captains ?? []).map((captain) => captain.profile_id),
       }
@@ -434,6 +487,10 @@ export const gamesRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'Unable to cancel game' })
     }
 
+    try {
+      await notifyGameCancelled({ supabaseAdmin, gameId: data.id })
+    } catch {}
+
     return data
   }),
 
@@ -441,31 +498,43 @@ export const gamesRouter = createTRPCRouter({
     .input(
       z.object({
         gameId: z.string().uuid(),
-        captains: z.tuple([
-          z.object({ profileId: z.string().uuid() }),
-          z.object({ profileId: z.string().uuid() }),
-        ]),
+        captains: z.array(z.object({ profileId: z.string().uuid() })).min(2),
+        teamNames: z.array(z.string().min(1)).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       await ensureAdmin(ctx.supabase, ctx.user.id)
 
-      const { data: game, error: gameError } = await ctx.supabase
-        .from('games')
-        .select('draft_status')
-        .eq('id', input.gameId)
-        .maybeSingle()
+      const snapshot = await fetchDraftStartSnapshot(ctx.supabase, input.gameId)
 
-      if (gameError) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
+      const captainIds = input.captains.map((captain) => captain.profileId)
+      const captainSet = new Set(captainIds)
+      if (captainSet.size !== captainIds.length) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captains must be unique' })
+      }
+      if (input.teamNames && input.teamNames.length !== captainIds.length) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Team names must match captain count' })
       }
 
-      if (!game) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+      const blocker = getDraftStartBlocker({ snapshot, captainCount: captainIds.length })
+      if (blocker) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: blocker })
       }
 
-      if (game.draft_status && game.draft_status !== 'pending') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft already started' })
+      const { data: captainRows, error: captainCheckError } = await ctx.supabase
+        .from('game_queue')
+        .select('profile_id, attendance_confirmed_at')
+        .eq('game_id', input.gameId)
+        .in('profile_id', captainIds)
+        .eq('status', 'confirmed')
+
+      if (captainCheckError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: captainCheckError.message })
+      }
+
+      const readyCaptains = (captainRows ?? []).filter((row) => row.attendance_confirmed_at)
+      if (readyCaptains.length !== captainIds.length) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captains must be confirmed before drafting' })
       }
 
       const payload = input.captains.map((captain, index) => ({
@@ -487,10 +556,30 @@ export const gamesRouter = createTRPCRouter({
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
       }
 
+      const { data: readyGame, error: readyError } = await supabaseAdmin
+        .from('games')
+        .update({ draft_status: 'ready' })
+        .eq('id', input.gameId)
+        .eq('draft_status', 'pending')
+        .select('id')
+        .maybeSingle()
+
+      if (readyError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: readyError.message })
+      }
+
+      if (!readyGame) {
+        return { ok: true, draftStatus: 'in_progress' as const }
+      }
+
+      try {
+        await notifyDraftReady({ supabaseAdmin, gameId: input.gameId })
+      } catch {}
+
       await startDraftForGame({
         gameId: input.gameId,
-        teamNames: ['Team A', 'Team B'],
-        captainProfileIds: [payload[0]!.profile_id, payload[1]!.profile_id],
+        teamNames: input.teamNames,
+        captainProfileIds: captainIds,
         supabaseAuthed: ctx.supabase,
         supabaseAdmin,
         actorId: ctx.user.id,
@@ -501,5 +590,20 @@ export const gamesRouter = createTRPCRouter({
       } catch {}
 
       return { ok: true, draftStatus: 'in_progress' as const }
+    }),
+
+  clearCaptains: protectedProcedure
+    .input(z.object({ gameId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await ensureAdmin(ctx.supabase, ctx.user.id)
+
+      await resetDraftForGame({
+        gameId: input.gameId,
+        supabaseAdmin,
+        actorId: ctx.user.id,
+        preserveCaptains: false,
+      })
+
+      return { ok: true }
     }),
 })

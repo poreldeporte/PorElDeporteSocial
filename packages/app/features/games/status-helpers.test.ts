@@ -5,6 +5,7 @@ import {
   deriveCombinedStatus,
   deriveUserBadge,
   deriveUserStateMessage,
+  getConfirmCountdownLabel,
 } from './status-helpers'
 
 describe('status-helpers', () => {
@@ -29,7 +30,7 @@ describe('status-helpers', () => {
       userStatus: 'none',
       attendanceConfirmed: false,
     })
-    expect(combinedNonRoster).toEqual({ label: 'Pending Confirmations', tone: 'neutral' })
+    expect(combinedNonRoster).toEqual({ label: 'Roster full', tone: 'neutral' })
 
     const combinedRoster = deriveCombinedStatus({
       gameStatus: 'scheduled',
@@ -66,7 +67,7 @@ describe('status-helpers', () => {
       userStatus: 'none',
       attendanceConfirmed: false,
     })
-    expect(combined).toEqual({ label: 'Waitlist', tone: 'warning' })
+    expect(combined).toEqual({ label: 'Waitlist open', tone: 'warning' })
   })
 
   it('describes confirmed badge and attendance prompts', () => {
@@ -76,7 +77,6 @@ describe('status-helpers', () => {
     const confirmPrompt = deriveUserStateMessage({
       queueStatus: 'confirmed',
       attendanceConfirmed: false,
-      waitlistFull: false,
       canConfirmAttendance: true,
       confirmationWindowStart: new Date('2024-01-01T10:00:00Z'),
       gameStatus: 'scheduled',
@@ -89,7 +89,6 @@ describe('status-helpers', () => {
     const message = deriveUserStateMessage({
       queueStatus: 'none',
       attendanceConfirmed: false,
-      waitlistFull: true,
       canConfirmAttendance: false,
       confirmationWindowStart: null,
       gameStatus: 'scheduled',
@@ -125,7 +124,7 @@ describe('status-helpers', () => {
       attendanceConfirmed: false,
       canConfirmAttendance: false,
     })
-    expect(combined).toEqual({ label: 'Pending Confirmations', tone: 'neutral' })
+    expect(combined).toEqual({ label: 'Roster full', tone: 'neutral' })
   })
 
   it('derives combined status for rostered user before confirmation window', () => {
@@ -171,5 +170,43 @@ describe('status-helpers', () => {
       canConfirmAttendance: true,
     })
     expect(combined).toEqual({ label: 'Game cancelled', tone: 'warning' })
+  })
+
+  it('formats confirm countdown for rostered users before the window opens', () => {
+    const now = new Date('2024-01-01T10:00:00Z').getTime()
+    const confirmationWindowStart = new Date(now + 90 * 60 * 1000)
+    const label = getConfirmCountdownLabel({
+      confirmationWindowStart,
+      isConfirmationOpen: false,
+      userStatus: 'confirmed',
+      attendanceConfirmedAt: null,
+      gameStatus: 'scheduled',
+      now,
+    })
+    expect(label).toBe('Confirm in 2h')
+  })
+
+  it('skips confirm countdown when window is open or user already confirmed', () => {
+    const now = new Date('2024-01-01T10:00:00Z').getTime()
+    const confirmationWindowStart = new Date(now - 5 * 60 * 1000)
+    const openLabel = getConfirmCountdownLabel({
+      confirmationWindowStart,
+      isConfirmationOpen: true,
+      userStatus: 'confirmed',
+      attendanceConfirmedAt: null,
+      gameStatus: 'scheduled',
+      now,
+    })
+    expect(openLabel).toBeNull()
+
+    const confirmedLabel = getConfirmCountdownLabel({
+      confirmationWindowStart: new Date(now + 60 * 60 * 1000),
+      isConfirmationOpen: false,
+      userStatus: 'confirmed',
+      attendanceConfirmedAt: '2024-01-01T08:00:00Z',
+      gameStatus: 'scheduled',
+      now,
+    })
+    expect(confirmedLabel).toBeNull()
   })
 })

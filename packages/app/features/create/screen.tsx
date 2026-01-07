@@ -1,11 +1,21 @@
+import type { ScrollViewProps } from 'react-native'
+import { type ReactNode } from 'react'
+
 import { Paragraph, ScrollView, YStack } from '@my/ui/public'
+import { screenContentContainerStyle } from 'app/constants/layout'
 import { usePathname } from 'app/utils/usePathname'
 import { useUser } from 'app/utils/useUser'
 import { useRouter } from 'solito/router'
 
 import { CreateGameForm } from './CreateGameForm'
 
-export const CreateScreen = () => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const CreateScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const pathname = usePathname()
   const router = useRouter()
   const { role } = useUser()
@@ -20,9 +30,17 @@ export const CreateScreen = () => {
   }
 
   if (!isAdmin) {
+    const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+    const baseContentStyle = headerSpacer
+      ? { ...screenContentContainerStyle, paddingTop: 0, flexGrow: 1 }
+      : { ...screenContentContainerStyle, flexGrow: 1 }
+    const mergedContentStyle = Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
     return (
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <YStack w="100%" maxWidth={660} mx="auto" gap="$4" px="$4" py="$6">
+      <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+        {headerSpacer}
+        <YStack w="100%" maxWidth={660} mx="auto" gap="$4">
           <Paragraph theme="alt1">
             Only admins can schedule games. Reach out to a community organizer if you need access.
           </Paragraph>
@@ -30,25 +48,13 @@ export const CreateScreen = () => {
       </ScrollView>
     )
   }
-
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-      <YStack
-        w="100%"
-        maxWidth={660}
-        mx="auto"
-        gap="$4"
-        px="$4"
-        py="$6"
-        $gtSm={{ mt: '$6' }}
-      >
-        <YStack gap="$2">
-          <Paragraph theme="alt1">
-            Game details sync instantly with the home feed, so members can claim spots right away.
-          </Paragraph>
-        </YStack>
-        <CreateGameForm onSuccess={handleSuccess} />
-      </YStack>
-    </ScrollView>
+    <YStack f={1}>
+      <CreateGameForm
+        onSuccess={handleSuccess}
+        headerSpacer={headerSpacer}
+        scrollProps={scrollProps}
+      />
+    </YStack>
   )
 }

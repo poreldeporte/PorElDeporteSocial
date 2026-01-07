@@ -1,15 +1,17 @@
+import type { ScrollViewProps } from 'react-native'
+import { useMemo, type ReactNode } from 'react'
+
 import { Avatar, Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack } from '@my/ui/public'
-import { Shield, Share2, Sparkles, Trophy, UserCog, Users } from '@tamagui/lucide-icons'
+import { ArrowRight, Shield, Share2, Sparkles, Trophy, UserCog, Users } from '@tamagui/lucide-icons'
 import { pedLogo } from 'app/assets'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import type { GameListItem } from 'app/features/games/types'
 import { useLogout } from 'app/utils/auth/logout'
-import { useStatsRealtime } from 'app/utils/useRealtimeSync'
+import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
 import { api } from 'app/utils/api'
 import { SolitoImage } from 'solito/image'
 import { useLink } from 'solito/link'
-import { useMemo } from 'react'
 import { Share } from 'react-native'
 
 import { ProfileDetails } from './profile-details'
@@ -32,12 +34,26 @@ type MetricCardProps = {
   isLoading?: boolean
 }
 
-export const ProfileScreen = () => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const data = useProfileData()
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const baseContentStyle = headerSpacer
+    ? { ...screenContentContainerStyle, paddingTop: 0 }
+    : screenContentContainerStyle
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle]
+    : [baseContentStyle, contentContainerStyle]
 
   return (
-    <ScrollView contentContainerStyle={screenContentContainerStyle}>
-      <YStack maw={900} mx="auto" w="100%" space="$4" py="$4">
+    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+      {headerSpacer}
+      <YStack maw={900} mx="auto" w="100%" space="$4">
         <ProfileHero
           name={data.displayName}
           role={data.role}
@@ -79,6 +95,7 @@ export const ProfileScreen = () => {
 const useProfileData = () => {
   const { profile, avatarUrl, user, displayName, role } = useUser()
   useStatsRealtime(Boolean(user))
+  useGamesListRealtime(Boolean(user))
   const editLink = useLink({ href: '/profile/edit' })
   const approvalsLink = useLink({ href: '/admin/approvals' })
   const logout = useLogout()
@@ -201,13 +218,16 @@ const PerformanceSection = ({
           </SizableText>
           <Paragraph theme="alt2">{summary}</Paragraph>
         </YStack>
-        <Pill label={`${stats.wins}-${stats.losses}`} icon={Trophy} tone="active" />
       </XStack>
-      <XStack gap="$2" flexWrap="wrap">
-        {performance.map((metric) => (
-          <MetricCard key={metric.label} {...metric} isLoading={isLoading} />
+      <YStack gap="$3">
+        {[performance.slice(0, 2), performance.slice(2, 5), performance.slice(5, 8)].map((row, rowIndex) => (
+          <XStack key={`performance-row-${rowIndex}`} gap="$3">
+            {row.map((metric) => (
+              <MetricCard key={metric.label} {...metric} isLoading={isLoading} highlight={rowIndex === 0} />
+            ))}
+          </XStack>
         ))}
-      </XStack>
+      </YStack>
       <RecentForm recentForm={recentForm} />
     </Card>
   )
@@ -230,10 +250,10 @@ const HistorySection = ({
     <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3">
       <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
         <SizableText size="$5" fontWeight="600">
-          Recent matches
+          Recent games
         </SizableText>
         <Button size="$3" br="$9" theme="alt1" {...scheduleLink}>
-          View all matches
+          View all games
         </Button>
       </XStack>
       {isLoading ? (
@@ -262,14 +282,12 @@ const HistoryRow = ({ game, index }: { game: GameListItem; index: number }) => {
   const link = useLink({ href: `/games/${game.id}` })
   const kickoff = new Date(game.startTime)
   const timeLabel = kickoff.toLocaleString(undefined, {
-    weekday: 'long',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  })
-  const dateLabel = kickoff.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+    hour12: true,
   })
 
   return (
@@ -282,16 +300,23 @@ const HistoryRow = ({ game, index }: { game: GameListItem; index: number }) => {
       animation="medium"
       enterStyle={{ opacity: 0, x: -20 }}
       delay={index * 40}
+      {...link}
+      pressStyle={{ opacity: 0.8 }}
     >
-      <YStack gap="$0.5">
-        <SizableText fontWeight="600">{timeLabel}</SizableText>
-        <Paragraph theme="alt2">
-          {game.locationName ? `${game.locationName} · ${dateLabel}` : dateLabel}
-        </Paragraph>
+      <YStack gap="$0.5" flex={1}>
+        <XStack ai="center" jc="space-between" gap="$2">
+          <SizableText fontWeight="600">{timeLabel}</SizableText>
+          <ArrowRight size={20} />
+        </XStack>
+        <XStack ai="center" jc="space-between" gap="$2">
+          <Paragraph theme="alt2">{game.locationName ? game.locationName : 'Venue TBD'}</Paragraph>
+          <XStack ai="center" gap="$1">
+            <Paragraph theme="alt2" size="$2">
+              View recap
+            </Paragraph>
+          </XStack>
+        </XStack>
       </YStack>
-      <Button size="$2" br="$10" {...link}>
-        Open
-      </Button>
     </XStack>
   )
 }
@@ -365,25 +390,31 @@ const Pill = ({
   )
 }
 
-const MetricCard = ({ label, value, rankLabel, isLoading }: MetricCardProps) => (
+const MetricCard = ({
+  label,
+  value,
+  rankLabel,
+  isLoading,
+  highlight = false,
+}: MetricCardProps & { highlight?: boolean }) => (
   <YStack
-    flexBasis="48%"
-    minWidth={140}
-    p="$3"
-    br="$6"
-    borderWidth={1}
-    borderColor="$color4"
-    backgroundColor="$color1"
-    gap="$1"
+    flex={1}
+    gap="$0.5"
+    ai="center"
+    p={highlight ? '$2.5' : undefined}
+    br={highlight ? '$6' : undefined}
+    borderWidth={highlight ? 1 : undefined}
+    borderColor={highlight ? '$color4' : undefined}
+    backgroundColor={highlight ? '$color1' : undefined}
   >
-    <Paragraph theme="alt2" size="$2">
-      {label}
-    </Paragraph>
     <SizableText size="$6" fontWeight="700">
       {isLoading ? '—' : value}
     </SizableText>
+    <Paragraph theme="alt2" size="$2" textAlign="center">
+      {label}
+    </Paragraph>
     {rankLabel ? (
-      <Paragraph size="$2" theme="alt2">
+      <Paragraph size="$1" theme="alt2" textAlign="center">
         {rankLabel}
       </Paragraph>
     ) : null}
@@ -484,12 +515,13 @@ const buildPerformanceMetrics = (
 
   return [
     { label: 'Win rate', value: formatPercent(stats.winRate), rankLabel: rankLabel(entry?.overallRank) },
+    { label: 'As captain', value: `${stats.gamesAsCaptain}`, rankLabel: rankLabel(entry?.captainRank) },
     { label: 'Games played', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
     { label: 'Wins', value: `${stats.wins}`, rankLabel: rankLabel(entry?.winsRank) },
+    { label: 'Losses', value: `${stats.losses}` },
     { label: 'Goal diff', value: `${stats.goalDiff}`, rankLabel: rankLabel(entry?.goalDiffRank) },
     { label: 'Goals for', value: `${stats.goalsFor}` },
     { label: 'Goals against', value: `${stats.goalsAgainst}` },
-    { label: 'Captain games', value: `${stats.gamesAsCaptain}`, rankLabel: rankLabel(entry?.captainRank) },
   ].filter(Boolean) as MetricCardProps[]
 }
 

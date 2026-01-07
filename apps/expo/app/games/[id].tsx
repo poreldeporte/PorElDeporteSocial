@@ -1,13 +1,18 @@
-import { GameDetailScreen } from 'app/features/games/detail-screen'
+import { ChevronLeft } from '@tamagui/lucide-icons'
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
+
 import { getScreenLayout } from '@my/app/navigation/layouts'
-import { Stack, useLocalSearchParams } from 'expo-router'
+import { GameDetailScreen } from 'app/features/games/detail-screen'
 import { SafeAreaView } from 'react-native-safe-area-context'
+
+import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'
 
 const layout = getScreenLayout('gameDetail')
 
 export default function Screen() {
   const params = useLocalSearchParams<{ id?: string }>()
   const id = Array.isArray(params.id) ? params.id[0] : params.id
+  const router = useRouter()
 
   if (!id) {
     return null
@@ -15,15 +20,22 @@ export default function Screen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          headerTitle: layout.title,
-          headerTitleAlign: 'center',
-        }}
-      />
-      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
-        <GameDetailScreen gameId={id} />
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+        <FloatingHeaderLayout
+          title={layout.title}
+          leftIcon={ChevronLeft}
+          onPressLeft={() => router.back()}
+        >
+          {({ scrollProps, HeaderSpacer, topInset }) => (
+            <GameDetailScreen
+              gameId={id}
+              scrollProps={scrollProps}
+              headerSpacer={HeaderSpacer}
+              topInset={topInset}
+            />
+          )}
+        </FloatingHeaderLayout>
       </SafeAreaView>
     </>
   )

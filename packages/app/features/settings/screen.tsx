@@ -1,4 +1,8 @@
+import type { ScrollViewProps } from 'react-native'
+import { type ReactNode } from 'react'
+
 import { Paragraph, ScrollView, Separator, Settings, YStack, isWeb, useMedia } from '@my/ui/public'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { Book, Cog, Info, LogOut, Moon, Twitter } from '@tamagui/lucide-icons'
 import { useThemeSetting } from 'app/provider/theme'
 import { useLogout } from 'app/utils/auth/logout'
@@ -9,15 +13,37 @@ import { useLink } from 'solito/link'
 import rootPackageJson from '../../../../package.json'
 import packageJson from '../../package.json'
 
-export const SettingsScreen = () => {
+type ScrollHeaderProps = {
+  scrollProps?: ScrollViewProps
+  headerSpacer?: ReactNode
+  topInset?: number
+}
+
+export const SettingsScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const media = useMedia()
   const pathname = usePathname()
+  const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
+  const baseContentStyle = headerSpacer
+    ? {
+        paddingTop: 0,
+        paddingHorizontal: SCREEN_CONTENT_PADDING.horizontal,
+        paddingBottom: SCREEN_CONTENT_PADDING.bottom,
+      }
+    : {
+        paddingTop: SCREEN_CONTENT_PADDING.top,
+        paddingHorizontal: SCREEN_CONTENT_PADDING.horizontal,
+        paddingBottom: SCREEN_CONTENT_PADDING.bottom,
+      }
+  const mergedContentStyle = Array.isArray(contentContainerStyle)
+    ? [baseContentStyle, ...contentContainerStyle].filter(Boolean)
+    : [baseContentStyle, contentContainerStyle].filter(Boolean)
 
   return (
     <YStack f={1}>
-      <ScrollView>
+      <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+        {headerSpacer}
         <Settings>
-          <Settings.Items>
+          <Settings.Items mx="$0" m="$0">
             <Settings.Group $gtSm={{ space: '$1' }}>
               <Settings.Item
                 icon={Cog}
@@ -28,7 +54,9 @@ export const SettingsScreen = () => {
                 General
               </Settings.Item>
             </Settings.Group>
-            {isWeb && <Separator boc="$color3" mx="$-4" bw="$0.25" />}
+            {isWeb && (
+              <Separator boc="$color3" mx={-SCREEN_CONTENT_PADDING.horizontal} bw="$0.25" />
+            )}
             <Settings.Group>
               <Settings.Item
                 icon={Book}
@@ -55,7 +83,9 @@ export const SettingsScreen = () => {
                 </Settings.Item>
               )}
             </Settings.Group>
-            {isWeb && <Separator boc="$color3" mx="$-4" bw="$0.25" />}
+            {isWeb && (
+              <Separator boc="$color3" mx={-SCREEN_CONTENT_PADDING.horizontal} bw="$0.25" />
+            )}
             <Settings.Group>
               <Settings.Item
                 icon={Twitter}
@@ -65,7 +95,9 @@ export const SettingsScreen = () => {
                 Our Twitter
               </Settings.Item>
             </Settings.Group>
-            {isWeb && <Separator boc="$color3" mx="$-4" bw="$0.25" />}
+            {isWeb && (
+              <Separator boc="$color3" mx={-SCREEN_CONTENT_PADDING.horizontal} bw="$0.25" />
+            )}
             <Settings.Group>
               <SettingsThemeAction />
               <SettingsItemLogoutAction />
@@ -77,7 +109,7 @@ export const SettingsScreen = () => {
       NOTE: you should probably get the actual native version here using https://www.npmjs.com/package/react-native-version-info
       we just did a simple package.json read since we want to keep things simple for the starter
        */}
-      <Paragraph py="$2" ta="center" theme="alt2">
+      <Paragraph py="$2" px={SCREEN_CONTENT_PADDING.horizontal} ta="center" theme="alt2">
         {rootPackageJson.name} {packageJson.version}
       </Paragraph>
     </YStack>

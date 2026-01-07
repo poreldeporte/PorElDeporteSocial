@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { nextSnakeTurn, undoPayload } from './draft'
+import { nextSnakeTurn, shuffleOrder, undoPayload } from './draft'
 
 describe('nextSnakeTurn', () => {
   it('advances forward until the last team then reverses', () => {
@@ -21,6 +21,7 @@ describe('nextSnakeTurn', () => {
 
 describe('undoPayload', () => {
   it('marks undone metadata and preserves prior payload', () => {
+    vi.useFakeTimers()
     vi.setSystemTime(new Date('2025-01-01T00:00:00Z'))
     const result = undoPayload({ draftTurnBefore: 1 }, 'admin-1')
     expect(result).toEqual({
@@ -30,5 +31,21 @@ describe('undoPayload', () => {
       undoneAt: new Date('2025-01-01T00:00:00.000Z').toISOString(),
     })
     vi.useRealTimers()
+  })
+})
+
+describe('shuffleOrder', () => {
+  it('returns a new array with the same items', () => {
+    const input = ['a', 'b', 'c']
+    const result = shuffleOrder(input, () => 0.42)
+    expect(result).toHaveLength(input.length)
+    expect(result).not.toBe(input)
+    expect(new Set(result)).toEqual(new Set(input))
+  })
+
+  it('shuffles deterministically with a fixed rng', () => {
+    const input = [1, 2, 3]
+    const result = shuffleOrder(input, () => 0)
+    expect(result).toEqual([2, 3, 1])
   })
 })

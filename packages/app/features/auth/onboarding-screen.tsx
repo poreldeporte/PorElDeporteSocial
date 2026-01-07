@@ -1,12 +1,12 @@
-import { Button, H2, Paragraph, YStack } from '@my/ui/public'
-import { LinearGradient } from '@tamagui/linear-gradient'
-import { pedLogo, welcomeHero } from 'app/assets'
+import { Button, H2, Spinner, YStack } from '@my/ui/public'
+import { maxGringoLanding } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { usePathname } from 'app/utils/usePathname'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
-import { SolitoImage } from 'solito/image'
+import { useEffect, useState } from 'react'
+import { ImageBackground } from 'react-native'
 import { useRouter } from 'solito/router'
-
-const PRIMARY_COLOR = BRAND_COLORS.primary
 
 /**
  * note: this screen is used as a standalone page on native and as a sidebar on auth layout on web
@@ -14,62 +14,112 @@ const PRIMARY_COLOR = BRAND_COLORS.primary
 export const OnboardingScreen = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const paddingTop = Math.max(insets.top, 0)
-  const paddingBottom = Math.max(insets.bottom, 24) + 24
+  const pathname = usePathname()
+  const [isNavigating, setIsNavigating] = useState(false)
+  const paddingTop = insets.top + SCREEN_CONTENT_PADDING.top
+  const paddingBottom = insets.bottom + SCREEN_CONTENT_PADDING.bottom
+  const sidePadding = SCREEN_CONTENT_PADDING.horizontal
+  const buttonHeight = 54
+  useEffect(() => {
+    void import('app/features/auth/sign-in-screen')
+  }, [])
+  useEffect(() => {
+    setIsNavigating(false)
+  }, [pathname])
+
+  const handleGetStarted = () => {
+    if (pathname === '/sign-in') return
+    if (isNavigating) return
+    setIsNavigating(true)
+    router.push('/sign-in')
+  }
+  const textShadow = {
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  }
   return (
-    <YStack
-      f={1}
-      px="$7"
-      bg="$color1"
-      position="relative"
-      overflow="hidden"
-      style={{ paddingTop, paddingBottom }}
-    >
-      <SolitoImage
-        src={welcomeHero}
-        alt="Por El Deporte community"
-        fill
-        resizeMode="cover"
-      />
-      <LinearGradient
-        fullscreen
-        colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.8)']}
-        start={[0, 0]}
-        end={[0, 1]}
-        zIndex={1}
-        pointerEvents="none"
-      />
-      <YStack f={1} jc="space-between" ai="center" zIndex={2}>
-        <YStack ai="center" gap="$3" style={{ marginTop: -12 }}>
-          <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={120} height={120} />
-          <YStack gap="$2" maw={320}>
-            <Paragraph fontSize={12} letterSpacing={1} textTransform="uppercase" color="#fff" textAlign="center">
-              Invite-only since 2014
-            </Paragraph>
-            <H2 ta="center" fontWeight="700" color="#fff">
-              Members Only
+    <YStack f={1} bg="$color1" overflow="hidden">
+      <ImageBackground source={maxGringoLanding} resizeMode="cover" style={{ flex: 1 }}>
+        <YStack f={1} position="relative">
+          <YStack position="absolute" top={paddingTop} right={sidePadding} ai="flex-end">
+            <H2
+              fontSize={56}
+              lineHeight={64}
+              fontWeight="800"
+              color="#fff"
+              letterSpacing={2}
+              ta="right"
+              style={textShadow}
+            >
+              INVITE
             </H2>
-            <Paragraph fontSize={15} color="#fff" textAlign="center">
-              A friends-of-friends Miami futbol community built on respect on and off the field.
-            </Paragraph>
+            <H2
+              fontSize={56}
+              lineHeight={64}
+              fontWeight="800"
+              color="#fff"
+              letterSpacing={2}
+              ta="right"
+              style={textShadow}
+            >
+              ONLY.
+            </H2>
+          </YStack>
+          <YStack
+            position="absolute"
+            left={sidePadding}
+            bottom={paddingBottom + buttonHeight + 16}
+          >
+            <H2
+              fontSize={56}
+              lineHeight={64}
+              fontWeight="800"
+              color="#fff"
+              letterSpacing={2}
+              style={textShadow}
+            >
+              POR EL
+            </H2>
+            <H2
+              fontSize={56}
+              lineHeight={64}
+              fontWeight="800"
+              color="#fff"
+              letterSpacing={2}
+              style={textShadow}
+            >
+              DEPORTE.
+            </H2>
+          </YStack>
+          <YStack
+            position="absolute"
+            left={0}
+            right={0}
+            bottom={paddingBottom}
+            ai="center"
+            style={{ paddingHorizontal: sidePadding }}
+          >
+            <Button
+              backgroundColor="#fff"
+              borderColor="#fff"
+              borderWidth={1}
+              color="#000"
+              fontSize={17}
+              fontWeight="600"
+              height={buttonHeight}
+              borderRadius={999}
+              w="100%"
+              disabled={isNavigating}
+              iconAfter={isNavigating ? <Spinner size="small" color="#000" /> : undefined}
+              onPress={handleGetStarted}
+              pressStyle={{ opacity: 0.85 }}
+            >
+              Get started
+            </Button>
           </YStack>
         </YStack>
-        <Button
-          backgroundColor="#fff"
-          borderColor="#fff"
-          borderWidth={1}
-          color="#000"
-          fontSize={17}
-          fontWeight="600"
-          height={50}
-          borderRadius={12}
-          w="100%"
-          onPress={() => router.push('/sign-in')}
-          pressStyle={{ opacity: 0.85 }}
-        >
-          Member Access
-        </Button>
-      </YStack>
+      </ImageBackground>
     </YStack>
   )
 }

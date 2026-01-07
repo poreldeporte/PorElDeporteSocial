@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useUser } from 'app/utils/useUser'
 import { Instagram } from '@tamagui/lucide-icons'
 import { Link } from 'solito/link'
+import { useThemeSetting } from 'app/provider/theme'
 
 const GREETING_TEMPLATES: Array<(name: string) => string> = [
   (name) => `Hello ${name}, ready to fuch?`,
@@ -37,6 +38,8 @@ export const HeroCard = () => {
     Math.floor(Math.random() * GREETING_TEMPLATES.length)
   )
   const [typedGreeting, setTypedGreeting] = useState('')
+  const { resolvedTheme } = useThemeSetting()
+  const isDark = resolvedTheme === 'dark'
   const { profile, displayName } = useUser()
   const firstName =
     (profile?.first_name && profile.first_name.trim()) ||
@@ -90,7 +93,11 @@ export const HeroCard = () => {
   return (
     <YStack br={32} p="$0.5" animation="verySlow" scale={1}>
       <LinearGradient
-        colors={['rgba(255,120,48,0.45)', 'rgba(3,7,12,0.6)']}
+        colors={
+          isDark
+            ? ['rgba(255,120,48,0.45)', 'rgba(3,7,12,0.6)']
+            : ['rgba(255,120,48,0.28)', 'rgba(255,255,255,0.9)']
+        }
         start={[0.5 + 0.5 * Math.sin(glowShift * 0.017), 0]}
         end={[1, 1]}
         borderRadius={32}
@@ -100,7 +107,7 @@ export const HeroCard = () => {
           px="$4"
           py="$4"
           borderWidth={0}
-          bg="rgba(5,8,13,0.85)"
+          bg={isDark ? 'rgba(5,8,13,0.85)' : '$color1'}
           shadowColor="#ff6b3d55"
           shadowRadius={35}
           br="$9"
@@ -139,7 +146,7 @@ export const HeroCard = () => {
                   width={particle.size}
                   height={particle.size}
                   br="$10"
-                  backgroundColor="rgba(255,255,255,0.08)"
+                  backgroundColor={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}
                   y={Math.sin((particleOffset + particle.drift * 5) * 0.005) * particle.drift}
                   animation="slow"
                   enterStyle={{ opacity: 0 }}
@@ -161,9 +168,9 @@ export const HeroCard = () => {
                     px="$3"
                     py="$1.5"
                     br="$10"
-                    bg="rgba(255,255,255,0.08)"
+                    bg={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}
                     borderWidth={1}
-                    borderColor="rgba(255,255,255,0.2)"
+                    borderColor={isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)'}
                     ai="center"
                     gap="$2"
                   >

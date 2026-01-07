@@ -1,6 +1,7 @@
 export type ScreenLayoutId =
   | 'tabsRoot'
   | 'gamesList'
+  | 'gameHistory'
   | 'gameDetail'
   | 'gameDraft'
   | 'gameEdit'
@@ -34,6 +35,7 @@ type ScreenLayout = {
 const screenLayouts: Record<ScreenLayoutId, ScreenLayout> = {
   tabsRoot: { id: 'tabsRoot', title: 'Por El Deporte' },
   gamesList: { id: 'gamesList', title: 'Schedule' },
+  gameHistory: { id: 'gameHistory', title: 'Game history' },
   gameDetail: { id: 'gameDetail', title: 'Game Info' },
   gameDraft: { id: 'gameDraft', title: 'Draft Room' },
   gameEdit: { id: 'gameEdit', title: 'Edit Game' },

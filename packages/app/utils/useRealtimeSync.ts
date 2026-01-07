@@ -182,31 +182,68 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
 
   const detailChannelHandler = useCallback(
     (channel: RealtimeChannel) => {
-      channel.on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-        (payload) => {
-          const next = payload.new as Database['public']['Tables']['games']['Row'] | null
-          if (!next) return
-          const id = next.id
-          patchGameListItem(utils, id, (game) => ({
-            ...game,
-            status: next.status,
-            draftStatus: next.draft_status,
-            startTime: next.start_time,
-          }))
-          patchGameDetail(utils, id, (detail) => ({
-            ...detail,
-            status: next.status,
-            draftStatus: next.draft_status,
-            startTime: next.start_time ?? detail.startTime,
-            endTime: next.end_time ?? detail.endTime,
-            description: next.description ?? detail.description,
-          }))
-        }
-      )
+      channel
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
+          (payload) => {
+            const next = payload.new as Database['public']['Tables']['games']['Row'] | null
+            if (!next) return
+            const id = next.id
+            patchGameListItem(utils, id, (game) => ({
+              ...game,
+              name: next.name,
+              description: next.description,
+              startTime: next.start_time,
+              endTime: next.end_time,
+              locationName: next.location_name,
+              locationNotes: next.location_notes,
+              status: next.status,
+              draftStatus: next.draft_status,
+              costCents: next.cost_cents,
+              capacity: next.capacity,
+              waitlistCapacity: next.waitlist_capacity,
+              cancelledAt: next.cancelled_at,
+            }))
+            patchGameDetail(utils, id, (detail) => ({
+              ...detail,
+              name: next.name,
+              description: next.description,
+              startTime: next.start_time,
+              endTime: next.end_time,
+              locationName: next.location_name,
+              locationNotes: next.location_notes,
+              status: next.status,
+              draftStatus: next.draft_status,
+              costCents: next.cost_cents,
+              capacity: next.capacity,
+              waitlistCapacity: next.waitlist_capacity,
+              cancelledAt: next.cancelled_at,
+            }))
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'game_results', filter: `game_id=eq.${gameId}` },
+          scheduleDetailInvalidate
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'game_teams', filter: `game_id=eq.${gameId}` },
+          scheduleDetailInvalidate
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'game_team_members', filter: `game_id=eq.${gameId}` },
+          scheduleDetailInvalidate
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'game_captains', filter: `game_id=eq.${gameId}` },
+          scheduleDetailInvalidate
+        )
     },
-    [gameId, utils]
+    [gameId, utils, scheduleDetailInvalidate]
   )
 
   const queueChannelHandler = useCallback(
@@ -288,16 +325,29 @@ export const useGamesListRealtime = (enabled: boolean) => {
           (payload) => {
             const next = payload.new as Database['public']['Tables']['games']['Row'] | null
             if (!next) return
+            const previous = payload.old as Database['public']['Tables']['games']['Row'] | null
             patchGameListItem(utils, next.id, (game) => ({
               ...game,
+              name: next.name,
+              description: next.description,
               status: next.status,
               draftStatus: next.draft_status,
               startTime: next.start_time,
               endTime: next.end_time,
+              locationName: next.location_name,
+              locationNotes: next.location_notes,
+              costCents: next.cost_cents,
+              capacity: next.capacity,
+              waitlistCapacity: next.waitlist_capacity,
+              cancelledAt: next.cancelled_at,
             }))
+            if (previous && previous.start_time !== next.start_time) {
+              scheduleInvalidate()
+            }
           }
         )
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'games' }, scheduleInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_captains' }, scheduleInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_queue' }, (payload) => {
           const row = payload.new as { game_id?: string | null; status?: Database['public']['Enums']['game_queue_status'] | null }
           const gameId = row?.game_id ?? (payload.old as { game_id?: string | null } | null)?.game_id
@@ -336,6 +386,7 @@ export const useStatsRealtime = (enabled: boolean) => {
   const utils = api.useUtils()
   const scheduleInvalidate = useThrottledInvalidate(() => {
     void utils.stats.myStats.invalidate()
+    void utils.stats.leaderboard.invalidate()
   }, 200)
 
   const statsChannelHandler = useCallback(

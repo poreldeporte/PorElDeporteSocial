@@ -1,4 +1,4 @@
-import { formatProfileName } from './notifications'
+import { buildGameCancelledPayload, formatProfileName } from './notifications'
 
 describe('formatProfileName', () => {
   it('prefers explicit name', () => {
@@ -11,5 +11,15 @@ describe('formatProfileName', () => {
 
   it('falls back to Someone when name is missing', () => {
     expect(formatProfileName(null)).toBe('Someone')
+  })
+})
+
+describe('buildGameCancelledPayload', () => {
+  it('builds a cancellation payload for the game', () => {
+    expect(buildGameCancelledPayload({ id: 'game-1', name: 'Sunday Match' })).toEqual({
+      title: 'Game cancelled: Sunday Match',
+      body: 'This game has been cancelled.',
+      data: { url: '/games/game-1' },
+    })
   })
 })

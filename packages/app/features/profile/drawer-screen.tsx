@@ -1,6 +1,7 @@
 import { Avatar, Paragraph, Settings, XStack, YStack, getTokens, useWindowDimensions } from '@my/ui/public'
 import { DrawerContentScrollView } from '@react-navigation/drawer'
 import { Box, Cog, Milestone, ShoppingCart, User, Users } from '@tamagui/lucide-icons'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 import { SolitoImage } from 'solito/image'
@@ -24,7 +25,7 @@ export function ProfileDrawerScreen(props) {
         pb="$2"
       >
         <Settings>
-          <Settings.Items>
+          <Settings.Items mx={SCREEN_CONTENT_PADDING.horizontal} m="$0">
             <Settings.Group>
               <Settings.Item icon={User} {...useLink({ href: '/profile/edit' })} accentTheme="pink">
                 Edit profile
@@ -48,7 +49,7 @@ export function ProfileDrawerScreen(props) {
           </Settings.Items>
         </Settings>
 
-        <XStack gap="$4" mb="$7" mt="auto" ai="center" px="$4">
+        <XStack gap="$4" mb="$7" mt="auto" ai="center" px={SCREEN_CONTENT_PADDING.horizontal}>
           <Avatar circular size="$3">
             <SolitoImage
               src={avatarUrl}

@@ -80,8 +80,8 @@ export const navRoutes: Record<NavigationRoute['id'], NavigationRoute> = {
   },
 }
 
-export const webTabRouteIds = ['games', 'home', 'leaderboard'] as const
-export const nativeTabRouteIds = ['games', 'home', 'leaderboard'] as const
+export const webTabRouteIds = ['home', 'games', 'leaderboard'] as const
+export const nativeTabRouteIds = ['home', 'games', 'leaderboard'] as const
 export const profileMenuRouteIds = ['profile', 'profileEdit', 'settings'] as const
 
 type RouteId = typeof webTabRouteIds[number] | typeof nativeTabRouteIds[number] | typeof profileMenuRouteIds[number]

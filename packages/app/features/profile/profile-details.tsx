@@ -1,5 +1,8 @@
 import { Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 
+import { parseBirthDateParts } from 'app/utils/birthDate'
+import { formatE164ForDisplay, formatPhoneNumber } from 'app/utils/phone'
+
 import { profileFieldCopy } from './field-copy'
 
 type ProfileDetailsProps = {
@@ -20,14 +23,27 @@ const formatValue = (value?: string | null, fallback = 'Add info') => {
 }
 
 const formatBirthDate = (value?: string | null) => {
-  if (!value) return 'Add your birth date'
-  const date = new Date(value)
+  const parts = parseBirthDateParts(value)
+  if (!parts) return 'Add your birth date'
+  const year = Number(parts.year)
+  const month = Number(parts.month)
+  const day = Number(parts.day)
+  const date = new Date(year, month - 1, day)
   if (Number.isNaN(date.getTime())) return 'Add your birth date'
   return date.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+const formatPhone = (value?: string | null, fallback = 'Add info') => {
+  if (!value) return fallback
+  const trimmed = value.trim()
+  if (!trimmed) return fallback
+  const formatted = formatE164ForDisplay(trimmed)
+  if (formatted !== trimmed) return formatted
+  return formatPhoneNumber(trimmed) || trimmed
 }
 
 const formatJerseyNumber = (value?: number | null) => {
@@ -88,7 +104,7 @@ export const ProfileDetails = ({
       value: formatValue([firstName, lastName].filter(Boolean).join(' ').trim(), 'Add your name'),
     },
     { label: profileFieldCopy.email.label, value: formatValue(email, 'No email on file') },
-    { label: profileFieldCopy.phone.label, value: formatValue(phone) },
+    { label: profileFieldCopy.phone.label, value: formatPhone(phone) },
     { label: profileFieldCopy.position.label, value: formatValue(position, 'Add your position') },
     { label: profileFieldCopy.jerseyNumber.label, value: formatJerseyNumber(jerseyNumber) },
   ]

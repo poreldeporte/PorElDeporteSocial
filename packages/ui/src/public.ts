@@ -1,4 +1,5 @@
 export { config } from './tamagui.config'
+export { isWeb } from '@tamagui/core'
 export * from './components'
 export * from './validToken'
 export * from 'tamagui'

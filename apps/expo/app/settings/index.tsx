@@ -1,15 +1,28 @@
-import { SettingsScreen } from 'app/features/settings/screen'
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { Stack } from 'expo-router'
+import { ChevronLeft } from '@tamagui/lucide-icons'
+import { Stack, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+
+import { getScreenLayout } from '@my/app/navigation/layouts'
+import { SettingsScreen } from 'app/features/settings/screen'
+
+import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'
 
 const layout = getScreenLayout('settings')
 
 export default function Screen() {
+  const router = useRouter()
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
-      <Stack.Screen options={{ headerTitle: layout.title }} />
-      <SettingsScreen />
+      <Stack.Screen options={{ headerShown: false }} />
+      <FloatingHeaderLayout
+        title={layout.title}
+        leftIcon={ChevronLeft}
+        onPressLeft={() => router.back()}
+      >
+        {({ scrollProps, HeaderSpacer, topInset }) => (
+          <SettingsScreen scrollProps={scrollProps} headerSpacer={HeaderSpacer} topInset={topInset} />
+        )}
+      </FloatingHeaderLayout>
     </SafeAreaView>
   )
 }

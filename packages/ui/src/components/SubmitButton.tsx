@@ -10,20 +10,35 @@ const useIsSubmitting = () => {
     return false
   }
 }
+export const submitButtonBaseProps: ButtonProps = {
+  backgroundColor: '#fff',
+  borderColor: '#fff',
+  borderWidth: 1,
+  color: '#000',
+  fontSize: 17,
+  fontWeight: '600',
+  height: 54,
+  borderRadius: 999,
+  w: '100%',
+  pressStyle: { opacity: 0.85 },
+}
+
 /**
  * created to be used in forms
  * will show loading spinners and disable submission when already submitting
  */
 export const SubmitButton = (props: ButtonProps) => {
   const isSubmitting = useIsSubmitting()
+  const spinnerColor = props.color ?? submitButtonBaseProps.color ?? '$color'
 
   return (
     <Button
+      {...submitButtonBaseProps}
       iconAfter={
         <AnimatePresence>
           {isSubmitting && (
             <Spinner
-              color="$color"
+              color={spinnerColor}
               key="loading-spinner"
               o={1}
               y={0}

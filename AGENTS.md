@@ -1,72 +1,99 @@
-# AI Programming Assistant Rules
+# agents
 
-## Core Philosophy
-- **Pesudocode**: Write the code that looks like the pseudocode.
-- **Concise expression**: Write the code that most concicely expresses the idea.
-- **Quality over volume**: Every line must earn its keep.
-- **Readability over cleverness**: Ten tight lines beat a thousand sloppy ones.
-- **YAGNI**: Don't build what we don't need yet. Best code is no code.
-- **Right over fast**: Systematic work is often correct even when tedious.
+Hello agent.
 
-## Collaboration
-- **Don't glaze me**: The last assistant was a sycophant and it made them unbearable to work with.
-- **Honesty over agreeability**: Call out bad ideas, mistakes, and unreasonable expectations.
-- **Say "I don't know"**: Not "sounds good". Stop and ask vs making assumptions.
-- **Push back**: Cite technical reasons if you have them, gut feeling if not.
-- **Speak up immediately**: When you don't know something or we're in over our heads.
+This repo values **radical simplicity** and **maximum elegance**.
+Prefer code that reads like pseudocode, concisely expresses the idea, and reduces cognitive overhead.
 
-## Writing Code
-- **Smallest changes**: Make minimal reasonable edits to achieve the outcome.
-- **Active refactoring**: Work hard to reduce duplication, even when tedious.
-- **Never rewrite**: Without explicit permission. Don't throw away implementations.
-- **Match surrounding style**: Consistency within a file trumps external standards.
-- **Fix immediately**: Broken things don't wait for permission.
-- **No whitespace changes**: Unless they affect execution.
+## philosophy
 
-## Naming
-- **Purpose not implementation**: `Validator` not `ZodValidator`, `Tool` not `MCPWrapper`.
-- **No temporal markers**: `API` not `NewAPI`, `handle()` not `handleLegacy()`.
-- **Domain over abstraction**: `Tool` not `AbstractToolInterface`, `Registry` not `ToolRegistryManager`.
+Every line must earn its keep. Prefer readability over cleverness.
+If carefully designed, 10 lines can have the impact of 1000.
 
-## Comments
-- **Evergreen only**: Explain what/why, not history. No "improved", "refactored", "moved", "better".
-- **No instructions**: Don't tell developers what to do ("copy this pattern").
-- **Never remove**: Unless you can prove they're actively false.
+Optimize for **low cognitive load**:
+- few concepts
+- crisp boundaries
+- deterministic flows
+- obvious ownership
 
-## Testing
-- **TDD always**: Write failing test → confirm failure → minimal code to pass → confirm success → refactor.
-- **Pristine output**: Capture and validate expected errors. No noise in logs.
-- **Real data only**: Never mock in e2e tests. Use real APIs.
-- **Own all failures**: Even if not your fault. Never delete failing tests.
+## collaboration
 
-## Debugging
-- **Root cause only**: Never fix symptoms or add workarounds.
-- **Read errors carefully**: They often contain the exact solution.
-- **Single hypothesis**: Test minimally, verify before continuing.
-- **One fix at a time**: Never add multiple fixes at once.
+Don't glaze.
+Be honest. Push back on complexity.
+Say "I don't know" and ask when unsure.
 
-## Version Control
-- **Style**: 2-space indentation, 150 char lines, match existing conventions.
-- **Commits**: lowercase conventional format (`feat: add login endpoint`). Commit frequently.
-- **Respect hooks**: Never skip, evade, or disable pre-commit hooks.
-- **Careful staging**: Never `git add -A` without first running `git status`.
+Work safely:
+- Assume the worktree is shared and dirty; never discard/revert/overwrite changes you didn't make; stop and ask if you see unexpected diffs in files you'll touch.
+- Never rewrite large areas without explicit permission.
+- One fix at a time.
+- Fix root causes, not symptoms: if a bug points to a broken abstraction or missing invariant, fix that systemically instead of adding a band-aid.
+- If context compacts, pause and ask for the missing context before continuing.
 
-## Architecture
-- **Modularity**: Crisp boundaries, clear structure, reusable modules.
-- **Size**: Functions ~≤27 lines. Explicit imports. Copy-pasteable in isolation.
-- **Design**: Functional cores, minimal state, thin adapters.
-- **Quality**: Simple primitives. Zero duplication. Elegance required.
-- **Python**: Idiomatic patterns. Type hints on everything.
+## design
 
-## Engineering Mindset
-- **Tiny cores, big leverage**: Smallest pure form, then layer capability via middleware.
-- **Staged pipelines**: Collect → plan → transform → execute. Determinism enables fusion.
-- **Controlled experimentation**: Feature flags gate experiments. Core stays deterministic.
-- **Instrument early**: Debug hooks, logging, tests before optimization. Observability is mandatory.
-- **Prove or delete**: Benchmark performance claims. Removing complexity is a feature.
+- **tiny core, wide reach**: identify the primitives; everything else is composition.
+- **one source of truth**: define once; derive enums/tables/build artifacts from it.
+- **truth is visible**: no magic shims; call/import the real thing.
+- **determinism is a feature**: prefer stable outputs and reproducible layouts.
+- **wrappers must pay rent**: only wrap to add a real seam (invariants, instrumentation, caching, retries); otherwise call directly.
+- **core is pure**: domain logic is `args -> return`; edges do I/O and translation.
+- **normalize variability early**: turn "optional/sync/async/env-dependent" into one straight-line flow at the boundary.
+- **resource budgets are explicit**: cap time/memory/recursion at boundaries; enforce them.
+- **start simple, upgrade late**: pick the cheapest representation; upgrade only when needed.
+- **immutable is canonical**: keep static data read-only; copy on mutation.
+- **one canonical path per concern**: one settings mechanism, one client creation path, one storage boundary, one job/runner pattern.
+- **abstraction barriers matter**: lower layers don't import upward; cycles are design bugs.
+- **ownership is explicit**: who owns state/caches/locks/clients is obvious; lifetime is managed.
 
-## Patterns
-1. **Design tiny cores** – Framework-agnostic abstractions first.
-2. **Compose via layers** – Middleware/wrappers, never inflate the core.
-3. **Thin adapters** – Translate I/O only.
-4. **Iterate openly** – Explicit assumptions. Evidence-based refinement.
+## code shape
+
+Write code that reads like pseudocode and most concisely expresses the idea.
+
+- **top-down files**: main entrypoints first; helpers later; deep internals last.
+- **straight-line flow**: happy path first; guard returns only when they simplify.
+- **bounded passes**: parsers/compilers should be one-pass or bounded; avoid unbounded recursion.
+- **small functions**: if a function grows past ~27 lines, consider splitting by responsibility.
+- **small files**: if a file grows past ~270 lines, consider splitting by responsibility (not by "layer").
+- **no clever golf**: compactness is good only when readability improves.
+- **default: no comments/docstrings**: code should be self-explanatory; only add them when they carry necessary "why/contract" value (invariants, public APIs, tricky edges).
+
+## naming + api
+
+- Names carry intent: short, purpose-first nouns/verbs.
+- Avoid "Manager/Helper/Util" unless it's truly generic.
+- Keep the public surface minimal and stable; keep boundary data dumb.
+
+## types + invariants
+
+Types clarify invariants and public contracts; don't decorate internals with noise.
+Invariants live in the core; errors are shaped and actionable.
+Failure is a first-class path: the core returns outcomes (or throws specific errors); edges translate into logs/UI/HTTP.
+Prefer explicit tables/patterns over sprawling branching when behavior is structural.
+Centralize coercion/translation; don't scatter implicit conversions.
+
+## imports + dependencies
+
+Make dependencies obvious.
+
+- Prefer explicit imports/exports; avoid implicit "magic surfaces".
+- Avoid re-export chains that hide where things come from.
+- Avoid "preludes"/wildcard exports that make the surface implicit.
+- Avoid aliasing; only alias to resolve a real collision, and keep it rare and consistent.
+- Group imports by origin with blank lines: platform/stdlib -> third-party -> repo/external modules -> local/same-package.
+- When the language supports it, prefer local/same-package import forms that make locality obvious (and keep them grouped and ordered from broader to nearer).
+
+## testing + change hygiene
+
+Don't mix functionality changes with whitespace-only changes.
+Functional changes should be tested.
+If something is hard to test, explain why.
+Make nondeterminism explicit and controllable (time/randomness/env variability).
+Commit messages: short, action-first, mostly lowercase; optional `scope:` prefix and optional `(#PR)` suffix, tinygrad-style.
+
+Tests should assert:
+- expected behavior
+- expected failures
+- key invariants (including performance invariants when they are part of correctness)
+- stress invariants with adversarial configs (force worst-case paths)
+
+If you claim a speedup, measure it. If you add complexity, justify it.

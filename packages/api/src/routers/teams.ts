@@ -15,7 +15,7 @@ const uuid = z.string().uuid()
 
 const startDraftInput = z.object({
   gameId: uuid,
-  teamNames: z.tuple([z.string().min(1), z.string().min(1)]).optional(),
+  teamNames: z.array(z.string().min(1)).min(2).optional(),
 })
 
 const pickInput = z.object({
@@ -164,16 +164,22 @@ export const teamsRouter = createTRPCRouter({
       .order('slot', { ascending: true })
 
     if (captainsError) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: captainsError.message })
-    if ((captains?.length ?? 0) < 2) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Assign two captains before starting the draft' })
+    const captainIds = (captains ?? [])
+      .map((captain) => captain.profile_id)
+      .filter((profileId): profileId is string => Boolean(profileId))
+
+    if (captainIds.length < 2) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Assign captains before starting the draft' })
     }
 
-    const teamNames = input.teamNames ?? ['Team A', 'Team B']
+    if (input.teamNames && input.teamNames.length !== captainIds.length) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Team names must match captain count' })
+    }
 
     await startDraftForGame({
       gameId: input.gameId,
-      teamNames,
-      captainProfileIds: [captains[0]!.profile_id, captains[1]!.profile_id],
+      teamNames: input.teamNames,
+      captainProfileIds: captainIds,
       supabaseAuthed: supabase,
       supabaseAdmin,
       actorId: user.id,
@@ -244,6 +250,7 @@ export const teamsRouter = createTRPCRouter({
     const pickOrder = await nextPickOrder(input.gameId)
 
     const { error: insertError } = await supabaseAdmin.from('game_team_members').insert({
+      game_id: input.gameId,
       game_team_id: input.teamId,
       profile_id: input.profileId,
       assigned_by: user.id,
@@ -283,6 +290,33 @@ export const teamsRouter = createTRPCRouter({
         pickOrder,
       })
     } catch {}
+
+    const [confirmedCount, draftedCount] = await Promise.all([
+      countConfirmedPlayers(supabase, input.gameId),
+      countDraftedPlayers(supabase, teams.map((t) => t.id)),
+    ])
+
+    if (confirmedCount > 0 && draftedCount === confirmedCount) {
+      const { error: finalizeError } = await supabaseAdmin
+        .from('games')
+        .update({ draft_status: 'completed', draft_turn: null })
+        .eq('id', input.gameId)
+
+      if (finalizeError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: finalizeError.message })
+      }
+
+      await recordDraftEvent({
+        supabaseAdmin,
+        gameId: input.gameId,
+        action: 'finalize',
+        createdBy: user.id,
+      })
+
+      try {
+        await notifyDraftCompleted({ supabaseAdmin, gameId: input.gameId })
+      } catch {}
+    }
 
     return { ok: true }
   }),
@@ -361,15 +395,20 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Only captains can report results' })
     }
 
-    const losingTeamIdResolved =
-      input.losingTeamId ?? teams.find((t) => t.id !== input.winningTeamId)?.id ?? null
+    const teamIds = teams.map((team) => team.id)
+    const isMultiTeam = teamIds.length > 2
+    const losingTeamIdResolved = isMultiTeam
+      ? null
+      : input.losingTeamId ?? teams.find((t) => t.id !== input.winningTeamId)?.id ?? null
+    const winnerScore = isMultiTeam ? null : input.winnerScore ?? null
+    const loserScore = isMultiTeam ? null : input.loserScore ?? null
 
     const payload = {
       game_id: input.gameId,
       winning_team_id: input.winningTeamId,
       losing_team_id: losingTeamIdResolved,
-      winner_score: input.winnerScore ?? null,
-      loser_score: input.loserScore ?? null,
+      winner_score: winnerScore,
+      loser_score: loserScore,
       reported_by: user.id,
       reported_at: new Date().toISOString(),
       status: isAdmin ? 'confirmed' : 'pending',
@@ -378,8 +417,8 @@ export const teamsRouter = createTRPCRouter({
     const { error } = await supabaseAdmin.from('game_results').upsert(payload, { onConflict: 'game_id' })
     if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
 
-    if (payload.status === 'confirmed' && payload.losing_team_id) {
-      await recordPlayerStats(payload.game_id, payload.winning_team_id, payload.losing_team_id)
+    if (payload.status === 'confirmed') {
+      await recordPlayerStats(payload.game_id, payload.winning_team_id, teamIds)
     }
     await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, payload.status === 'confirmed')
 
@@ -411,8 +450,9 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: resultFetchError.message })
     }
 
-    if (resultRow?.winning_team_id && resultRow?.losing_team_id) {
-      await recordPlayerStats(input.gameId, resultRow.winning_team_id, resultRow.losing_team_id)
+    if (resultRow?.winning_team_id) {
+      const teamIds = (await fetchTeams(supabaseAdmin, input.gameId)).map((team) => team.id)
+      await recordPlayerStats(input.gameId, resultRow.winning_team_id, teamIds)
     }
     await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, true)
 
@@ -614,14 +654,25 @@ const nextPickOrder = async (gameId: string) => {
   return (data?.pick_order ?? 0) + 1
 }
 
-const recordPlayerStats = async (gameId: string, winningTeamId: string, losingTeamId: string) => {
-  const teamIds = [winningTeamId, losingTeamId].filter(Boolean)
-  if (teamIds.length === 0) return
+const recordPlayerStats = async (gameId: string, winningTeamId: string, teamIds?: string[]) => {
+  let resolvedTeamIds = teamIds ?? []
+  if (!resolvedTeamIds.length) {
+    const { data: teamRows, error: teamError } = await supabaseAdmin
+      .from('game_teams')
+      .select('id')
+      .eq('game_id', gameId)
+    if (teamError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: teamError.message })
+    }
+    resolvedTeamIds = teamRows?.map((team) => team.id) ?? []
+  }
+
+  if (!resolvedTeamIds.length) return
 
   const { data: members, error } = await supabaseAdmin
     .from('game_team_members')
     .select('game_team_id, profile_id, pick_order')
-    .in('game_team_id', teamIds)
+    .in('game_team_id', resolvedTeamIds)
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
 
