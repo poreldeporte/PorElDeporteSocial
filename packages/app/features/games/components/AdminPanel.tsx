@@ -24,7 +24,7 @@ export const AdminPanel = ({ game }: { game: GameDetail }) => {
       </SizableText>
       {game.result ? (
         <Paragraph theme="alt2">
-          {game.result.status !== 'confirmed' ? 'Result awaiting confirmation.' : 'Result recorded.'}
+          {game.result.status !== 'confirmed' ? 'Pending results.' : 'Result recorded.'}
         </Paragraph>
       ) : (
         <Paragraph theme="alt2">Log winners, edit details, or cancel the run.</Paragraph>

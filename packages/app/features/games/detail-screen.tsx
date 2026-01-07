@@ -48,22 +48,32 @@ const COMMUNITY_GUIDELINES = [
   {
     icon: Calendar,
     title: 'Show up early',
-    description: 'Jog in before warmups so we can juggle, stretch, and pick sides together.',
+    description: 'Arrive 15 minutes before kickoff so we can warm up and set teams.',
   },
   {
     icon: ShieldCheck,
     title: 'Play clean',
-    description: 'No slides, no wild studs—just tidy touches, fair calls, and control in every challenge.',
+    description: 'No slides, no malicious tackles—respect first, always.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'No cleats',
+    description: 'Turf shoes only. It keeps every player safe.',
   },
   {
     icon: Zap,
     title: 'Win and it’s free',
-    description: 'Keep score for pride, not pockets. Celebrate the win, dap the crew, line up the next run.',
+    description: 'Teams stake the field fee; the losing side covers both. Compete hard, stay friendly.',
   },
   {
     icon: Handshake,
-    title: 'Protect the crew',
-    description: 'Respect every invite. We keep this field by keeping the energy right.',
+    title: 'Respect the roster',
+    description: 'Only claim a spot if you can play, and update your status early.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'No-shows cover the field fee',
+    description: 'No-shows disrupt the crew. If you don’t communicate, you cover the full field fee.',
   },
 ] as const
 
@@ -552,7 +562,7 @@ const ResultSummary = ({
     draftStatus === 'in_progress'
       ? 'Captains are drafting—teams update live.'
       : result && pending
-        ? 'Awaiting confirmation.'
+        ? 'Pending results.'
         : null
 
   return (
