@@ -8,6 +8,7 @@ type Props = {
   canManage?: boolean
   removingId?: string | null
   onRemovePlayer?: (queueId: string) => void
+  confirmationEnabled?: boolean
 }
 
 export const RosterSection = ({
@@ -16,6 +17,7 @@ export const RosterSection = ({
   canManage = false,
   removingId,
   onRemovePlayer,
+  confirmationEnabled = true,
 }: Props) => (
   <Card bordered $platform-native={{ borderWidth: 0 }} px="$3" py="$2" gap="$2">
     {entries.length === 0 ? (
@@ -30,6 +32,7 @@ export const RosterSection = ({
             canRemove={canManage}
             isRemoving={removingId === entry.id}
             onRemove={() => onRemovePlayer?.(entry.id)}
+            confirmationEnabled={confirmationEnabled}
           />
         ))}
       </YStack>
@@ -43,14 +46,17 @@ const PlayerRow = ({
   canRemove,
   isRemoving,
   onRemove,
+  confirmationEnabled = true,
 }: {
   entry: QueueEntry
   index: number
   canRemove?: boolean
   isRemoving?: boolean
   onRemove?: () => void
+  confirmationEnabled?: boolean
 }) => {
-  const confirmed = Boolean(entry.attendanceConfirmedAt)
+  const confirmed =
+    entry.status === 'rostered' && (!confirmationEnabled || Boolean(entry.attendanceConfirmedAt))
   const record = entry.record
   const recent = record?.recent?.length ? record.recent.join(' ') : null
   const jersey = typeof entry.player.jerseyNumber === 'number' ? `#${entry.player.jerseyNumber}` : null
@@ -77,7 +83,7 @@ const PlayerRow = ({
         ) : null}
       </YStack>
       <XStack ai="center" gap="$1">
-        {entry.status === 'confirmed' ? (
+        {entry.status === 'rostered' ? (
           <StatusBadge tone={confirmed ? 'success' : 'warning'} showIcon={false}>
             {confirmed ? 'Confirmed' : 'Pending'}
           </StatusBadge>

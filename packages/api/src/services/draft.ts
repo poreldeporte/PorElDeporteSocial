@@ -1,7 +1,6 @@
 import { TRPCError } from '@trpc/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { CONFIRMATION_WINDOW_MS } from '@my/config/game'
 import type { Database } from '@my/supabase/types'
 import { shuffleOrder } from '../domain/draft'
 
@@ -151,6 +150,11 @@ export const startDraftForGame = async ({
     createdBy: actorId,
     payload: { captainProfileIds },
   })
+
+  const firstCaptainProfileId =
+    insertedTeams?.find((team) => Number(team.draft_order) === 0)?.captain_profile_id ?? null
+
+  return { firstCaptainProfileId }
 }
 
 type ResetDraftOptions = {
@@ -247,8 +251,14 @@ type DraftStartSnapshot = {
     draft_status: Database['public']['Enums']['draft_status'] | null
     capacity: number | null
     start_time: string | null
+    draft_mode_enabled: boolean
+    confirmation_enabled: boolean
+    join_cutoff_offset_minutes_from_kickoff: number
   }
-  confirmedCount: number
+  community: {
+    confirmation_window_hours_before_kickoff: number
+  } | null
+  rosteredCount: number
   attendanceConfirmedCount: number
 }
 
@@ -258,7 +268,18 @@ export const fetchDraftStartSnapshot = async (
 ): Promise<DraftStartSnapshot> => {
   const { data: game, error: gameError } = await supabase
     .from('games')
-    .select('id, draft_status, capacity, start_time')
+    .select(
+      `id,
+       draft_status,
+       capacity,
+       start_time,
+       draft_mode_enabled,
+       confirmation_enabled,
+       join_cutoff_offset_minutes_from_kickoff,
+       communities!games_community_id_fkey (
+         confirmation_window_hours_before_kickoff
+       )`
+    )
     .eq('id', gameId)
     .maybeSingle()
 
@@ -270,33 +291,47 @@ export const fetchDraftStartSnapshot = async (
   }
 
   const [
-    { count: confirmedCount, error: confirmedError },
+    { count: rosteredCount, error: rosteredError },
     { count: attendanceConfirmedCount, error: attendanceError },
   ] = await Promise.all([
     supabase
       .from('game_queue')
       .select('id', { count: 'exact', head: true })
       .eq('game_id', gameId)
-      .eq('status', 'confirmed'),
+      .eq('status', 'rostered'),
     supabase
       .from('game_queue')
       .select('id', { count: 'exact', head: true })
       .eq('game_id', gameId)
-      .eq('status', 'confirmed')
+      .eq('status', 'rostered')
       .not('attendance_confirmed_at', 'is', null),
   ])
 
-  if (confirmedError) {
-    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: confirmedError.message })
+  if (rosteredError) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: rosteredError.message })
   }
   if (attendanceError) {
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: attendanceError.message })
   }
 
+  const resolvedRosteredCount = rosteredCount ?? 0
+  const resolvedAttendanceConfirmedCount = game.confirmation_enabled
+    ? attendanceConfirmedCount ?? 0
+    : resolvedRosteredCount
+
   return {
-    game,
-    confirmedCount: confirmedCount ?? 0,
-    attendanceConfirmedCount: attendanceConfirmedCount ?? 0,
+    game: {
+      id: game.id,
+      draft_status: game.draft_status,
+      capacity: game.capacity,
+      start_time: game.start_time,
+      draft_mode_enabled: game.draft_mode_enabled,
+      confirmation_enabled: game.confirmation_enabled,
+      join_cutoff_offset_minutes_from_kickoff: game.join_cutoff_offset_minutes_from_kickoff,
+    },
+    community: game.communities ?? null,
+    rosteredCount: resolvedRosteredCount,
+    attendanceConfirmedCount: resolvedAttendanceConfirmedCount,
   }
 }
 
@@ -307,28 +342,44 @@ export const getDraftStartBlocker = ({
   snapshot: DraftStartSnapshot
   captainCount: number
 }) => {
-  const { game, confirmedCount, attendanceConfirmedCount } = snapshot
+  const { game, community, rosteredCount, attendanceConfirmedCount } = snapshot
   if (game.draft_status && game.draft_status !== 'pending') {
     return 'Draft already started'
   }
-  if (!game.capacity || confirmedCount !== game.capacity || attendanceConfirmedCount !== game.capacity) {
-    return 'Full roster must be confirmed before assigning captains'
+  if (!game.capacity || rosteredCount !== game.capacity) {
+    return 'Roster must be full before assigning captains'
   }
   if (captainCount < 2) {
     return 'At least two captains required'
   }
-  if (confirmedCount % captainCount !== 0) {
-    return 'Captain count must divide evenly into the confirmed roster'
+  if (rosteredCount % captainCount !== 0) {
+    return 'Captain count must divide evenly into the roster'
   }
   if (!game.start_time) {
     return 'Game start time required to draft'
   }
 
-  const startTime = new Date(game.start_time)
-  const confirmationWindowStart = new Date(startTime.getTime() - CONFIRMATION_WINDOW_MS)
-  const now = new Date()
-  if (now < confirmationWindowStart || now >= startTime) {
-    return 'Draft is only available within the confirmation window'
+  if (game.confirmation_enabled) {
+    if (attendanceConfirmedCount !== rosteredCount) {
+      return 'All rostered players must confirm attendance before assigning captains'
+    }
+    if (!community) {
+      return 'Confirmation settings not available'
+    }
+    const startTime = new Date(game.start_time)
+    const confirmationWindowStart = new Date(
+      startTime.getTime() - community.confirmation_window_hours_before_kickoff * 60 * 60 * 1000
+    )
+    const joinCutoff = new Date(
+      startTime.getTime() - game.join_cutoff_offset_minutes_from_kickoff * 60 * 1000
+    )
+    if (joinCutoff <= confirmationWindowStart) {
+      return 'Draft is only available within the confirmation window'
+    }
+    const now = new Date()
+    if (now < confirmationWindowStart || now >= joinCutoff) {
+      return 'Draft is only available within the confirmation window'
+    }
   }
 
   return null

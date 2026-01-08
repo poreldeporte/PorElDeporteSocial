@@ -1,7 +1,7 @@
 import { Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 
 import { parseBirthDateParts } from 'app/utils/birthDate'
-import { formatE164ForDisplay, formatPhoneNumber } from 'app/utils/phone'
+import { formatE164ForDisplay, formatPhoneNumber, getPhoneCountryOptions } from 'app/utils/phone'
 
 import { profileFieldCopy } from './field-copy'
 
@@ -11,6 +11,7 @@ type ProfileDetailsProps = {
   email?: string | null
   phone?: string | null
   address?: string | null
+  nationality?: string | null
   birthDate?: string | null
   jerseyNumber?: number | null
   position?: string | null
@@ -49,6 +50,13 @@ const formatPhone = (value?: string | null, fallback = 'Add info') => {
 const formatJerseyNumber = (value?: number | null) => {
   if (typeof value !== 'number') return 'Pick a number'
   return `#${value}`
+}
+
+const formatNationality = (value?: string | null) => {
+  if (!value) return 'Add your nationality'
+  const option = getPhoneCountryOptions().find((country) => country.code === value)
+  if (!option) return value
+  return `${option.flag} ${option.name}`
 }
 
 const DetailRow = ({ label, value, isFirst }: { label: string; value: string; isFirst?: boolean }) => (
@@ -94,6 +102,7 @@ export const ProfileDetails = ({
   email,
   phone,
   address,
+  nationality,
   birthDate,
   jerseyNumber,
   position,
@@ -111,6 +120,7 @@ export const ProfileDetails = ({
 
   const background = [
     { label: profileFieldCopy.birthDate.label, value: formatBirthDate(birthDate) },
+    { label: profileFieldCopy.nationality.label, value: formatNationality(nationality) },
     { label: profileFieldCopy.address.label, value: formatValue(address, 'Add your address') },
   ]
 

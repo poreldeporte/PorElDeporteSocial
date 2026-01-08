@@ -6,6 +6,7 @@ export type ScreenLayoutId =
   | 'gameDraft'
   | 'gameEdit'
   | 'gameResult'
+  | 'gameReviews'
   | 'profile'
   | 'profileEdit'
   | 'profileOnboarding'
@@ -13,7 +14,9 @@ export type ScreenLayoutId =
   | 'leaderboard'
   | 'settings'
   | 'settingsGeneral'
+  | 'settingsCommunity'
   | 'adminApprovals'
+  | 'adminApplications'
   | 'adminMemberEdit'
   | 'create'
   | 'community'
@@ -40,6 +43,7 @@ const screenLayouts: Record<ScreenLayoutId, ScreenLayout> = {
   gameDraft: { id: 'gameDraft', title: 'Draft Room' },
   gameEdit: { id: 'gameEdit', title: 'Edit Game' },
   gameResult: { id: 'gameResult', title: 'Game Result' },
+  gameReviews: { id: 'gameReviews', title: 'Game Reviews' },
   profile: { id: 'profile', title: 'My Profile' },
   profileEdit: { id: 'profileEdit', title: 'Edit Profile' },
   profileOnboarding: { id: 'profileOnboarding', title: 'Finish Setup' },
@@ -47,7 +51,9 @@ const screenLayouts: Record<ScreenLayoutId, ScreenLayout> = {
   leaderboard: { id: 'leaderboard', title: 'Leaderboard' },
   settings: { id: 'settings', title: 'Settings' },
   settingsGeneral: { id: 'settingsGeneral', title: 'General' },
-  adminApprovals: { id: 'adminApprovals', title: 'Member approvals' },
+  settingsCommunity: { id: 'settingsCommunity', title: 'Community settings' },
+  adminApprovals: { id: 'adminApprovals', title: 'Members' },
+  adminApplications: { id: 'adminApplications', title: 'Applications' },
   adminMemberEdit: { id: 'adminMemberEdit', title: 'Edit member' },
   create: { id: 'create', title: 'Create', stickyCta: 'primary' },
   community: { id: 'community', title: 'La Familia' },

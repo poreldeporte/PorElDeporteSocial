@@ -14,10 +14,10 @@ const buildQueueEntry = (overrides: Partial<QueueEntry> = {}): QueueEntry => {
 
   return {
     id: overrides.id ?? `queue-${++queueCounter}`,
-    status: overrides.status ?? 'confirmed',
+    status: overrides.status ?? 'rostered',
     joinedAt: overrides.joinedAt ?? '2025-01-01T00:00:00.000Z',
     promotedAt: overrides.promotedAt ?? null,
-    cancelledAt: overrides.cancelledAt ?? null,
+    droppedAt: overrides.droppedAt ?? null,
     attendanceConfirmedAt: overrides.attendanceConfirmedAt ?? null,
     profileId: overrides.profileId ?? 'profile-1',
     player,
@@ -34,7 +34,6 @@ const baseGame: GameDetail = {
   locationNotes: null,
   costCents: 2500,
   capacity: 12,
-  waitlistCapacity: 50,
   status: 'scheduled',
   draftStatus: 'pending',
   cancelledAt: null,
@@ -42,10 +41,17 @@ const baseGame: GameDetail = {
   captains: [],
   teams: [],
   result: null,
-  confirmedCount: 0,
+  rosteredCount: 0,
   waitlistedCount: 0,
   userStatus: 'none',
   userEntry: undefined,
+  hasReview: false,
+  communityId: 'community-1',
+  confirmationEnabled: true,
+  joinCutoffOffsetMinutesFromKickoff: 0,
+  draftModeEnabled: true,
+  crunchTimeStartTimeLocal: null,
+  community: null,
 }
 
 describe('computeGameDetailState', () => {
@@ -61,10 +67,10 @@ describe('computeGameDetailState', () => {
           }),
         ],
         waitlistedCount: 2,
-        confirmedCount: 12,
-        waitlistCapacity: 1,
+        rosteredCount: 12,
       },
       queueState: { pendingGameId: null, isPending: false },
+      now: new Date('2025-01-09T12:00:00.000Z').getTime(),
     })
 
     expect(waitlistedState.ctaLabel).toBe('Join waitlist')
@@ -84,43 +90,79 @@ describe('computeGameDetailState', () => {
   })
 
   it('returns active user entry and confirmation ability', () => {
-    const confirmedEntry = buildQueueEntry({
+    const rosteredEntry = buildQueueEntry({
       profileId: 'profile-3',
       player: { id: 'profile-3', name: 'Starter', avatarUrl: null },
     })
     const confirmState = computeGameDetailState({
       game: {
         ...baseGame,
-        queue: [confirmedEntry],
-        confirmedCount: 1,
-        userStatus: 'confirmed',
+        queue: [rosteredEntry],
+        rosteredCount: 1,
+        userStatus: 'rostered',
       },
       userId: 'profile-3',
       queueState: { pendingGameId: null, isPending: false },
       now: new Date('2025-01-09T12:00:00.000Z').getTime(),
     })
 
-    expect(confirmState.ctaState).toBe('leave-confirmed')
+    expect(confirmState.ctaState).toBe('drop')
     expect(confirmState.canConfirmAttendance).toBe(true)
-    expect(confirmState.userEntry?.id).toBe(confirmedEntry.id)
+    expect(confirmState.userEntry?.id).toBe(rosteredEntry.id)
   })
 
   it('prefers queue entry status when userStatus is stale', () => {
-    const confirmedEntry = buildQueueEntry({
+    const rosteredEntry = buildQueueEntry({
       profileId: 'profile-3',
       player: { id: 'profile-3', name: 'Starter', avatarUrl: null },
     })
     const staleStatusState = computeGameDetailState({
       game: {
         ...baseGame,
-        queue: [confirmedEntry],
-        confirmedCount: 1,
+        queue: [rosteredEntry],
+        rosteredCount: 1,
         userStatus: 'none',
       },
       userId: 'profile-3',
       queueState: { pendingGameId: null, isPending: false },
     })
 
-    expect(staleStatusState.ctaState).toBe('leave-confirmed')
+    expect(staleStatusState.ctaState).toBe('drop')
+  })
+
+  it('limits rating to rostered players after completion', () => {
+    const rosteredEntry = buildQueueEntry({
+      profileId: 'profile-4',
+      player: { id: 'profile-4', name: 'Finisher', avatarUrl: null },
+    })
+    const rosteredState = computeGameDetailState({
+      game: {
+        ...baseGame,
+        status: 'completed',
+        queue: [rosteredEntry],
+        rosteredCount: 1,
+        userStatus: 'rostered',
+      },
+      userId: 'profile-4',
+      queueState: { pendingGameId: null, isPending: false },
+    })
+
+    expect(rosteredState.ctaLabel).toBe('Rate the game')
+    expect(rosteredState.ctaDisabled).toBe(false)
+
+    const nonRosteredState = computeGameDetailState({
+      game: {
+        ...baseGame,
+        status: 'completed',
+        queue: [],
+        rosteredCount: 0,
+        userStatus: 'none',
+      },
+      userId: 'profile-5',
+      queueState: { pendingGameId: null, isPending: false },
+    })
+
+    expect(nonRosteredState.ctaLabel).toBe('Game completed')
+    expect(nonRosteredState.ctaDisabled).toBe(true)
   })
 })

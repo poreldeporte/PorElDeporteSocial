@@ -11177,6 +11177,7 @@ __metadata:
     "@my/supabase": "npm:*"
     "@my/ui": "npm:*"
     "@react-native-async-storage/async-storage": "npm:2.1.2"
+    "@react-native-community/datetimepicker": "npm:8.3.0"
     "@rehookify/datepicker": "npm:^6.6.6"
     "@supabase/auth-helpers-nextjs": "npm:^0.10.0"
     "@supabase/auth-helpers-react": "npm:^0.5.0"

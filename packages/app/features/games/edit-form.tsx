@@ -37,7 +37,6 @@ const EditGameSchema = GameFormSchema.extend({
 
 const statusOptions = [
   { name: 'Scheduled', value: 'scheduled' },
-  { name: 'Locked', value: 'locked' },
   { name: 'Completed', value: 'completed' },
   { name: 'Cancelled', value: 'cancelled' },
 ]
@@ -88,11 +87,16 @@ export const EditGameForm = ({
       bare
       schema={EditGameSchema}
       defaultValues={{
-        ...buildGameFormDefaults({
-          startTime: game.startTime,
-          locationName: game.locationName,
-          capacity: game.capacity,
-        }),
+        ...buildGameFormDefaults(
+          {
+            startTime: game.startTime,
+            locationName: game.locationName,
+            capacity: game.capacity,
+            confirmationEnabled: game.confirmationEnabled,
+            joinCutoffOffsetMinutesFromKickoff: game.joinCutoffOffsetMinutesFromKickoff,
+            draftModeEnabled: game.draftModeEnabled,
+          }
+        ),
         status: game.status,
       }}
       props={{
@@ -136,6 +140,18 @@ export const EditGameForm = ({
               {fields.start_time_time}
               {fields.location_name}
               {fields.capacity}
+              <FieldWithHint
+                field={fields.confirmation_enabled}
+                hint="Players must confirm to keep their spot. If off, everyone is treated as confirmed and there is no crunch time."
+              />
+              <FieldWithHint
+                field={fields.join_cutoff_offset_minutes_from_kickoff}
+                hint="After this time, players cannot claim spot, join waitlist, drop, or confirm. Set to 0 to keep it open until kickoff."
+              />
+              <FieldWithHint
+                field={fields.draft_mode_enabled}
+                hint="Turns on captains and the draft."
+              />
               {fields.status}
             </YStack>
             {showFloatingCta ? <YStack h={dockSpacer} /> : null}
@@ -156,3 +172,12 @@ export const EditGameForm = ({
     </SchemaForm>
   )
 }
+
+const FieldWithHint = ({ field, hint }: { field: ReactNode; hint: string }) => (
+  <YStack gap="$1">
+    {field}
+    <Paragraph theme="alt2" size="$2">
+      {hint}
+    </Paragraph>
+  </YStack>
+)

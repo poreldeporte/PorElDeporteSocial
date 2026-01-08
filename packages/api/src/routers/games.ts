@@ -1,19 +1,36 @@
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
-import { DEFAULT_WAITLIST_LIMIT } from '@my/config/game'
 import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { fetchDraftStartSnapshot, getDraftStartBlocker, resetDraftForGame, startDraftForGame } from '../services/draft'
-import { notifyDraftReady, notifyDraftStarted, notifyGameCancelled, notifyGameCreatedGlobal } from '../services/notifications'
+import {
+  notifyCaptainTurn,
+  notifyCaptainsAssigned,
+  notifyGameCancelled,
+  notifyWaitlistDemoted,
+  notifyWaitlistPromoted,
+} from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
 type GameRow = Database['public']['Tables']['games']['Row']
 type QueueRow = Database['public']['Tables']['game_queue']['Row']
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 type CaptainRow = Database['public']['Tables']['game_captains']['Row']
+type CommunityRow = Database['public']['Tables']['communities']['Row']
 type GameUserStatus = Database['public']['Enums']['game_queue_status'] | 'none'
+
+type CommunitySummary = Pick<
+  CommunityRow,
+  | 'id'
+  | 'community_timezone'
+  | 'confirmation_window_hours_before_kickoff'
+  | 'confirmation_reminders_local_times'
+  | 'crunch_time_enabled'
+  | 'crunch_time_start_time_local'
+  | 'game_notification_times_local'
+>
 
 type QueueWithProfile = QueueRow & {
   profiles: Pick<ProfileRow, 'id' | 'name' | 'avatar_url' | 'jersey_number' | 'position'> | null
@@ -43,6 +60,7 @@ type GameTeamRow = {
 }
 
 type GameDetailRow = GameRow & {
+  communities: CommunitySummary | null
   game_queue: QueueWithProfile[] | null
   game_captains: (CaptainRow & { profiles: Pick<ProfileRow, 'id' | 'name' | 'avatar_url'> | null })[] | null
   game_results: GameResultRow[] | GameResultRow | null
@@ -56,6 +74,7 @@ type GameListTeamRow = {
 }
 
 type GameListRow = GameRow & {
+  communities: CommunitySummary | null
   game_captains: Pick<CaptainRow, 'profile_id'>[] | null
   game_results?: GameResultRow[] | GameResultRow | null
   game_teams?: GameListTeamRow[] | null
@@ -73,13 +92,30 @@ const publicGameFields = `
   draft_status,
   cost_cents,
   capacity,
-  waitlist_capacity,
   cancelled_at,
-  created_by
+  created_by,
+  community_id,
+  confirmation_enabled,
+  join_cutoff_offset_minutes_from_kickoff,
+  draft_mode_enabled,
+  crunch_time_start_time_local
+`
+
+const communityFields = `
+  communities!games_community_id_fkey (
+    id,
+    community_timezone,
+    confirmation_window_hours_before_kickoff,
+    confirmation_reminders_local_times,
+    crunch_time_enabled,
+    crunch_time_start_time_local,
+    game_notification_times_local
+  )
 `
 
 const listSelect = `
   ${publicGameFields},
+  ${communityFields},
   game_captains (
     profile_id
   )
@@ -87,6 +123,7 @@ const listSelect = `
 
 const listHistorySelect = `
   ${publicGameFields},
+  ${communityFields},
   game_captains (
     profile_id
   ),
@@ -120,13 +157,21 @@ const createGameInput = z.object({
   locationNotes: z.string().nullable().optional(),
   cost: z.number().min(0),
   capacity: z.number().int().positive(),
+  confirmationEnabled: z.boolean().optional(),
+  joinCutoffOffsetMinutesFromKickoff: z.number().int().min(0).optional(),
+  draftModeEnabled: z.boolean().optional(),
+  crunchTimeStartTimeLocal: z.string().nullable().optional(),
 })
 
 const updateGameInput = createGameInput
   .partial()
   .extend({
     id: z.string().uuid(),
-    status: z.enum(['scheduled', 'locked', 'completed', 'cancelled']).optional(),
+    status: z.enum(['scheduled', 'completed', 'cancelled']).optional(),
+    confirmationEnabled: z.boolean().optional(),
+    joinCutoffOffsetMinutesFromKickoff: z.number().int().min(0).optional(),
+    draftModeEnabled: z.boolean().optional(),
+    crunchTimeStartTimeLocal: z.string().nullable().optional(),
   })
 
 export const gamesRouter = createTRPCRouter({
@@ -163,7 +208,7 @@ export const gamesRouter = createTRPCRouter({
       (statsData ?? []).map((stat) => [
         stat.game_id,
         {
-          confirmedCount: stat.confirmed_count ?? 0,
+          rosteredCount: stat.rostered_count ?? 0,
           waitlistedCount: stat.waitlisted_count ?? 0,
           attendanceConfirmedCount: stat.attendance_confirmed_count ?? 0,
           userStatus: (stat.user_status as GameUserStatus | null) ?? 'none',
@@ -196,9 +241,8 @@ export const gamesRouter = createTRPCRouter({
         draftStatus: game.draft_status,
         costCents: game.cost_cents,
         capacity: game.capacity,
-        waitlistCapacity: game.waitlist_capacity,
         attendanceConfirmedCount: stats?.attendanceConfirmedCount ?? 0,
-        confirmedCount: stats?.confirmedCount ?? 0,
+        rosteredCount: stats?.rosteredCount ?? 0,
         waitlistedCount: stats?.waitlistedCount ?? 0,
         userStatus: stats?.userStatus ?? 'none',
         attendanceConfirmedAt: stats?.attendanceConfirmedAt ?? null,
@@ -213,6 +257,23 @@ export const gamesRouter = createTRPCRouter({
           : null,
         teamCaptains,
         cancelledAt: game.cancelled_at,
+        communityId: game.community_id,
+        confirmationEnabled: game.confirmation_enabled,
+        joinCutoffOffsetMinutesFromKickoff: game.join_cutoff_offset_minutes_from_kickoff,
+        draftModeEnabled: game.draft_mode_enabled,
+        crunchTimeStartTimeLocal: game.crunch_time_start_time_local,
+        community: game.communities
+          ? {
+              id: game.communities.id,
+              timezone: game.communities.community_timezone,
+              confirmationWindowHoursBeforeKickoff:
+                game.communities.confirmation_window_hours_before_kickoff,
+              confirmationRemindersLocalTimes: game.communities.confirmation_reminders_local_times,
+              crunchTimeEnabled: game.communities.crunch_time_enabled,
+              crunchTimeStartTimeLocal: game.communities.crunch_time_start_time_local,
+              gameNotificationTimesLocal: game.communities.game_notification_times_local,
+            }
+          : null,
         captainIds: (game.game_captains ?? []).map((captain) => captain.profile_id),
       }
     })
@@ -226,13 +287,14 @@ export const gamesRouter = createTRPCRouter({
         .select(
           `
           ${publicGameFields},
+          ${communityFields},
           game_queue (
             id,
             profile_id,
             status,
             joined_at,
             promoted_at,
-            cancelled_at,
+            dropped_at,
             attendance_confirmed_at,
             profiles (
               id,
@@ -296,7 +358,7 @@ export const gamesRouter = createTRPCRouter({
         status: entry.status,
         joinedAt: entry.joined_at,
         promotedAt: entry.promoted_at,
-        cancelledAt: entry.cancelled_at,
+        droppedAt: entry.dropped_at,
         profileId: entry.profile_id,
         attendanceConfirmedAt: entry.attendance_confirmed_at,
         player: {
@@ -368,10 +430,21 @@ export const gamesRouter = createTRPCRouter({
         ? game.game_results[0] ?? null
         : game.game_results ?? null
 
-      const confirmedCount = queue.filter((entry) => entry.status === 'confirmed').length
+      const rosteredCount = queue.filter((entry) => entry.status === 'rostered').length
       const waitlistedCount = queue.filter((entry) => entry.status === 'waitlisted').length
       const userEntry = queue.find((entry) => entry.profileId === ctx.user.id)
       const userStatus = (userEntry?.status as GameUserStatus | null) ?? 'none'
+      const { data: reviewRow, error: reviewError } = await supabaseAdmin
+        .from('game_reviews')
+        .select('id')
+        .eq('game_id', input.id)
+        .eq('profile_id', ctx.user.id)
+        .maybeSingle()
+
+      if (reviewError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: reviewError.message })
+      }
+      const hasReview = Boolean(reviewRow)
 
       return {
         id: game.id,
@@ -385,7 +458,6 @@ export const gamesRouter = createTRPCRouter({
         draftStatus: game.draft_status,
         costCents: game.cost_cents,
         capacity: game.capacity,
-        waitlistCapacity: game.waitlist_capacity,
         result: rawResult
           ? {
               winningTeamId: rawResult.winning_team_id,
@@ -400,31 +472,70 @@ export const gamesRouter = createTRPCRouter({
         queue,
         captains,
         teams,
-        confirmedCount,
+        rosteredCount,
         waitlistedCount,
         userStatus,
         userEntry,
+        hasReview,
         cancelledAt: game.cancelled_at,
+        communityId: game.community_id,
+        confirmationEnabled: game.confirmation_enabled,
+        joinCutoffOffsetMinutesFromKickoff: game.join_cutoff_offset_minutes_from_kickoff,
+        draftModeEnabled: game.draft_mode_enabled,
+        crunchTimeStartTimeLocal: game.crunch_time_start_time_local,
+        community: game.communities
+          ? {
+              id: game.communities.id,
+              timezone: game.communities.community_timezone,
+              confirmationWindowHoursBeforeKickoff:
+                game.communities.confirmation_window_hours_before_kickoff,
+              confirmationRemindersLocalTimes: game.communities.confirmation_reminders_local_times,
+              crunchTimeEnabled: game.communities.crunch_time_enabled,
+              crunchTimeStartTimeLocal: game.communities.crunch_time_start_time_local,
+              gameNotificationTimesLocal: game.communities.game_notification_times_local,
+            }
+          : null,
       }
     }),
 
   create: protectedProcedure.input(createGameInput).mutation(async ({ ctx, input }) => {
     await ensureAdmin(ctx.supabase, ctx.user.id)
 
+    const { data: communityRow, error: communityError } = await ctx.supabase
+      .from('communities')
+      .select('id')
+      .limit(1)
+      .maybeSingle()
+
+    if (communityError || !communityRow) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Unable to load community defaults' })
+    }
+
+    const payload: Database['public']['Tables']['games']['Insert'] = {
+      name: input.name,
+      description: input.description ?? null,
+      start_time: input.startTime,
+      end_time: input.endTime ?? null,
+      location_name: input.locationName ?? null,
+      location_notes: input.locationNotes ?? null,
+      cost_cents: Math.round(input.cost * 100),
+      capacity: input.capacity,
+      created_by: ctx.user.id,
+      community_id: communityRow.id,
+    }
+
+    if (input.confirmationEnabled !== undefined) payload.confirmation_enabled = input.confirmationEnabled
+    if (input.joinCutoffOffsetMinutesFromKickoff !== undefined) {
+      payload.join_cutoff_offset_minutes_from_kickoff = input.joinCutoffOffsetMinutesFromKickoff
+    }
+    if (input.draftModeEnabled !== undefined) payload.draft_mode_enabled = input.draftModeEnabled
+    if (input.crunchTimeStartTimeLocal !== undefined) {
+      payload.crunch_time_start_time_local = input.crunchTimeStartTimeLocal
+    }
+
     const { data, error } = await ctx.supabase
       .from('games')
-      .insert({
-        name: input.name,
-        description: input.description ?? null,
-        start_time: input.startTime,
-        end_time: input.endTime ?? null,
-        location_name: input.locationName ?? null,
-        location_notes: input.locationNotes ?? null,
-        cost_cents: Math.round(input.cost * 100),
-        capacity: input.capacity,
-        waitlist_capacity: DEFAULT_WAITLIST_LIMIT,
-        created_by: ctx.user.id,
-      })
+      .insert(payload)
       .select(publicGameFields)
       .maybeSingle()
 
@@ -432,15 +543,31 @@ export const gamesRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'Unable to create game' })
     }
 
-    try {
-      await notifyGameCreatedGlobal({ supabaseAdmin, gameId: data.id })
-    } catch {}
-
     return data
   }),
 
   update: protectedProcedure.input(updateGameInput).mutation(async ({ ctx, input }) => {
     await ensureAdmin(ctx.supabase, ctx.user.id)
+
+    let resetCrunchNotice = false
+    if (input.crunchTimeStartTimeLocal !== undefined) {
+      const { data: existing, error: existingError } = await ctx.supabase
+        .from('games')
+        .select('crunch_time_start_time_local')
+        .eq('id', input.id)
+        .maybeSingle()
+
+      if (existingError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: existingError.message })
+      }
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+      }
+
+      const currentValue = existing.crunch_time_start_time_local ?? null
+      const nextValue = input.crunchTimeStartTimeLocal ?? null
+      resetCrunchNotice = currentValue !== nextValue
+    }
 
     const payload: Database['public']['Tables']['games']['Update'] = {}
     if (input.name !== undefined) payload.name = input.name
@@ -452,6 +579,17 @@ export const gamesRouter = createTRPCRouter({
     if (input.cost !== undefined) payload.cost_cents = Math.round(input.cost * 100)
     if (input.capacity !== undefined) payload.capacity = input.capacity
     if (input.status !== undefined) payload.status = input.status
+    if (input.confirmationEnabled !== undefined) payload.confirmation_enabled = input.confirmationEnabled
+    if (input.joinCutoffOffsetMinutesFromKickoff !== undefined) {
+      payload.join_cutoff_offset_minutes_from_kickoff = input.joinCutoffOffsetMinutesFromKickoff
+    }
+    if (input.draftModeEnabled !== undefined) payload.draft_mode_enabled = input.draftModeEnabled
+    if (input.crunchTimeStartTimeLocal !== undefined) {
+      payload.crunch_time_start_time_local = input.crunchTimeStartTimeLocal
+    }
+    if (resetCrunchNotice) {
+      payload.crunch_time_notice_sent_at = null
+    }
 
     const { data, error } = await ctx.supabase
       .from('games')
@@ -462,6 +600,51 @@ export const gamesRouter = createTRPCRouter({
 
     if (error || !data) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'Unable to update game' })
+    }
+
+    if (input.capacity !== undefined) {
+      const { data: reconcileData, error: reconcileError } = await ctx.supabase.rpc('reconcile_game_capacity', {
+        p_game_id: input.id,
+      })
+
+      if (reconcileError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: reconcileError.message })
+      }
+
+      const promotedProfileIds = (reconcileData?.promoted_profile_ids ?? []) as string[]
+      const demotedProfileIds = (reconcileData?.demoted_profile_ids ?? []) as string[]
+
+      await Promise.all(
+        promotedProfileIds.map((profileId) =>
+          notifyWaitlistPromoted({ supabaseAdmin, gameId: input.id, profileId }).catch(() => {})
+        )
+      )
+      await Promise.all(
+        demotedProfileIds.map((profileId) =>
+          notifyWaitlistDemoted({ supabaseAdmin, gameId: input.id, profileId }).catch(() => {})
+        )
+      )
+
+      if (promotedProfileIds.length || demotedProfileIds.length) {
+        const { data: draftRow, error: draftError } = await supabaseAdmin
+          .from('games')
+          .select('draft_status')
+          .eq('id', input.id)
+          .maybeSingle()
+
+        if (draftError) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: draftError.message })
+        }
+
+        if (draftRow?.draft_status && draftRow.draft_status !== 'pending') {
+          await resetDraftForGame({
+            gameId: input.id,
+            supabaseAdmin,
+            actorId: ctx.user.id,
+            preserveCaptains: false,
+          })
+        }
+      }
     }
 
     return data
@@ -484,15 +667,18 @@ export const gamesRouter = createTRPCRouter({
         .maybeSingle()
 
       if (error || !data) {
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'Unable to cancel game' })
-    }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error?.message ?? 'Unable to cancel game',
+        })
+      }
 
-    try {
-      await notifyGameCancelled({ supabaseAdmin, gameId: data.id })
-    } catch {}
+      try {
+        await notifyGameCancelled({ supabaseAdmin, gameId: data.id })
+      } catch {}
 
-    return data
-  }),
+      return data
+    }),
 
   assignCaptains: protectedProcedure
     .input(
@@ -523,18 +709,22 @@ export const gamesRouter = createTRPCRouter({
 
       const { data: captainRows, error: captainCheckError } = await ctx.supabase
         .from('game_queue')
-        .select('profile_id, attendance_confirmed_at')
+        .select('profile_id')
         .eq('game_id', input.gameId)
         .in('profile_id', captainIds)
-        .eq('status', 'confirmed')
+        .eq('status', 'rostered')
 
       if (captainCheckError) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: captainCheckError.message })
       }
 
-      const readyCaptains = (captainRows ?? []).filter((row) => row.attendance_confirmed_at)
-      if (readyCaptains.length !== captainIds.length) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captains must be confirmed before drafting' })
+      const rosteredCaptains = new Set(
+        (captainRows ?? [])
+          .map((row) => row.profile_id)
+          .filter((profileId): profileId is string => Boolean(profileId))
+      )
+      if (rosteredCaptains.size !== captainIds.length) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captains must be rostered before drafting' })
       }
 
       const payload = input.captains.map((captain, index) => ({
@@ -556,27 +746,17 @@ export const gamesRouter = createTRPCRouter({
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
       }
 
-      const { data: readyGame, error: readyError } = await supabaseAdmin
+      const { error: readyError } = await supabaseAdmin
         .from('games')
         .update({ draft_status: 'ready' })
         .eq('id', input.gameId)
         .eq('draft_status', 'pending')
-        .select('id')
-        .maybeSingle()
 
       if (readyError) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: readyError.message })
       }
 
-      if (!readyGame) {
-        return { ok: true, draftStatus: 'in_progress' as const }
-      }
-
-      try {
-        await notifyDraftReady({ supabaseAdmin, gameId: input.gameId })
-      } catch {}
-
-      await startDraftForGame({
+      const { firstCaptainProfileId } = await startDraftForGame({
         gameId: input.gameId,
         teamNames: input.teamNames,
         captainProfileIds: captainIds,
@@ -585,9 +765,15 @@ export const gamesRouter = createTRPCRouter({
         actorId: ctx.user.id,
       })
 
-      try {
-        await notifyDraftStarted({ supabaseAdmin, gameId: input.gameId })
-      } catch {}
+      const shouldNotifyDraft = snapshot.game.draft_mode_enabled && snapshot.game.confirmation_enabled
+      if (shouldNotifyDraft) {
+        try {
+          await notifyCaptainsAssigned({ supabaseAdmin, gameId: input.gameId, profileIds: captainIds })
+          if (firstCaptainProfileId) {
+            await notifyCaptainTurn({ supabaseAdmin, gameId: input.gameId, profileId: firstCaptainProfileId })
+          }
+        } catch {}
+      }
 
       return { ok: true, draftStatus: 'in_progress' as const }
     }),

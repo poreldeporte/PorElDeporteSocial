@@ -110,13 +110,13 @@ const patchGameDetail = (
 }
 
 const recalcCounts = (queue: GameDetail['queue']) => {
-  let confirmed = 0
+  let rostered = 0
   let waitlisted = 0
   queue.forEach((entry) => {
-    if (entry.status === 'confirmed') confirmed += 1
+    if (entry.status === 'rostered') rostered += 1
     if (entry.status === 'waitlisted') waitlisted += 1
   })
-  return { confirmedCount: confirmed, waitlistedCount: waitlisted }
+  return { rosteredCount: rostered, waitlistedCount: waitlisted }
 }
 
 const updateQueue = (
@@ -131,7 +131,7 @@ const updateQueue = (
     return {
       ...detail,
       queue: nextQueue,
-      confirmedCount: counts.confirmedCount,
+      rosteredCount: counts.rosteredCount,
       waitlistedCount: counts.waitlistedCount,
     }
   })
@@ -143,7 +143,7 @@ const mergeQueueEntryFields = (entry: GameDetail['queue'][number], row: Partial<
   status: (row.status as GameDetail['queue'][number]['status']) ?? entry.status,
   joinedAt: row.joined_at ?? entry.joinedAt,
   promotedAt: row.promoted_at ?? entry.promotedAt,
-  cancelledAt: row.cancelled_at ?? entry.cancelledAt,
+  droppedAt: row.dropped_at ?? entry.droppedAt,
   attendanceConfirmedAt: row.attendance_confirmed_at ?? entry.attendanceConfirmedAt,
 })
 
@@ -152,25 +152,25 @@ const getQueueDelta = (payload: {
   new: { status?: Database['public']['Enums']['game_queue_status'] | null }
   old: { status?: Database['public']['Enums']['game_queue_status'] | null }
 }) => {
-  let deltaConfirmed = 0
+  let deltaRostered = 0
   let deltaWaitlisted = 0
   const oldStatus = payload.old?.status ?? null
   const newStatus = payload.new?.status ?? null
 
   if (payload.eventType === 'INSERT') {
-    if (newStatus === 'confirmed') deltaConfirmed += 1
+    if (newStatus === 'rostered') deltaRostered += 1
     if (newStatus === 'waitlisted') deltaWaitlisted += 1
   } else if (payload.eventType === 'DELETE') {
-    if (oldStatus === 'confirmed') deltaConfirmed -= 1
+    if (oldStatus === 'rostered') deltaRostered -= 1
     if (oldStatus === 'waitlisted') deltaWaitlisted -= 1
   } else if (payload.eventType === 'UPDATE') {
-    if (oldStatus === newStatus) return { deltaConfirmed, deltaWaitlisted }
-    if (oldStatus === 'confirmed') deltaConfirmed -= 1
+    if (oldStatus === newStatus) return { deltaRostered, deltaWaitlisted }
+    if (oldStatus === 'rostered') deltaRostered -= 1
     if (oldStatus === 'waitlisted') deltaWaitlisted -= 1
-    if (newStatus === 'confirmed') deltaConfirmed += 1
+    if (newStatus === 'rostered') deltaRostered += 1
     if (newStatus === 'waitlisted') deltaWaitlisted += 1
   }
-  return { deltaConfirmed, deltaWaitlisted }
+  return { deltaRostered, deltaWaitlisted }
 }
 
 export const useGameRealtimeSync = (gameId?: string | null) => {
@@ -202,8 +202,12 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               draftStatus: next.draft_status,
               costCents: next.cost_cents,
               capacity: next.capacity,
-              waitlistCapacity: next.waitlist_capacity,
               cancelledAt: next.cancelled_at,
+              communityId: next.community_id,
+              confirmationEnabled: next.confirmation_enabled,
+              joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
+              draftModeEnabled: next.draft_mode_enabled,
+              crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
             }))
             patchGameDetail(utils, id, (detail) => ({
               ...detail,
@@ -217,8 +221,12 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               draftStatus: next.draft_status,
               costCents: next.cost_cents,
               capacity: next.capacity,
-              waitlistCapacity: next.waitlist_capacity,
               cancelledAt: next.cancelled_at,
+              communityId: next.community_id,
+              confirmationEnabled: next.confirmation_enabled,
+              joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
+              draftModeEnabled: next.draft_mode_enabled,
+              crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
             }))
           }
         )
@@ -250,11 +258,11 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
     (channel: RealtimeChannel) => {
       channel.on(
         'postgres_changes',
-          { event: '*', schema: 'public', table: 'game_queue', filter: `game_id=eq.${gameId}` },
-          (payload) => {
-            const newRow = payload.new as QueueTableRow | null
-            const oldRow = payload.old as QueueTableRow | null
-            const gameIdFromRow = newRow?.game_id ?? oldRow?.game_id
+        { event: '*', schema: 'public', table: 'game_queue', filter: `game_id=eq.${gameId}` },
+        (payload) => {
+          const newRow = payload.new as QueueTableRow | null
+          const oldRow = payload.old as QueueTableRow | null
+          const gameIdFromRow = newRow?.game_id ?? oldRow?.game_id
           if (!gameIdFromRow) return
 
           const deltas = getQueueDelta({
@@ -262,10 +270,10 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
             new: (payload.new as { status?: Database['public']['Enums']['game_queue_status'] | null }) ?? {},
             old: (payload.old as { status?: Database['public']['Enums']['game_queue_status'] | null }) ?? {},
           })
-          if (deltas.deltaConfirmed !== 0 || deltas.deltaWaitlisted !== 0) {
+          if (deltas.deltaRostered !== 0 || deltas.deltaWaitlisted !== 0) {
             patchGameListItem(utils, gameIdFromRow, (game) => ({
               ...game,
-              confirmedCount: Math.max(0, game.confirmedCount + deltas.deltaConfirmed),
+              rosteredCount: Math.max(0, game.rosteredCount + deltas.deltaRostered),
               waitlistedCount: Math.max(0, game.waitlistedCount + deltas.deltaWaitlisted),
             }))
           }
@@ -338,8 +346,12 @@ export const useGamesListRealtime = (enabled: boolean) => {
               locationNotes: next.location_notes,
               costCents: next.cost_cents,
               capacity: next.capacity,
-              waitlistCapacity: next.waitlist_capacity,
               cancelledAt: next.cancelled_at,
+              communityId: next.community_id,
+              confirmationEnabled: next.confirmation_enabled,
+              joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
+              draftModeEnabled: next.draft_mode_enabled,
+              crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
             }))
             if (previous && previous.start_time !== next.start_time) {
               scheduleInvalidate()
@@ -357,10 +369,10 @@ export const useGamesListRealtime = (enabled: boolean) => {
             new: payload.new as { status?: Database['public']['Enums']['game_queue_status'] | null },
             old: payload.old as { status?: Database['public']['Enums']['game_queue_status'] | null },
           })
-          if (deltas.deltaConfirmed !== 0 || deltas.deltaWaitlisted !== 0) {
+          if (deltas.deltaRostered !== 0 || deltas.deltaWaitlisted !== 0) {
             patchGameListItem(utils, gameId, (game) => ({
               ...game,
-              confirmedCount: Math.max(0, game.confirmedCount + deltas.deltaConfirmed),
+              rosteredCount: Math.max(0, game.rosteredCount + deltas.deltaRostered),
               waitlistedCount: Math.max(0, game.waitlistedCount + deltas.deltaWaitlisted),
             }))
           }

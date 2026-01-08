@@ -6,7 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { recordDraftEvent, resetDraftForGame, startDraftForGame } from '../services/draft'
-import { notifyDraftCompleted, notifyDraftPick, notifyDraftStarted } from '../services/notifications'
+import { notifyCaptainTurn, notifyPlayerDrafted, notifyResultsConfirmed } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 import { markGameCompletedIfNeeded } from '../utils/markGameCompleted'
 import { nextSnakeTurn } from '../domain/draft'
@@ -151,6 +151,9 @@ export const teamsRouter = createTRPCRouter({
     const { supabase, user } = ctx
     await ensureAdmin(supabase, user.id)
 
+    const game = await fetchGame(supabase, input.gameId)
+    if (!game) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+
     const existing = await supabase.from('game_teams').select('id').eq('game_id', input.gameId)
     if (existing.error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: existing.error.message })
     if ((existing.data?.length ?? 0) > 0) {
@@ -176,7 +179,7 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Team names must match captain count' })
     }
 
-    await startDraftForGame({
+    const { firstCaptainProfileId } = await startDraftForGame({
       gameId: input.gameId,
       teamNames: input.teamNames,
       captainProfileIds: captainIds,
@@ -185,9 +188,12 @@ export const teamsRouter = createTRPCRouter({
       actorId: user.id,
     })
 
-    try {
-      await notifyDraftStarted({ supabaseAdmin, gameId: input.gameId })
-    } catch {}
+    const shouldNotifyDraft = game.draft_mode_enabled && game.confirmation_enabled
+    if (shouldNotifyDraft && firstCaptainProfileId) {
+      try {
+        await notifyCaptainTurn({ supabaseAdmin, gameId: input.gameId, profileId: firstCaptainProfileId })
+      } catch {}
+    }
 
     return { ok: true }
   }),
@@ -214,6 +220,8 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft is not in progress' })
     }
 
+    const shouldNotifyDraft = game.draft_mode_enabled && game.confirmation_enabled
+
     const teams = await fetchTeams(supabase, input.gameId)
     const team = teams.find((t) => t.id === input.teamId)
     if (!team) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid team' })
@@ -238,8 +246,8 @@ export const teamsRouter = createTRPCRouter({
     if (!rosterEntry) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not on this roster' })
     }
-    if (rosterEntry.status !== 'confirmed') {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not confirmed' })
+    if (rosterEntry.status !== 'rostered') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not rostered' })
     }
 
     const alreadyDrafted = await isPlayerDrafted(supabase, teams.map((t) => t.id), input.profileId)
@@ -282,21 +290,13 @@ export const teamsRouter = createTRPCRouter({
       },
     })
 
-    try {
-      await notifyDraftPick({
-        supabaseAdmin,
-        gameId: input.gameId,
-        profileId: input.profileId,
-        pickOrder,
-      })
-    } catch {}
-
-    const [confirmedCount, draftedCount] = await Promise.all([
-      countConfirmedPlayers(supabase, input.gameId),
+    const [rosteredCount, draftedCount] = await Promise.all([
+      countRosteredPlayers(supabase, input.gameId),
       countDraftedPlayers(supabase, teams.map((t) => t.id)),
     ])
 
-    if (confirmedCount > 0 && draftedCount === confirmedCount) {
+    const draftComplete = rosteredCount > 0 && draftedCount === rosteredCount
+    if (draftComplete) {
       const { error: finalizeError } = await supabaseAdmin
         .from('games')
         .update({ draft_status: 'completed', draft_turn: null })
@@ -312,10 +312,22 @@ export const teamsRouter = createTRPCRouter({
         action: 'finalize',
         createdBy: user.id,
       })
+    }
 
+    if (shouldNotifyDraft) {
       try {
-        await notifyDraftCompleted({ supabaseAdmin, gameId: input.gameId })
+        await notifyPlayerDrafted({ supabaseAdmin, gameId: input.gameId, profileId: input.profileId })
       } catch {}
+
+      const nextCaptainProfileId =
+        !draftComplete
+          ? teams.find((nextTeam) => Number(nextTeam.draft_order) === nextTurn)?.captain_profile_id ?? null
+          : null
+      if (nextCaptainProfileId) {
+        try {
+          await notifyCaptainTurn({ supabaseAdmin, gameId: input.gameId, profileId: nextCaptainProfileId })
+        } catch {}
+      }
     }
 
     return { ok: true }
@@ -327,15 +339,15 @@ export const teamsRouter = createTRPCRouter({
 
     const teams = await fetchTeams(supabase, input.gameId)
 
-    const [confirmedCount, draftedCount] = await Promise.all([
-      countConfirmedPlayers(supabase, input.gameId),
+    const [rosteredCount, draftedCount] = await Promise.all([
+      countRosteredPlayers(supabase, input.gameId),
       countDraftedPlayers(supabase, teams.map((t) => t.id)),
     ])
 
-    if (confirmedCount === 0) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'No confirmed players' })
+    if (rosteredCount === 0) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'No rostered players' })
     }
-    if (draftedCount !== confirmedCount) {
+    if (draftedCount !== rosteredCount) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'All players must be drafted before finalizing' })
     }
 
@@ -346,14 +358,14 @@ export const teamsRouter = createTRPCRouter({
       .from('game_queue')
       .select('profile_id')
       .eq('game_id', input.gameId)
-      .eq('status', 'confirmed')
+      .eq('status', 'rostered')
     if (rosterError) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: rosterError.message })
     }
     if ((rosterEntries ?? []).some((entry) => !draftedIds.has(entry.profile_id))) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: 'Every confirmed player must be assigned to a team before finalizing',
+        message: 'Every rostered player must be assigned to a team before finalizing',
       })
     }
 
@@ -371,15 +383,35 @@ export const teamsRouter = createTRPCRouter({
       createdBy: user.id,
     })
 
-    try {
-      await notifyDraftCompleted({ supabaseAdmin, gameId: input.gameId })
-    } catch {}
-
     return { ok: true }
   }),
 
   reportResult: protectedProcedure.input(reportResultInput).mutation(async ({ ctx, input }) => {
     const { supabase, user } = ctx
+
+    const game = await fetchGame(supabase, input.gameId)
+    if (!game) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+    if (game.status === 'cancelled') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cancelled games cannot report results' })
+    }
+    if (!game.start_time) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game start time required to report results' })
+    }
+    if (new Date() < new Date(game.start_time)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Results can only be reported after kickoff' })
+    }
+
+    const { data: captains, error: captainsError } = await supabase
+      .from('game_captains')
+      .select('profile_id')
+      .eq('game_id', input.gameId)
+
+    if (captainsError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: captainsError.message })
+    }
+    if ((captains ?? []).length < 2) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captains must be assigned before reporting results' })
+    }
 
     const teams = await fetchTeams(supabase, input.gameId)
     if (!teams.find((team) => team.id === input.winningTeamId)) {
@@ -421,6 +453,11 @@ export const teamsRouter = createTRPCRouter({
       await recordPlayerStats(payload.game_id, payload.winning_team_id, teamIds)
     }
     await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, payload.status === 'confirmed')
+    if (payload.status === 'confirmed') {
+      try {
+        await notifyResultsConfirmed({ supabaseAdmin, gameId: input.gameId })
+      } catch {}
+    }
 
     return { ok: true, status: payload.status }
   }),
@@ -433,16 +470,9 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Only captains can confirm results' })
     }
 
-    const { error } = await supabaseAdmin
-      .from('game_results')
-      .update({ status: 'confirmed' })
-      .eq('game_id', input.gameId)
-
-    if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-
     const { data: resultRow, error: resultFetchError } = await supabaseAdmin
       .from('game_results')
-      .select('winning_team_id, losing_team_id')
+      .select('winning_team_id, losing_team_id, reported_by, status')
       .eq('game_id', input.gameId)
       .maybeSingle()
 
@@ -450,11 +480,39 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: resultFetchError.message })
     }
 
+    if (!resultRow) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Result not found' })
+    }
+
+    if (!isAdmin) {
+      if (!resultRow.reported_by) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Result reporter not found' })
+      }
+      if (resultRow.reported_by === user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Reporting captain cannot confirm results' })
+      }
+    }
+
+    if (resultRow.status === 'confirmed') {
+      return { ok: true }
+    }
+
+    const { error } = await supabaseAdmin
+      .from('game_results')
+      .update({ status: 'confirmed' })
+      .eq('game_id', input.gameId)
+      .eq('status', 'pending')
+
+    if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+
     if (resultRow?.winning_team_id) {
       const teamIds = (await fetchTeams(supabaseAdmin, input.gameId)).map((team) => team.id)
       await recordPlayerStats(input.gameId, resultRow.winning_team_id, teamIds)
     }
     await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, true)
+    try {
+      await notifyResultsConfirmed({ supabaseAdmin, gameId: input.gameId })
+    } catch {}
 
     return { ok: true }
   }),
@@ -544,7 +602,7 @@ export const teamsRouter = createTRPCRouter({
 const fetchGame = async (supabase: SupabaseClient<Database>, gameId: string) => {
   const { data, error } = await supabase
     .from('games')
-    .select('id, draft_status, draft_turn, draft_direction')
+    .select('id, draft_status, draft_turn, draft_direction, start_time, status, draft_mode_enabled, confirmation_enabled')
     .eq('id', gameId)
     .maybeSingle()
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
@@ -611,12 +669,12 @@ const isUserCaptain = async (supabase: SupabaseClient<Database>, gameId: string,
   return Boolean(data)
 }
 
-const countConfirmedPlayers = async (supabase: SupabaseClient<Database>, gameId: string) => {
+const countRosteredPlayers = async (supabase: SupabaseClient<Database>, gameId: string) => {
   const { count, error } = await supabase
     .from('game_queue')
     .select('id', { head: true, count: 'exact' })
     .eq('game_id', gameId)
-    .eq('status', 'confirmed')
+    .eq('status', 'rostered')
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return count ?? 0
 }

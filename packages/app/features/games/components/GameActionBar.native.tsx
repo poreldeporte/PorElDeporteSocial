@@ -14,7 +14,9 @@ export const GameActionBar = ({
   isConfirming,
 }: GameActionBarProps) => {
   const isRateCta = view.ctaLabel === 'Rate the game'
-  const isJoinCta = view.ctaState === 'join'
+  const isCompletedCta = view.ctaLabel === 'Game completed'
+  const isJoinCta =
+    view.ctaState === 'claim' || view.ctaState === 'join-waitlist' || view.ctaState === 'grab-open-spot'
   const primaryButtonStyle =
     !view.isGamePending && !isRateCta && isJoinCta
       ? {
@@ -34,7 +36,7 @@ export const GameActionBar = ({
     isPending: view.isGamePending,
     showConfirm: showConfirmOnly,
     isRate: isRateCta,
-    ctaState: view.ctaState,
+    ctaState: isCompletedCta ? undefined : view.ctaState,
   })
   const label = showConfirmOnly
     ? isConfirming ? 'Confirming…' : 'Confirm spot'

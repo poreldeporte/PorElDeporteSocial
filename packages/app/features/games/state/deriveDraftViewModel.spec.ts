@@ -16,18 +16,24 @@ const baseGameDetail = (): GameDetail =>
     locationNotes: null,
     costCents: 0,
     capacity: 8,
-  waitlistCapacity: 50,
     status: 'scheduled',
     draftStatus: 'pending',
-    draftStatusLabel: null,
-    confirmedCount: 0,
     waitlistedCount: 0,
+    rosteredCount: 0,
     userStatus: 'none',
     userEntry: null,
-    confirmedAt: null,
+    hasReview: false,
     cancelledAt: null,
     queue: [],
     captains: [],
+    teams: [],
+    result: null,
+    communityId: 'community-1',
+    confirmationEnabled: true,
+    joinCutoffOffsetMinutesFromKickoff: 0,
+    draftModeEnabled: true,
+    crunchTimeStartTimeLocal: null,
+    community: null,
   }) as unknown as GameDetail
 
 const buildCaptain = (overrides: Partial<Captain> = {}): Captain =>
@@ -44,10 +50,10 @@ const buildCaptain = (overrides: Partial<Captain> = {}): Captain =>
 const buildQueueEntry = (overrides: Partial<QueueEntry> = {}): QueueEntry =>
   ({
     id: overrides.id ?? 'queue-1',
-    status: overrides.status ?? 'confirmed',
+    status: overrides.status ?? 'rostered',
     joinedAt: overrides.joinedAt ?? '2025-01-01T09:00:00.000Z',
     promotedAt: overrides.promotedAt ?? null,
-    cancelledAt: overrides.cancelledAt ?? null,
+    droppedAt: overrides.droppedAt ?? null,
     attendanceConfirmedAt: overrides.attendanceConfirmedAt ?? null,
     profileId: overrides.profileId ?? 'player-1',
     player:
@@ -100,7 +106,7 @@ describe('deriveDraftViewModel', () => {
         id: 'queue-3',
         profileId: 'player-3',
         player: { id: 'player-3', name: 'Sky Three', avatarUrl: null },
-        status: 'confirmed',
+        status: 'rostered',
       }),
     ]
     gameDetail.draftStatus = 'in_progress'
@@ -117,7 +123,7 @@ describe('deriveDraftViewModel', () => {
       isCaptainTurn: true,
     })
 
-    expect(model.confirmedPlayers).toHaveLength(2)
+    expect(model.rosteredPlayers).toHaveLength(2)
     expect(model.availablePlayers).toHaveLength(1)
     expect(model.canPick).toBe(true)
     expect(model.allDrafted).toBe(false)

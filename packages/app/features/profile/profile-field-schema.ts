@@ -24,6 +24,7 @@ const schemaFields = {
     .min(6, 'Password must be at least 6 characters')
     .describe(describeProfileField('password')),
   address: formFields.text.describe(describeProfileField('address')),
+  nationality: formFields.text.optional().describe(describeProfileField('nationality')),
   birthDate: formFields.birthDate.describe(describeProfileField('birthDate')),
   jerseyNumber: formFields.number
     .int()
@@ -65,6 +66,7 @@ export const profileUpdateFieldSchema = requirePositionSelection(z.object({
   email: schemaFields.email,
   phone: schemaFields.phone,
   address: schemaFields.address.optional(),
+  nationality: schemaFields.nationality,
   birthDate: schemaFields.birthDate,
   jerseyNumber: schemaFields.jerseyNumber,
   position: schemaFields.position,

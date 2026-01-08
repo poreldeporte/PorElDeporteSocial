@@ -31,9 +31,10 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
   const insets = useSafeAreaInsets()
   const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'upcoming' })
   useGamesListRealtime(true)
-  const { join, leave, confirmAttendance, pendingGameId, isPending, isConfirming } = useQueueActions()
+  const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
+    useQueueActions()
   const games = ((data ?? []).filter((game) => game.status !== 'completed') as GameListItem[])
-  const openCount = games.filter((game) => game.status === 'scheduled' && game.confirmedCount < game.capacity).length
+  const openCount = games.filter((game) => game.status === 'scheduled' && game.rosteredCount < game.capacity).length
   const openLabel = `${openCount} open`
   const subtitle = games.length ? 'Claim your spot. Tap to join.' : 'No runs yet. Next drop soon.'
 
@@ -85,6 +86,7 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
             onRetry={refetch}
             join={join}
             leave={leave}
+            grabOpenSpot={grabOpenSpot}
             confirmAttendance={confirmAttendance}
             pendingGameId={pendingGameId}
             isPending={isPending}
@@ -105,6 +107,7 @@ const GameListSection = ({
   onRetry,
   join,
   leave,
+  grabOpenSpot,
   confirmAttendance,
   pendingGameId,
   isPending,
@@ -116,6 +119,7 @@ const GameListSection = ({
   onRetry: () => void
   join: (id: string) => void
   leave: (id: string) => void
+  grabOpenSpot: (id: string) => void
   confirmAttendance: (id: string) => void
   pendingGameId: string | null
   isPending: boolean
@@ -180,6 +184,7 @@ const GameListSection = ({
               game={game}
               onJoin={join}
               onLeave={leave}
+              onGrabOpenSpot={grabOpenSpot}
               onConfirmAttendance={confirmAttendance}
               isPending={isPending && pendingGameId === game.id}
               isConfirming={isConfirming}
