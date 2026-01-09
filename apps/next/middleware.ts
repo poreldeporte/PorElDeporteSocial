@@ -13,6 +13,11 @@ const authRoutes = ['/sign-in', '/sign-up']
 const profileOnboardingRoute = '/onboarding/profile'
 const profileReviewRoute = '/onboarding/review'
 
+const withCookies = (source: NextResponse, target: NextResponse) => {
+  source.cookies.getAll().forEach((cookie) => target.cookies.set(cookie))
+  return target
+}
+
 export async function middleware(req: NextRequest) {
   // we need to create a response and hand it to the supabase client to be able to modify the response headers.
   const res = NextResponse.next()
@@ -47,22 +52,22 @@ export async function middleware(req: NextRequest) {
       } else {
         redirectUrl.pathname = '/'
       }
-      return NextResponse.redirect(redirectUrl)
+      return withCookies(res, NextResponse.redirect(redirectUrl))
     }
     if (!profileComplete && !isProfileOnboarding) {
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = profileOnboardingRoute
-      return NextResponse.redirect(redirectUrl)
+      return withCookies(res, NextResponse.redirect(redirectUrl))
     }
     if (profileComplete && !profileApproved && !isProfileReview && !isProfileOnboarding) {
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = profileReviewRoute
-      return NextResponse.redirect(redirectUrl)
+      return withCookies(res, NextResponse.redirect(redirectUrl))
     }
     if (profileComplete && profileApproved && (isProfileOnboarding || isProfileReview)) {
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = '/'
-      return NextResponse.redirect(redirectUrl)
+      return withCookies(res, NextResponse.redirect(redirectUrl))
     }
   }
   // show auth routes for guests
@@ -75,7 +80,7 @@ export async function middleware(req: NextRequest) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/sign-in'
     // redirectUrl.searchParams.set(`redirected_from`, req.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
+    return withCookies(res, NextResponse.redirect(redirectUrl))
   }
   // show the protected page to logged in route
   return res

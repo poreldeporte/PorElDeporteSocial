@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@my/supabase/types'
 
+import { formatProfileName as formatProfileNameBase } from '../utils/profileName'
 import { buildPushMessages, deliverPushMessages, type PushPayload } from './push'
 
 type GameSummary = {
@@ -33,13 +34,8 @@ const fetchGameSummary = async (supabaseAdmin: SupabaseClient<Database>, gameId:
   return data as GameSummary
 }
 
-export const formatProfileName = (profile: ProfileName | null) => {
-  const named = profile?.name?.trim()
-  if (named) return named
-  const composed = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
-  if (composed) return composed
-  return 'Someone'
-}
+export const formatProfileName = (profile: ProfileName | null) =>
+  formatProfileNameBase(profile, 'Someone')
 
 const fetchQueueProfileIds = async (
   supabaseAdmin: SupabaseClient<Database>,
@@ -54,7 +50,9 @@ const fetchQueueProfileIds = async (
     .in('status', statuses)
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-  return Array.from(new Set((data ?? []).map((row) => row.profile_id)))
+  return Array.from(
+    new Set((data ?? []).map((row) => row.profile_id).filter((id): id is string => Boolean(id)))
+  )
 }
 
 const fetchRosteredProfileIds = async (supabaseAdmin: SupabaseClient<Database>, gameId: string) => {
@@ -230,6 +228,31 @@ export const notifyPlayerDrafted = async ({
   await sendPushToUserIds(supabaseAdmin, [profileId], {
     title: `You were drafted for ${game.name}`,
     body: 'Check your team details.',
+    data: { url: toGameUrl(gameId) },
+  })
+}
+
+export const notifyGuestNeedsConfirmation = async ({
+  supabaseAdmin,
+  gameId,
+  guestQueueId,
+}: NotifyOptions & { guestQueueId: string }) => {
+  const game = await fetchGameSummary(supabaseAdmin, gameId)
+  if (!game) return
+
+  const { data: guestRow, error } = await supabaseAdmin
+    .from('game_queue')
+    .select('added_by_profile_id, guest_name, attendance_confirmed_at')
+    .eq('id', guestQueueId)
+    .maybeSingle()
+
+  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  if (!guestRow?.added_by_profile_id || guestRow.attendance_confirmed_at) return
+
+  const guestLabel = guestRow.guest_name?.trim() || 'your guest'
+  await sendPushToUserIds(supabaseAdmin, [guestRow.added_by_profile_id], {
+    title: `Confirm ${guestLabel} for ${game.name}`,
+    body: 'A guest spot opened. Confirm attendance in the roster.',
     data: { url: toGameUrl(gameId) },
   })
 }

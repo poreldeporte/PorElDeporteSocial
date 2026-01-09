@@ -19,6 +19,7 @@ import {
 } from '@my/ui/public'
 import {
   DEFAULT_CONFIRMATION_WINDOW_HOURS,
+  DEFAULT_COMMUNITY_PRIORITY_ENABLED,
   DEFAULT_CRUNCH_TIME_ENABLED,
   DEFAULT_CRUNCH_TIME_START_TIME_LOCAL,
 } from '@my/config/game'
@@ -43,6 +44,7 @@ const DEFAULT_REMINDERS = '09:00, 12:00, 15:00'
 
 const CommunitySettingsSchema = z.object({
   community_timezone: formFields.text.describe('Community timezone // America/New_York'),
+  community_priority_enabled: formFields.boolean_switch.describe('Community priority'),
   confirmation_window_hours_before_kickoff: formFields.number
     .min(0)
     .describe('Confirmation window (hours) // 24'),
@@ -55,8 +57,7 @@ const CommunitySettingsSchema = z.object({
 type CommunitySettingsValues = z.infer<typeof CommunitySettingsSchema>
 
 export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
-  const { role } = useUser()
-  const isAdmin = role === 'admin'
+  const { isAdmin } = useUser()
   const toast = useToastController()
   const insets = useSafeAreaInsets()
   const showFloatingCta = !isWeb
@@ -79,6 +80,8 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
     const notificationTimes = defaults?.gameNotificationTimesLocal ?? []
     return {
       community_timezone: defaults?.timezone ?? 'UTC',
+      community_priority_enabled:
+        defaults?.communityPriorityEnabled ?? DEFAULT_COMMUNITY_PRIORITY_ENABLED,
       confirmation_window_hours_before_kickoff:
         defaults?.confirmationWindowHoursBeforeKickoff ?? DEFAULT_CONFIRMATION_WINDOW_HOURS,
       confirmation_reminders_local_times: confirmationValue,
@@ -130,6 +133,7 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
       onSubmit={(values) =>
         mutation.mutate({
           communityTimezone: values.community_timezone.trim(),
+          communityPriorityEnabled: values.community_priority_enabled,
           confirmationWindowHoursBeforeKickoff: values.confirmation_window_hours_before_kickoff,
           confirmationRemindersLocalTimes: parseTimeList(values.confirmation_reminders_local_times),
           crunchTimeEnabled: values.crunch_time_enabled,
@@ -181,6 +185,10 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
                 <FieldWithHint
                   field={fields.community_timezone}
                   hint="All game times and reminders use this timezone."
+                />
+                <FieldWithHint
+                  field={fields.community_priority_enabled}
+                  hint="Members stay ahead of guests on the roster."
                 />
                 <FieldWithHint
                   field={fields.confirmation_window_hours_before_kickoff}

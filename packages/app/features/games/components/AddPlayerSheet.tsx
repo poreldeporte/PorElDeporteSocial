@@ -14,7 +14,8 @@ import {
   useToastController,
 } from '@my/ui/public'
 import { api } from 'app/utils/api'
-import { formatE164ForDisplay, formatPhoneNumber } from 'app/utils/phone'
+import { formatPhoneDisplay } from 'app/utils/phone'
+import { formatProfileName } from 'app/utils/profileName'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 
@@ -36,22 +37,11 @@ type AddPlayerSheetProps = {
 }
 
 const buildMemberName = (profile: MemberProfile) => {
-  if (profile.name?.trim()) return profile.name.trim()
-  const composed = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
-  return composed || 'Member'
-}
-
-const formatPhone = (value?: string | null) => {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  const formatted = formatE164ForDisplay(trimmed)
-  if (formatted !== trimmed) return formatted
-  return formatPhoneNumber(trimmed) || trimmed
+  return formatProfileName(profile, 'Member') ?? 'Member'
 }
 
 export const AddPlayerSheet = ({ open, onOpenChange, gameId, queue }: AddPlayerSheetProps) => {
-  const { role, isLoading } = useUser()
+  const { isAdmin, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
   const utils = api.useUtils()
@@ -65,11 +55,12 @@ export const AddPlayerSheet = ({ open, onOpenChange, gameId, queue }: AddPlayerS
         .from('profiles')
         .select('id, name, first_name, last_name, phone')
         .eq('approval_status', 'approved')
-        .order('name', { ascending: true })
+        .order('first_name', { ascending: true })
+        .order('last_name', { ascending: true })
       if (error) throw new Error(error.message)
       return data ?? []
     },
-    enabled: open && role === 'admin' && !isLoading,
+    enabled: open && isAdmin && !isLoading,
   })
 
   const addMutation = api.queue.addMember.useMutation({
@@ -86,7 +77,9 @@ export const AddPlayerSheet = ({ open, onOpenChange, gameId, queue }: AddPlayerS
   const queueStatus = useMemo(() => {
     const map = new Map<string, GameDetail['queue'][number]['status']>()
     queue.forEach((entry) => {
-      map.set(entry.profileId, entry.status)
+      if (entry.profileId) {
+        map.set(entry.profileId, entry.status)
+      }
     })
     return map
   }, [queue])
@@ -168,7 +161,7 @@ export const AddPlayerSheet = ({ open, onOpenChange, gameId, queue }: AddPlayerS
                 const label =
                   status === 'dropped' ? 'Re-add' : status === 'waitlisted' ? 'Waitlisted' : 'Add'
                 const isAdding = addingId === member.id && addMutation.isPending
-                const phoneLabel = formatPhone(member.phone)
+                const phoneLabel = formatPhoneDisplay(member.phone)
                 return (
                   <Card key={member.id} bordered $platform-native={{ borderWidth: 0 }} p="$3">
                     <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">

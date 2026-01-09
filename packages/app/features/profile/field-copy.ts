@@ -2,7 +2,7 @@ export const profileFieldCopy = {
   firstName: { label: 'First Name', placeholder: 'Lionel' },
   lastName: { label: 'Last Name', placeholder: 'Messi' },
   email: { label: 'Email', placeholder: 'lionel@gmail.com' },
-  phone: { label: 'Phone', placeholder: '+1 305 555 1234' },
+  phone: { label: 'Phone', placeholder: '+1(305)555-1234' },
   password: { label: 'Password', placeholder: 'Choose a password' },
   address: { label: 'Address', placeholder: '123 NW 5th St, Miami' },
   birthDate: { label: 'Birth Date', placeholder: 'Select your birth date' },

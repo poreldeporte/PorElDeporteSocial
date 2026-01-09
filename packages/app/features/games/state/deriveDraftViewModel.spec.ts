@@ -56,10 +56,13 @@ const buildQueueEntry = (overrides: Partial<QueueEntry> = {}): QueueEntry =>
     droppedAt: overrides.droppedAt ?? null,
     attendanceConfirmedAt: overrides.attendanceConfirmedAt ?? null,
     profileId: overrides.profileId ?? 'player-1',
+    playerId: overrides.playerId ?? overrides.profileId ?? 'player-1',
+    isGuest: overrides.isGuest ?? false,
+    guest: overrides.guest ?? null,
     player:
       overrides.player ??
       ({
-        id: overrides.profileId ?? 'player-1',
+        id: overrides.playerId ?? overrides.profileId ?? 'player-1',
         name: 'Player One',
         avatarUrl: null,
       } as QueueEntry['player']),
@@ -115,7 +118,7 @@ describe('deriveDraftViewModel', () => {
       gameDetail,
       gameMeta: { draft_status: 'in_progress', draft_turn: 0, draft_direction: 1 },
       teams: [team, teamB],
-      draftedProfileIds: new Set(['player-2']),
+      draftedPlayerIds: new Set(['player-2']),
       optimisticPicks: ['player-4'],
       captainTeam: team,
       currentTurnTeam: team,
@@ -134,7 +137,7 @@ describe('deriveDraftViewModel', () => {
       gameDetail,
       gameMeta: { draft_status: 'in_progress', draft_turn: 1, draft_direction: -1 },
       teams: [team, teamB],
-      draftedProfileIds: new Set(),
+      draftedPlayerIds: new Set(),
       optimisticPicks: [],
       captainTeam: null,
       currentTurnTeam: teamB,

@@ -1,4 +1,5 @@
 import type { ImageStyle, StyleProp } from 'react-native'
+import { StyleSheet } from 'react-native'
 import { pedLogo } from 'app/assets'
 import { SolitoImage } from 'solito/image'
 
@@ -15,13 +16,12 @@ export const WatermarkLogo = ({ style, opacity = 0.06 }: WatermarkLogoProps) => 
     alt="Por El Deporte crest"
     width={WATERMARK_SIZE}
     height={WATERMARK_SIZE}
-    style={[
+    style={StyleSheet.flatten([
       {
         position: 'absolute',
         opacity,
       },
       style,
-    ]}
+    ])}
   />
 )
-

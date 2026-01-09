@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server'
 
 import { createTRPCRouter, protectedProcedure } from '../trpc'
+import { formatProfileName } from '../utils/profileName'
 
 function getTimeOfDay() {
   const today = new Date()
@@ -24,7 +25,7 @@ export const greetingRouter = createTRPCRouter({
       console.error(profile.error)
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
     }
-    const name = profile.data.name
+    const name = formatProfileName(profile.data, null)
     return `Good ${getTimeOfDay()}${name ? `, ${name}!` : '!'}`
   }),
 })

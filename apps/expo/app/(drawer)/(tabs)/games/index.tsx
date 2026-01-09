@@ -10,8 +10,7 @@ import { FloatingHeaderLayout } from '../../../../components/FloatingHeaderLayou
 
 export default function Screen() {
   const router = useRouter()
-  const { role } = useUser()
-  const isAdmin = role === 'admin'
+  const { isAdmin } = useUser()
   const layout = getScreenLayout('gamesList')
   const createSegment = navRoutes.create.nativeSegment ?? navRoutes.create.href
   const historyHref = '/games/history'

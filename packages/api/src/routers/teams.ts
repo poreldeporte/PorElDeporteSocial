@@ -18,11 +18,18 @@ const startDraftInput = z.object({
   teamNames: z.array(z.string().min(1)).min(2).optional(),
 })
 
-const pickInput = z.object({
-  gameId: uuid,
-  teamId: uuid,
-  profileId: uuid,
-})
+const pickInput = z.union([
+  z.object({
+    gameId: uuid,
+    teamId: uuid,
+    profileId: uuid,
+  }),
+  z.object({
+    gameId: uuid,
+    teamId: uuid,
+    guestQueueId: uuid,
+  }),
+])
 
 const finalizeInput = z.object({
   gameId: uuid,
@@ -67,9 +74,9 @@ export const teamsRouter = createTRPCRouter({
         .select('id, draft_status, draft_turn, draft_direction')
         .eq('id', input.gameId)
         .maybeSingle(),
-        supabase
-          .from('game_teams')
-          .select(
+      supabase
+        .from('game_teams')
+        .select(
           `
           id,
           name,
@@ -78,26 +85,36 @@ export const teamsRouter = createTRPCRouter({
           game_team_members (
             id,
             profile_id,
+            guest_queue_id,
             pick_order,
             assigned_at,
             profiles!game_team_members_profile_id_fkey (
               id,
               name,
+              first_name,
+              last_name,
               avatar_url,
               jersey_number
-              )
+            ),
+            game_queue!game_team_members_guest_queue_id_fkey (
+              id,
+              guest_name,
+              guest_phone,
+              guest_notes,
+              added_by_profile_id
             )
-          `
           )
-          .eq('game_id', input.gameId)
-          .order('draft_order', { ascending: true }),
-        supabase.from('game_captains').select('slot, profile_id').eq('game_id', input.gameId),
-        supabase
-          .from('game_draft_events')
-          .select('id, game_id, team_id, profile_id, action, payload, created_by, created_at')
-          .eq('game_id', input.gameId)
-          .order('created_at', { ascending: true }),
-      ])
+        `
+        )
+        .eq('game_id', input.gameId)
+        .order('draft_order', { ascending: true }),
+      supabase.from('game_captains').select('slot, profile_id').eq('game_id', input.gameId),
+      supabase
+        .from('game_draft_events')
+        .select('id, game_id, team_id, profile_id, guest_queue_id, action, payload, created_by, created_at')
+        .eq('game_id', input.gameId)
+        .order('created_at', { ascending: true }),
+    ])
 
     if (gameError) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
     if (teamsError) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: teamsError.message })
@@ -242,7 +259,11 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Not your turn' })
     }
 
-    const rosterEntry = await fetchRosterEntry(supabase, input.gameId, input.profileId)
+    const isGuestPick = 'guestQueueId' in input
+    const profileId = isGuestPick ? null : input.profileId
+    const guestQueueId = isGuestPick ? input.guestQueueId : null
+
+    const rosterEntry = await fetchRosterEntry(supabase, input.gameId, { profileId, guestQueueId })
     if (!rosterEntry) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not on this roster' })
     }
@@ -250,20 +271,30 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not rostered' })
     }
 
-    const alreadyDrafted = await isPlayerDrafted(supabase, teams.map((t) => t.id), input.profileId)
+    const alreadyDrafted = await isPlayerDrafted(supabase, teams.map((t) => t.id), {
+      profileId,
+      guestQueueId,
+    })
     if (alreadyDrafted) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player already drafted' })
     }
 
     const pickOrder = await nextPickOrder(input.gameId)
 
-    const { error: insertError } = await supabaseAdmin.from('game_team_members').insert({
+    const insertPayload: Database['public']['Tables']['game_team_members']['Insert'] = {
       game_id: input.gameId,
       game_team_id: input.teamId,
-      profile_id: input.profileId,
       assigned_by: user.id,
       pick_order: pickOrder,
-    })
+    }
+
+    if (isGuestPick) {
+      insertPayload.guest_queue_id = guestQueueId
+    } else {
+      insertPayload.profile_id = profileId
+    }
+
+    const { error: insertError } = await supabaseAdmin.from('game_team_members').insert(insertPayload)
 
     if (insertError) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: insertError.message })
@@ -281,7 +312,8 @@ export const teamsRouter = createTRPCRouter({
       gameId: input.gameId,
       action: 'pick',
       teamId: input.teamId,
-      profileId: input.profileId,
+      profileId,
+      guestQueueId,
       createdBy: user.id,
       payload: {
         pickOrder,
@@ -295,7 +327,7 @@ export const teamsRouter = createTRPCRouter({
       countDraftedPlayers(supabase, teams.map((t) => t.id)),
     ])
 
-    const draftComplete = rosteredCount > 0 && draftedCount === rosteredCount
+    const draftComplete = rosteredCount > 0 && draftedCount >= rosteredCount
     if (draftComplete) {
       const { error: finalizeError } = await supabaseAdmin
         .from('games')
@@ -316,7 +348,9 @@ export const teamsRouter = createTRPCRouter({
 
     if (shouldNotifyDraft) {
       try {
-        await notifyPlayerDrafted({ supabaseAdmin, gameId: input.gameId, profileId: input.profileId })
+        if (profileId) {
+          await notifyPlayerDrafted({ supabaseAdmin, gameId: input.gameId, profileId })
+        }
       } catch {}
 
       const nextCaptainProfileId =
@@ -347,22 +381,33 @@ export const teamsRouter = createTRPCRouter({
     if (rosteredCount === 0) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'No rostered players' })
     }
-    if (draftedCount !== rosteredCount) {
+    if (draftedCount < rosteredCount) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'All players must be drafted before finalizing' })
     }
 
-    const draftedIds = new Set(
-      teams.flatMap((team) => team.game_team_members?.map((member) => member.profile_id) ?? [])
-    )
+    const draftedProfileIds = new Set<string>()
+    const draftedGuestQueueIds = new Set<string>()
+    teams.forEach((team) => {
+      ;(team.game_team_members ?? []).forEach((member) => {
+        if (member.profile_id) draftedProfileIds.add(member.profile_id)
+        if (member.guest_queue_id) draftedGuestQueueIds.add(member.guest_queue_id)
+      })
+    })
     const { data: rosterEntries, error: rosterError } = await supabase
       .from('game_queue')
-      .select('profile_id')
+      .select('id, profile_id')
       .eq('game_id', input.gameId)
       .eq('status', 'rostered')
     if (rosterError) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: rosterError.message })
     }
-    if ((rosterEntries ?? []).some((entry) => !draftedIds.has(entry.profile_id))) {
+    if (
+      (rosterEntries ?? []).some((entry) =>
+        entry.profile_id
+          ? !draftedProfileIds.has(entry.profile_id)
+          : !draftedGuestQueueIds.has(entry.id)
+      )
+    ) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'Every rostered player must be assigned to a team before finalizing',
@@ -523,7 +568,7 @@ export const teamsRouter = createTRPCRouter({
 
     const { data: events, error: eventsError } = await supabaseAdmin
       .from('game_draft_events')
-      .select('id, team_id, profile_id, payload, created_at')
+      .select('id, team_id, profile_id, guest_queue_id, payload, created_at')
       .eq('game_id', input.gameId)
       .eq('action', 'pick')
       .order('created_at', { ascending: false })
@@ -538,7 +583,7 @@ export const teamsRouter = createTRPCRouter({
       return !payload.undone
     })
 
-    if (!targetEvent || !targetEvent.team_id || !targetEvent.profile_id) {
+    if (!targetEvent || !targetEvent.team_id || (!targetEvent.profile_id && !targetEvent.guest_queue_id)) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'No picks available to undo' })
     }
 
@@ -547,11 +592,17 @@ export const teamsRouter = createTRPCRouter({
     const previousDirection = Number(payload.draftDirectionBefore ?? 1)
     const pickOrder = payload.pickOrder ?? null
 
-    const { error: deleteError } = await supabaseAdmin
+    const deleteQuery = supabaseAdmin
       .from('game_team_members')
       .delete()
       .eq('game_team_id', targetEvent.team_id)
-      .eq('profile_id', targetEvent.profile_id)
+    if (targetEvent.guest_queue_id) {
+      deleteQuery.eq('guest_queue_id', targetEvent.guest_queue_id)
+    } else {
+      deleteQuery.eq('profile_id', targetEvent.profile_id)
+    }
+
+    const { error: deleteError } = await deleteQuery
 
     if (deleteError) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: deleteError.message })
@@ -587,7 +638,8 @@ export const teamsRouter = createTRPCRouter({
       gameId: input.gameId,
       action: 'undo',
       teamId: targetEvent.team_id,
-      profileId: targetEvent.profile_id,
+      profileId: targetEvent.profile_id ?? null,
+      guestQueueId: targetEvent.guest_queue_id ?? null,
       createdBy: user.id,
       payload: {
         reversedEventId: targetEvent.id,
@@ -617,7 +669,7 @@ const fetchTeams = async (supabase: SupabaseClient<Database>, gameId: string) =>
        name,
        draft_order,
        captain_profile_id,
-       game_team_members ( profile_id )`
+       game_team_members ( profile_id, guest_queue_id )`
     )
     .eq('game_id', gameId)
     .order('draft_order', { ascending: true })
@@ -625,13 +677,27 @@ const fetchTeams = async (supabase: SupabaseClient<Database>, gameId: string) =>
   return data ?? []
 }
 
-const fetchRosterEntry = async (supabase: SupabaseClient<Database>, gameId: string, profileId: string) => {
-  const { data, error } = await supabase
-    .from('game_queue')
-    .select('status')
-    .eq('game_id', gameId)
-    .eq('profile_id', profileId)
-    .maybeSingle()
+const fetchRosterEntry = async (
+  supabase: SupabaseClient<Database>,
+  gameId: string,
+  {
+    profileId,
+    guestQueueId,
+  }: {
+    profileId: string | null
+    guestQueueId: string | null
+  }
+) => {
+  const query = supabase.from('game_queue').select('status, profile_id').eq('game_id', gameId)
+  if (guestQueueId) {
+    query.eq('id', guestQueueId).is('profile_id', null)
+  } else if (profileId) {
+    query.eq('profile_id', profileId)
+  } else {
+    return null
+  }
+
+  const { data, error } = await query.maybeSingle()
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return data
 }
@@ -639,15 +705,25 @@ const fetchRosterEntry = async (supabase: SupabaseClient<Database>, gameId: stri
 const isPlayerDrafted = async (
   supabase: SupabaseClient<Database>,
   teamIds: string[],
-  profileId: string
+  {
+    profileId,
+    guestQueueId,
+  }: {
+    profileId: string | null
+    guestQueueId: string | null
+  }
 ): Promise<boolean> => {
   if (teamIds.length === 0) return false
-  const { data, error } = await supabase
-    .from('game_team_members')
-    .select('id')
-    .eq('profile_id', profileId)
-    .in('game_team_id', teamIds)
-    .limit(1)
+  const query = supabase.from('game_team_members').select('id').in('game_team_id', teamIds).limit(1)
+  if (guestQueueId) {
+    query.eq('guest_queue_id', guestQueueId)
+  } else if (profileId) {
+    query.eq('profile_id', profileId)
+  } else {
+    return false
+  }
+
+  const { data, error } = await query
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return Boolean(data && data.length > 0)
 }
@@ -655,7 +731,7 @@ const isPlayerDrafted = async (
 const isUserAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
   const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-  return data?.role === 'admin'
+  return data?.role === 'admin' || data?.role === 'owner'
 }
 
 const isUserCaptain = async (supabase: SupabaseClient<Database>, gameId: string, userId: string) => {
@@ -735,13 +811,15 @@ const recordPlayerStats = async (gameId: string, winningTeamId: string, teamIds?
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
 
   const payload =
-    members?.map((member) => ({
-      game_id: gameId,
-      team_id: member.game_team_id,
-      profile_id: member.profile_id,
-      result: member.game_team_id === winningTeamId ? 'win' : 'loss',
-      pick_order: member.pick_order ?? null,
-    })) ?? []
+    members
+      ?.filter((member) => Boolean(member.profile_id))
+      .map((member) => ({
+        game_id: gameId,
+        team_id: member.game_team_id,
+        profile_id: member.profile_id,
+        result: member.game_team_id === winningTeamId ? 'win' : 'loss',
+        pick_order: member.pick_order ?? null,
+      })) ?? []
 
   if (!payload.length) return
 

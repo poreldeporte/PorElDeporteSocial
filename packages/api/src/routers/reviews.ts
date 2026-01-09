@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { supabaseAdmin } from '../supabase-admin'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { ensureAdmin } from '../utils/ensureAdmin'
+import { formatProfileName } from '../utils/profileName'
 
 const reviewInput = z.object({
   gameId: z.string().uuid(),
@@ -30,6 +31,8 @@ export const reviewsRouter = createTRPCRouter({
         profiles (
           id,
           name,
+          first_name,
+          last_name,
           avatar_url,
           jersey_number
         )
@@ -50,7 +53,7 @@ export const reviewsRouter = createTRPCRouter({
         createdAt: row.created_at,
         player: {
           id: row.profiles?.id ?? null,
-          name: row.profiles?.name ?? 'Member',
+          name: formatProfileName(row.profiles, 'Member') ?? 'Member',
           avatarUrl: row.profiles?.avatar_url ?? null,
           jerseyNumber: row.profiles?.jersey_number ?? null,
         },

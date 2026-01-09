@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@my/supabase/types'
 
-export const ensureAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
+export const ensureOwner = async (supabase: SupabaseClient<Database>, userId: string) => {
   const { data, error } = await supabase
     .from('profiles')
     .select('role')
@@ -18,11 +18,10 @@ export const ensureAdmin = async (supabase: SupabaseClient<Database>, userId: st
     })
   }
 
-  const isAdmin = data?.role === 'admin' || data?.role === 'owner'
-  if (!isAdmin) {
+  if (data?.role !== 'owner') {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Only admins can perform this action',
+      message: 'Only the founder can perform this action',
     })
   }
 }

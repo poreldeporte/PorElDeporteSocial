@@ -1,8 +1,11 @@
-import type { ScrollViewProps } from 'react-native'
+import { Share, type ScrollViewProps } from 'react-native'
 import { useMemo, type ReactNode } from 'react'
+import { Path, Svg } from 'react-native-svg'
+import { SolitoImage } from 'solito/image'
+import { useLink } from 'solito/link'
 
-import { Avatar, Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack } from '@my/ui/public'
-import { ArrowRight, Shield, Sparkles, Star, Trophy, UserCog, Users } from '@tamagui/lucide-icons'
+import { Avatar, Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack, useTheme } from '@my/ui/public'
+import { ArrowRight, Check, Settings, Shield, Star, Trophy, Users } from '@tamagui/lucide-icons'
 import { pedLogo } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
@@ -11,9 +14,6 @@ import { useLogout } from 'app/utils/auth/logout'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
 import { api } from 'app/utils/api'
-import { SolitoImage } from 'solito/image'
-import { useLink } from 'solito/link'
-import { Share } from 'react-native'
 
 import { ProfileDetails } from './profile-details'
 
@@ -61,14 +61,13 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
           name={data.displayName}
           avatarUrl={data.avatarUrl}
           userId={data.userId}
-          onEdit={data.onEdit}
           onReviewMembers={data.onReviewMembers}
+          onCommunitySettings={data.onCommunitySettings}
           onLogout={data.onLogout}
         />
         <BadgeSection
           role={data.role}
           stats={data.stats}
-          recentForm={data.recentForm}
           attendanceStreak={data.attendanceStreak}
         />
         <PerformanceSection
@@ -101,11 +100,11 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
 }
 
 const useProfileData = () => {
-  const { profile, avatarUrl, user, displayName, role } = useUser()
+  const { profile, avatarUrl, user, displayName, role, isAdmin } = useUser()
   useStatsRealtime(Boolean(user))
   useGamesListRealtime(Boolean(user))
-  const editLink = useLink({ href: '/profile/edit' })
   const approvalsLink = useLink({ href: '/admin/approvals' })
+  const communitySettingsLink = useLink({ href: '/settings/community' })
   const logout = useLogout()
   const historyLink = useLink({ href: '/games/history' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
@@ -138,8 +137,8 @@ const useProfileData = () => {
     displayName: displayName || 'Member',
     role,
     userId: user?.id ?? '',
-    onEdit: editLink.onPress,
-    onReviewMembers: role === 'admin' ? approvalsLink.onPress : undefined,
+    onReviewMembers: isAdmin ? approvalsLink.onPress : undefined,
+    onCommunitySettings: isAdmin ? communitySettingsLink.onPress : undefined,
     onLogout: () => logout({ userId: user?.id ?? null }),
     stats,
     performance,
@@ -159,15 +158,15 @@ const ProfileHero = ({
   name,
   avatarUrl,
   userId,
-  onEdit,
   onReviewMembers,
+  onCommunitySettings,
   onLogout,
 }: {
   name: string
   avatarUrl: string
   userId: string
-  onEdit?: () => void
   onReviewMembers?: () => void
+  onCommunitySettings?: () => void
   onLogout?: () => void
 }) => {
   return (
@@ -175,19 +174,25 @@ const ProfileHero = ({
       <XStack gap="$3" ai="center">
         <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={72} height={72} />
         <YStack gap="$1" flex={1}>
-          <XStack gap="$1" ai="center">
+          <XStack gap="$2" ai="center" jc="space-between">
             <SizableText size="$6" fontWeight="700">
               {name}
             </SizableText>
+            {onLogout ? (
+              <Button chromeless size="$2" onPress={onLogout}>
+                Log out
+              </Button>
+            ) : null}
           </XStack>
         </YStack>
       </XStack>
       <XStack mt="$1" gap="$2" flexWrap="wrap">
-        <ActionButton icon={UserCog} label="Edit profile" onPress={onEdit} />
         {onReviewMembers ? (
           <ActionButton icon={Users} label="Review members" onPress={onReviewMembers} />
         ) : null}
-        <ActionButton icon={Shield} label="Log out" onPress={onLogout} theme="alt2" />
+        {onCommunitySettings ? (
+          <ActionButton icon={Settings} label="Community settings" onPress={onCommunitySettings} />
+        ) : null}
       </XStack>
     </Card>
   )
@@ -334,16 +339,14 @@ const HistoryRow = ({ game, index }: { game: GameListItem; index: number }) => {
 const BadgeSection = ({
   role,
   stats,
-  recentForm,
   attendanceStreak,
 }: {
   role: string
   stats: StatSnapshot
-  recentForm: string[]
   attendanceStreak: number
 }) => {
   const tierProgress = getTierProgress(stats.games)
-  const badges = buildBadges(role, stats, recentForm, tierProgress.current, attendanceStreak)
+  const badges = buildBadges(role, stats, tierProgress.current, attendanceStreak)
   const progressRows = [
     ...tierProgress.progress.map((entry) => ({
       id: entry.tier.id,
@@ -375,7 +378,7 @@ const BadgeSection = ({
       <BadgeProgressList progress={progressRows} />
       <XStack gap="$2" flexWrap="wrap">
         {badges.map((badge) => (
-          <Pill key={badge.label} label={badge.label} icon={badge.icon} tone={badge.tone} />
+          <BadgeTile key={badge.label} label={badge.label} icon={badge.icon} completed />
         ))}
       </XStack>
     </Card>
@@ -392,9 +395,9 @@ const BadgeProgressList = ({
       {progress.map(({ id, label, valueLabel, percent }) => (
         <YStack key={id} gap="$1">
           <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-            <Pill label={label} />
+            <BadgeStatusPill label={label} completed={percent >= 1} />
             <Paragraph theme="alt2" size="$2">
-              {valueLabel}
+              {percent >= 1 ? 'Completed' : valueLabel}
             </Paragraph>
           </XStack>
           <YStack h={6} br="$10" backgroundColor="$color3" overflow="hidden">
@@ -430,25 +433,92 @@ const ActionButton = ({
   </Button>
 )
 
-const Pill = ({
+const BadgeStatusPill = ({
   label,
   icon: Icon,
   tone = 'neutral',
+  completed = false,
 }: {
   label: string
   icon?: typeof Shield
   tone?: PillTone
+  completed?: boolean
 }) => {
   const backgroundColor =
     tone === 'primary' ? BRAND_COLORS.primary : tone === 'active' ? '$color9' : '$color3'
   const color = tone === 'primary' ? '$background' : tone === 'active' ? '$color1' : '$color11'
   return (
-    <XStack ai="center" gap="$1.5" px="$2.5" py="$1" br="$10" backgroundColor={backgroundColor}>
-      {Icon ? <Icon size={14} color={color} /> : null}
-      <Paragraph size="$2" color={color} fontWeight="600">
+    <XStack
+      ai="center"
+      gap="$1.5"
+      px="$2.5"
+      py="$1"
+      br="$10"
+      backgroundColor={completed ? BRAND_COLORS.primary : backgroundColor}
+    >
+      {Icon ? <Icon size={14} color={completed ? '$background' : color} /> : null}
+      <Paragraph size="$2" color={completed ? '$background' : color} fontWeight="600">
         {label}
       </Paragraph>
     </XStack>
+  )
+}
+
+const BADGE_SHIELD_PATH =
+  'M12 2H60C64 2 68 6 68 10V46C68 60 58 72 44 78L36 84L28 78C14 72 4 60 4 46V10C4 6 8 2 12 2Z'
+
+const BadgeTile = ({
+  label,
+  icon: Icon,
+  completed,
+}: {
+  label: string
+  icon: typeof Shield
+  completed: boolean
+}) => {
+  const theme = useTheme()
+  const backgroundColor = completed ? theme.color1?.val : theme.color2?.val
+  const borderColor = completed ? BRAND_COLORS.primary : theme.color4?.val
+  const labelColor = completed ? '$color12' : '$color10'
+  const iconColor = completed ? BRAND_COLORS.primary : '$color10'
+  return (
+    <YStack
+      w={96}
+      h={112}
+      ai="center"
+      jc="center"
+      gap="$1"
+      position="relative"
+    >
+      <Svg width="100%" height="100%" viewBox="0 0 72 88" style={{ position: 'absolute' }}>
+        <Path
+          d={BADGE_SHIELD_PATH}
+          fill={backgroundColor ?? '#fff'}
+          stroke={borderColor ?? '#ddd'}
+          strokeWidth={2}
+        />
+      </Svg>
+      <YStack ai="center" jc="center" px="$2" position="absolute">
+        <Paragraph size="$2" color={labelColor} fontWeight="600" textAlign="center">
+          {label}
+        </Paragraph>
+      </YStack>
+      {completed ? (
+        <XStack
+          position="absolute"
+          top="$1.5"
+          right="$1.5"
+          w={20}
+          h={20}
+          br="$10"
+          backgroundColor={BRAND_COLORS.primary}
+          ai="center"
+          jc="center"
+        >
+          <Check size={12} color="$background" />
+        </XStack>
+      ) : null}
+    </YStack>
   )
 }
 
@@ -518,8 +588,8 @@ const FormChip = ({ result }: { result: string }) => {
 }
 
 const formatRole = (role: string) => {
-  if (role === 'admin') return 'Club steward'
-  if (role === 'captain') return 'Captain'
+  if (role === 'owner') return 'Owner'
+  if (role === 'admin') return 'Admin'
   return 'Member'
 }
 
@@ -620,11 +690,9 @@ const getTierProgress = (games: number) => {
 const buildBadges = (
   role: string,
   stats: StatSnapshot,
-  recentForm: string[],
   tier: BadgeTier | null,
   attendanceStreak: number
 ) => {
-  const winStreak = getWinStreak(recentForm)
   const badges: Array<{ label: string; icon: typeof Shield; tone?: PillTone }> = []
 
   if (tier) {
@@ -633,7 +701,7 @@ const buildBadges = (
   badges.push({
     label: formatRole(role),
     icon: Shield,
-    tone: role === 'admin' ? 'primary' : 'neutral',
+    tone: role === 'admin' || role === 'owner' ? 'primary' : 'neutral',
   })
 
   if (attendanceStreak >= IRONMAN_STREAK) {
@@ -642,25 +710,7 @@ const buildBadges = (
   if (stats.gamesAsCaptain > 0) {
     badges.push({ label: 'Capitan', icon: Shield })
   }
-  if (stats.goalDiff > 0) {
-    badges.push({ label: `Goal diff +${stats.goalDiff}`, icon: Sparkles })
-  }
-  if (stats.winRate >= 0.6 && stats.games >= 3) {
-    badges.push({ label: `Top form ${formatPercent(stats.winRate)}`, icon: Trophy })
-  }
-  if (winStreak >= 3) {
-    badges.push({ label: `Win streak ${winStreak}`, icon: Sparkles })
-  }
   return badges
-}
-
-const getWinStreak = (recentForm: string[]) => {
-  let streak = 0
-  for (const result of recentForm) {
-    if (result !== 'W') break
-    streak += 1
-  }
-  return streak
 }
 
 const getAttendanceStreak = (games: GameListItem[]) => {

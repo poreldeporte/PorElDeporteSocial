@@ -18,7 +18,7 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
-import type { ScrollViewProps } from 'react-native'
+import { Alert, type ScrollViewProps } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { pedLogo } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
@@ -27,7 +27,7 @@ import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { CountryPicker } from 'app/components/CountryPicker'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { SchemaForm } from 'app/utils/SchemaForm'
-import { getPhoneCountryOptions, type PhoneCountryOption } from 'app/utils/phone'
+import { formatPhoneDisplay, getPhoneCountryOptions, parsePhoneToE164, type PhoneCountryOption } from 'app/utils/phone'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
@@ -116,6 +116,7 @@ const EditProfileForm = ({
   showBrandAccent = false,
   scrollProps,
   headerSpacer,
+  topSection,
 }: {
   initial: ProfileFormInitial
   userId: string
@@ -127,6 +128,7 @@ const EditProfileForm = ({
   showBrandAccent?: boolean
   scrollProps?: ScrollViewProps
   headerSpacer?: ReactNode
+  topSection?: ReactNode
 }) => {
   const { params } = useParams()
   const insets = useSafeAreaInsets()
@@ -144,13 +146,14 @@ const EditProfileForm = ({
       if (!birthDate) {
         throw new Error('Enter a valid birth date.')
       }
+      const normalizedPhone = parsePhoneToE164(data.phone, 'US')
       const { data: updated, error } = await supabase
         .from('profiles')
         .update({
           first_name: data.firstName.trim(),
           last_name: data.lastName.trim(),
           email: data.email.trim(),
-          phone: data.phone.trim(),
+          phone: normalizedPhone ?? data.phone.trim(),
           address: data.address?.trim() || null,
           nationality: data.nationality?.trim() || null,
           name: `${data.firstName} ${data.lastName}`.trim(),
@@ -262,6 +265,7 @@ const EditProfileForm = ({
                 ) : null}
               </YStack>
               <YStack gap="$4">
+                {topSection}
                 <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
@@ -397,19 +401,23 @@ type ProfileFormInitial = {
 const buildProfileFormInitial = (
   profile: ProfileRow,
   user?: { email?: string | null; phone?: string | null }
-) => ({
-  firstName: profile.first_name ?? '',
-  lastName: profile.last_name ?? '',
-  email: profile.email ?? user?.email ?? '',
-  phone: profile.phone ?? user?.phone ?? '',
-  address: profile.address ?? '',
-  nationality: profile.nationality ?? '',
-  birthDate: parseBirthDateParts(profile.birth_date) ?? emptyBirthDateParts(),
-  jerseyNumber: profile.jersey_number ?? undefined,
-  position: profile.position
-    ? profile.position.split(',').map((p) => p.trim()).filter(Boolean)
-    : [],
-})
+) => {
+  const rawPhone = profile.phone ?? user?.phone ?? ''
+  const phone = formatPhoneDisplay(rawPhone) || rawPhone
+  return {
+    firstName: profile.first_name ?? '',
+    lastName: profile.last_name ?? '',
+    email: profile.email ?? user?.email ?? '',
+    phone,
+    address: profile.address ?? '',
+    nationality: profile.nationality ?? '',
+    birthDate: parseBirthDateParts(profile.birth_date) ?? emptyBirthDateParts(),
+    jerseyNumber: profile.jersey_number ?? undefined,
+    position: profile.position
+      ? profile.position.split(',').map((p) => p.trim()).filter(Boolean)
+      : [],
+  }
+}
 
 const buildProfileDisplayName = (initial: ProfileFormInitial) => {
   const name = [initial.firstName, initial.lastName].filter(Boolean).join(' ').trim()
@@ -420,6 +428,12 @@ const buildProfileStatusLabel = (status: 'draft' | 'pending' | 'approved') => {
   if (status === 'approved') return 'Membership Active'
   if (status === 'draft') return 'Setup incomplete'
   return 'Review pending'
+}
+
+const formatRoleLabel = (role?: string | null) => {
+  if (role === 'owner') return 'Owner'
+  if (role === 'admin') return 'Admin'
+  return 'Member'
 }
 
 const StatusBadge = ({ label }: { label: string }) => {
@@ -447,9 +461,10 @@ export const AdminProfileEditScreen = ({
   headerSpacer,
   topInset,
 }: { profileId: string } & ScrollHeaderProps) => {
-  const { role, isLoading } = useUser()
+  const { isAdmin, isOwner, isLoading } = useUser()
   const supabase = useSupabase()
   const router = useRouter()
+  const toast = useToastController()
   const queryClient = useQueryClient()
   const profileQuery = useQuery({
     queryKey: ['profile', profileId],
@@ -457,14 +472,27 @@ export const AdminProfileEditScreen = ({
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, first_name, last_name, email, phone, address, nationality, birth_date, jersey_number, position, approval_status'
+          'id, first_name, last_name, email, phone, address, nationality, birth_date, jersey_number, position, approval_status, role'
         )
         .eq('id', profileId)
         .single()
       if (error) throw new Error(error.message)
       return data
     },
-    enabled: role === 'admin' && !isLoading && !!profileId,
+    enabled: isAdmin && !isLoading && !!profileId,
+  })
+  const updateRoleMutation = api.members.updateRole.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['profile', profileId] }),
+        queryClient.invalidateQueries({ queryKey: ['members', 'approved'] }),
+        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] }),
+      ])
+      toast.show('Role updated')
+    },
+    onError: (error) => {
+      toast.show('Unable to update role', { message: error.message })
+    },
   })
 
   if (isLoading) {
@@ -475,7 +503,7 @@ export const AdminProfileEditScreen = ({
     )
   }
 
-  if (role !== 'admin') {
+  if (!isAdmin) {
     return (
       <YStack f={1} ai="center" jc="center" px="$6" gap="$2" pt={topInset ?? 0}>
         <SizableText size="$6" fontWeight="700">
@@ -519,6 +547,71 @@ export const AdminProfileEditScreen = ({
     email: profileQuery.data.email,
     phone: profileQuery.data.phone,
   })
+  const roleLabel = formatRoleLabel(profileQuery.data.role)
+  const canUpdateRole = isOwner
+
+  const handleRoleChange = () => {
+    if (!canUpdateRole || updateRoleMutation.isPending) return
+    Alert.alert('Set role', 'Choose a role for this member.', [
+      {
+        text: 'Owner',
+        onPress: () => {
+          if (profileQuery.data.role === 'owner') return
+          updateRoleMutation.mutate({ profileId, role: 'owner' })
+        },
+      },
+      {
+        text: 'Admin',
+        onPress: () => {
+          if (profileQuery.data.role === 'admin') return
+          updateRoleMutation.mutate({ profileId, role: 'admin' })
+        },
+      },
+      {
+        text: 'Member',
+        onPress: () => {
+          if (profileQuery.data.role === 'member') return
+          updateRoleMutation.mutate({ profileId, role: 'member' })
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ])
+  }
+
+  const roleSection = (
+    <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+      <YStack gap="$3">
+        <YStack gap="$1">
+          <SizableText size="$5" fontWeight="700">
+            Role
+          </SizableText>
+          <Paragraph theme="alt2" size="$2">
+            Controls who can manage games, rosters, and approvals.
+          </Paragraph>
+        </YStack>
+        <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
+          <SizableText size="$4" fontWeight="600">
+            {roleLabel}
+          </SizableText>
+          {canUpdateRole ? (
+            <Button
+              size="$2"
+              variant="outlined"
+              disabled={updateRoleMutation.isPending}
+              onPress={handleRoleChange}
+            >
+              Change role
+            </Button>
+          ) : null}
+        </XStack>
+        {!canUpdateRole ? (
+          <Paragraph theme="alt2" size="$2">
+            Only owners can change roles.
+          </Paragraph>
+        ) : null}
+      </YStack>
+    </Card>
+  )
 
   return (
     <EditProfileForm
@@ -528,6 +621,7 @@ export const AdminProfileEditScreen = ({
       submitLabel="Save changes"
       floatingCta
       showBrandAccent
+      topSection={roleSection}
       onComplete={() => {
         void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
         router.back()

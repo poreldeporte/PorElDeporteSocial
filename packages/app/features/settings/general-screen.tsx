@@ -3,6 +3,7 @@ import { type ReactNode } from 'react'
 
 import { FormWrapper, H2, H4, KVTable, Separator, SizableText, YStack, isWeb, styled } from '@my/ui/public'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { formatProfileName } from 'app/utils/profileName'
 import { useUser } from 'app/utils/useUser'
 import { Link } from 'solito/link'
 
@@ -14,6 +15,7 @@ type ScrollHeaderProps = {
 
 export const GeneralSettingsScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const { user, profile } = useUser()
+  const name = formatProfileName(profile, '—') ?? '—'
 
   return (
     <FormWrapper>
@@ -41,7 +43,7 @@ export const GeneralSettingsScreen = ({ scrollProps, headerSpacer }: ScrollHeade
                 <SizableText fow="900">Name</SizableText>
               </KVTable.Key>
               <KVTable.Value gap="$4">
-                <SizableText>{profile?.name}</SizableText>
+                <SizableText>{name}</SizableText>
                 <Link href="/profile/edit">
                   <SizableText textDecorationLine="underline">Change</SizableText>
                 </Link>

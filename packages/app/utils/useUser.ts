@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { useLogout } from './auth/logout'
+import { formatProfileName } from './profileName'
+import { formatPhoneDisplay } from './phone'
 import { useSessionContext } from './supabase/useSessionContext'
 import { useSupabase } from './supabase/useSupabase'
 
@@ -35,14 +37,15 @@ export const useUser = () => {
   const { data: profile, refetch, isPending: isLoadingProfile } = useProfile()
 
   const displayName = (() => {
-    if (profile?.name && profile.name.trim()) return profile.name
-    const composed = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
-    if (composed.length) return composed
+    const profileName = formatProfileName(profile, null)
+    if (profileName) return profileName
     const metaName = typeof user?.user_metadata.full_name === 'string' ? user.user_metadata.full_name : ''
     if (metaName.trim()) return metaName
     if (profile?.email?.trim()) return profile.email
-    if (profile?.phone?.trim()) return profile.phone
-    if (user?.phone) return user.phone
+    const profilePhone = formatPhoneDisplay(profile?.phone)
+    if (profilePhone) return profilePhone
+    const userPhone = formatPhoneDisplay(user?.phone)
+    if (userPhone) return userPhone
     return user?.email ?? ''
   })()
 
@@ -57,11 +60,17 @@ export const useUser = () => {
     return `https://ui-avatars.com/api.jpg?${params.toString()}`
   })()
 
+  const role = profile?.role ?? 'member'
+  const isOwner = role === 'owner'
+  const isAdmin = role === 'admin' || role === 'owner'
+
   return {
     session,
     user,
     profile,
-    role: profile?.role ?? 'member',
+    role,
+    isOwner,
+    isAdmin,
     avatarUrl,
     displayName,
     updateProfile: () => refetch(),

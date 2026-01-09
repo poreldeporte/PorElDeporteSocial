@@ -1,11 +1,11 @@
 import { buildGameCancelledPayload, formatProfileName } from './notifications'
 
 describe('formatProfileName', () => {
-  it('prefers explicit name', () => {
-    expect(formatProfileName({ name: 'Alex', first_name: 'A', last_name: 'B' })).toBe('Alex')
+  it('prefers first and last name', () => {
+    expect(formatProfileName({ name: 'Alex', first_name: 'A', last_name: 'B' })).toBe('A B')
   })
 
-  it('falls back to first and last name', () => {
+  it('falls back to first and last name when name is empty', () => {
     expect(formatProfileName({ name: ' ', first_name: 'Alex', last_name: 'Garcia' })).toBe('Alex Garcia')
   })
 

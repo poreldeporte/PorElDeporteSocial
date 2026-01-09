@@ -21,7 +21,8 @@ import {
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
-import { formatE164ForDisplay, formatPhoneNumber } from 'app/utils/phone'
+import { formatPhoneDisplay } from 'app/utils/phone'
+import { formatProfileName } from 'app/utils/profileName'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 
@@ -35,12 +36,11 @@ type MemberProfile = {
   phone: string | null
   position: string | null
   jersey_number: number | null
+  role: string | null
 }
 
 const buildMemberName = (profile: MemberProfile) => {
-  if (profile.name?.trim()) return profile.name.trim()
-  const composed = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
-  return composed || 'Member'
+  return formatProfileName(profile, 'Member') ?? 'Member'
 }
 
 const buildMemberInitials = (profile: MemberProfile) => {
@@ -50,15 +50,6 @@ const buildMemberInitials = (profile: MemberProfile) => {
   return initials.toUpperCase() || 'M'
 }
 
-const formatPhone = (value?: string | null) => {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  const formatted = formatE164ForDisplay(trimmed)
-  if (formatted !== trimmed) return formatted
-  return formatPhoneNumber(trimmed) || trimmed
-}
-
 type ScrollHeaderProps = {
   scrollProps?: ScrollViewProps
   headerSpacer?: ReactNode
@@ -66,7 +57,7 @@ type ScrollHeaderProps = {
 }
 
 export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
-  const { role, isLoading } = useUser()
+  const { isAdmin, isOwner, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
   const queryClient = useQueryClient()
@@ -78,14 +69,15 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, avatar_url, name, first_name, last_name, email, phone, position, jersey_number'
+          'id, avatar_url, name, first_name, last_name, email, phone, position, jersey_number, role'
         )
         .eq('approval_status', 'approved')
-        .order('name', { ascending: true })
+        .order('first_name', { ascending: true })
+        .order('last_name', { ascending: true })
       if (error) throw new Error(error.message)
       return data ?? []
     },
-    enabled: role === 'admin' && !isLoading,
+    enabled: isAdmin && !isLoading,
   })
 
   const removeMutation = api.members.remove.useMutation({
@@ -112,7 +104,7 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
     )
   }
 
-  if (role !== 'admin') {
+  if (!isAdmin) {
     return (
       <YStack f={1} ai="center" jc="center" px="$6" gap="$2" pt={topInset ?? 0}>
         <SizableText size="$6" fontWeight="700">
@@ -159,6 +151,12 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
     )
   }
 
+  const formatRoleLabel = (role: string | null) => {
+    if (role === 'owner') return 'Owner'
+    if (role === 'admin') return 'Admin'
+    return 'Member'
+  }
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -194,7 +192,10 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
             {members.map((member) => {
               const displayName = buildMemberName(member)
               const initials = buildMemberInitials(member)
-              const phoneLabel = formatPhone(member.phone)
+              const phoneLabel = formatPhoneDisplay(member.phone)
+              const roleLabel = formatRoleLabel(member.role)
+              const detailLine = [roleLabel, phoneLabel].filter(Boolean).join(' · ')
+              const canRemove = isOwner
               return (
                 <Card key={member.id} bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3">
                   <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
@@ -220,9 +221,9 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
                         <SizableText size="$5" fontWeight="600">
                           {displayName}
                         </SizableText>
-                        {phoneLabel ? (
+                        {detailLine ? (
                           <Paragraph theme="alt2" size="$2">
-                            {phoneLabel}
+                            {detailLine}
                           </Paragraph>
                         ) : null}
                       </YStack>
@@ -237,16 +238,18 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
                         disabled={removeMutation.isPending}
                         pressStyle={{ opacity: 0.7 }}
                       />
-                      <Button
-                        chromeless
-                        size="$3"
-                        icon={Trash2}
-                        theme="red"
-                        aria-label="Remove member"
-                        onPress={() => handleRemove(member)}
-                        disabled={removeMutation.isPending}
-                        pressStyle={{ opacity: 0.7 }}
-                      />
+                      {canRemove ? (
+                        <Button
+                          chromeless
+                          size="$3"
+                          icon={Trash2}
+                          theme="red"
+                          aria-label="Remove member"
+                          onPress={() => handleRemove(member)}
+                          disabled={removeMutation.isPending}
+                          pressStyle={{ opacity: 0.7 }}
+                        />
+                      ) : null}
                     </XStack>
                   </XStack>
                 </Card>

@@ -20,7 +20,7 @@ type ScrollHeaderProps = {
 }
 
 export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) {
-  const { user, isLoading, role } = useUser()
+  const { user, isLoading, isAdmin } = useUser()
   const insets = useSafeAreaInsets()
   const { stats, isLoading: statsLoading } = useMyStats()
   const gamesQuery = api.games.list.useQuery({ scope: 'upcoming' }, { enabled: Boolean(user) })
@@ -31,8 +31,8 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
 
   const canShowDraft = useMemo(
     () => (game: { draftModeEnabled?: boolean | null }) =>
-      role === 'admin' || game.draftModeEnabled !== false,
-    [role]
+      isAdmin || game.draftModeEnabled !== false,
+    [isAdmin]
   )
 
   const myDraftGame = useMemo(() => {
@@ -41,9 +41,9 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
       (game) =>
         game.draftStatus === 'in_progress' &&
         canShowDraft(game) &&
-        (role === 'admin' || game.captainIds?.includes(user.id))
+        (isAdmin || game.captainIds?.includes(user.id))
     )
-  }, [canShowDraft, gamesQuery.data, role, user?.id])
+  }, [canShowDraft, gamesQuery.data, isAdmin, user?.id])
 
   const liveDraftGame = useMemo(
     () =>

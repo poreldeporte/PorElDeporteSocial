@@ -4,22 +4,29 @@ import { computeGameDetailState } from './useGameDetailState'
 
 let queueCounter = 0
 const buildQueueEntry = (overrides: Partial<QueueEntry> = {}): QueueEntry => {
+  const resolvedProfileId = overrides.profileId ?? 'profile-1'
+  const resolvedId = overrides.id ?? `queue-${++queueCounter}`
+  const isGuest = overrides.isGuest ?? false
+  const playerId = overrides.playerId ?? (isGuest ? resolvedId : resolvedProfileId)
   const player =
     overrides.player ??
     ({
-      id: overrides.profileId ?? 'profile-1',
+      id: playerId,
       name: 'Player',
       avatarUrl: null,
     } as QueueEntry['player'])
 
   return {
-    id: overrides.id ?? `queue-${++queueCounter}`,
+    id: resolvedId,
     status: overrides.status ?? 'rostered',
     joinedAt: overrides.joinedAt ?? '2025-01-01T00:00:00.000Z',
     promotedAt: overrides.promotedAt ?? null,
     droppedAt: overrides.droppedAt ?? null,
     attendanceConfirmedAt: overrides.attendanceConfirmedAt ?? null,
-    profileId: overrides.profileId ?? 'profile-1',
+    profileId: isGuest ? null : resolvedProfileId,
+    playerId,
+    isGuest,
+    guest: overrides.guest ?? null,
     player,
   }
 }

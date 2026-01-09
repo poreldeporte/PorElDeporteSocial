@@ -19,9 +19,12 @@ import {
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
+import { formatPhoneDisplay } from 'app/utils/phone'
+import { formatProfileName } from 'app/utils/profileName'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useTeamsState } from 'app/utils/useTeamsState'
 
+import { Undo2 } from '@tamagui/lucide-icons'
 import { useRouter } from 'solito/router'
 import { AlertDialog } from 'tamagui'
 
@@ -31,6 +34,7 @@ import type { GameDetail } from './types'
 import { formatGameKickoffLabel } from './time-utils'
 
 type DraftViewModel = ReturnType<typeof deriveDraftViewModel>
+type DraftTeam = ReturnType<typeof useTeamsState>['teams'][number]
 
 type DraftScreenProps = {
   gameId: string
@@ -42,16 +46,25 @@ type ScrollHeaderProps = {
   topInset?: number
 }
 
+type DraftResetControlProps = {
+  resetConfirmOpen?: boolean
+  onResetConfirmOpenChange?: (open: boolean) => void
+}
+
 export const GameDraftScreen = ({
   gameId,
   scrollProps,
   headerSpacer,
   topInset,
-}: DraftScreenProps & ScrollHeaderProps) => {
+  resetConfirmOpen: resetConfirmOpenProp,
+  onResetConfirmOpenChange,
+}: DraftScreenProps & ScrollHeaderProps & DraftResetControlProps) => {
   const toast = useToastController()
   const utils = api.useUtils()
   const router = useRouter()
-  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [localResetConfirmOpen, setLocalResetConfirmOpen] = useState(false)
+  const resetConfirmOpen = resetConfirmOpenProp ?? localResetConfirmOpen
+  const setResetConfirmOpen = onResetConfirmOpenChange ?? setLocalResetConfirmOpen
   const [optimisticPicks, setOptimisticPicks] = useState<string[]>([])
   const [selectedCaptainIds, setSelectedCaptainIds] = useState<string[]>([])
   const { data: gameDetail, isLoading: gameLoading } = api.games.byId.useQuery(
@@ -63,7 +76,7 @@ export const GameDraftScreen = ({
     game,
     teams,
     events,
-    draftedProfileIds,
+    draftedPlayerIds,
     captainTeam,
     currentTurnTeam,
     isAdmin,
@@ -91,13 +104,6 @@ export const GameDraftScreen = ({
     onError: (error) => toast.show('Unable to start draft', { message: error.message }),
   })
   const pickMutation = api.teams.pickPlayer.useMutation()
-  const finalizeMutation = api.teams.finalizeDraft.useMutation({
-    onSuccess: async () => {
-      await Promise.all([refetch(), utils.games.byId.invalidate({ id: gameId })])
-      toast.show('Draft finalized')
-    },
-    onError: (error) => toast.show('Unable to finalize draft', { message: error.message }),
-  })
   const undoPickMutation = api.teams.undoPick.useMutation({
     onSuccess: async () => {
       await Promise.all([refetch(), utils.games.byId.invalidate({ id: gameId })])
@@ -112,7 +118,7 @@ export const GameDraftScreen = ({
         gameDetail,
         gameMeta: game,
         teams,
-        draftedProfileIds,
+        draftedPlayerIds,
         optimisticPicks,
         captainTeam,
         currentTurnTeam,
@@ -123,7 +129,7 @@ export const GameDraftScreen = ({
       gameDetail,
       game,
       teams,
-      draftedProfileIds,
+      draftedPlayerIds,
       optimisticPicks,
       captainTeam,
       currentTurnTeam,
@@ -147,7 +153,6 @@ export const GameDraftScreen = ({
     rosteredPlayers,
     availablePlayers,
     totalDrafted,
-    allDrafted,
     hasCaptains,
     canPick,
     pickNumberWithPending,
@@ -172,7 +177,7 @@ export const GameDraftScreen = ({
       ? Math.floor(rosteredCount / selectedCaptainCount)
       : 0
 
-  const [recentPick, setRecentPick] = useState<{ teamId: string | null; profileId: string | null } | null>(null)
+  const [recentPick, setRecentPick] = useState<{ teamId: string | null; playerId: string | null } | null>(null)
   const lastPickRef = useRef<string | null>(null)
 
   const hasUndoablePick = useMemo(() => {
@@ -194,7 +199,8 @@ export const GameDraftScreen = ({
       })
     if (latestPick && latestPick.id !== lastPickRef.current) {
       lastPickRef.current = latestPick.id
-      setRecentPick({ teamId: latestPick.team_id ?? null, profileId: latestPick.profile_id ?? null })
+      const recentPlayerId = latestPick.profile_id ?? latestPick.guest_queue_id ?? null
+      setRecentPick({ teamId: latestPick.team_id ?? null, playerId: recentPlayerId })
       const timer = setTimeout(() => setRecentPick(null), 3000)
       return () => clearTimeout(timer)
     }
@@ -203,7 +209,7 @@ export const GameDraftScreen = ({
   useEffect(() => {
     setOptimisticPicks((prev) => {
       const filtered = prev.filter((id) =>
-        availablePlayers.some((player) => player.profileId === id)
+        availablePlayers.some((player) => player.player.id === id)
       )
       return filtered.length === prev.length ? prev : filtered
     })
@@ -248,18 +254,26 @@ export const GameDraftScreen = ({
 
   const kickoffLabel = formatGameKickoffLabel(new Date(gameDetail.startTime)) || 'Kickoff TBD'
 
-  const handlePick = (profileId: string) => {
+  const handlePick = (entry: DraftViewModel['availablePlayers'][number]) => {
     const teamId = captainTeam?.id ?? currentTurnTeam?.id
     if (!teamId) return
-    setOptimisticPicks((prev) => (prev.includes(profileId) ? prev : [...prev, profileId]))
+    const playerId = entry.player.id
+    setOptimisticPicks((prev) => (prev.includes(playerId) ? prev : [...prev, playerId]))
+    if (!entry.isGuest && !entry.profileId) {
+      toast.show('Unable to draft player', { message: 'Missing player profile.' })
+      setOptimisticPicks((prev) => prev.filter((id) => id !== playerId))
+      return
+    }
     pickMutation.mutate(
-      { gameId, teamId, profileId },
+      entry.isGuest
+        ? { gameId, teamId, guestQueueId: entry.id }
+        : { gameId, teamId, profileId: entry.profileId as string },
       {
         onError: (error) => {
           toast.show('Unable to draft player', { message: error.message })
         },
         onSettled: () => {
-          setOptimisticPicks((prev) => prev.filter((id) => id !== profileId))
+          setOptimisticPicks((prev) => prev.filter((id) => id !== playerId))
         },
       }
     )
@@ -320,20 +334,15 @@ export const GameDraftScreen = ({
       <YStack gap="$4">
         <DraftBanner
           kickoffLabel={kickoffLabel}
-          startTime={gameDetail.startTime}
           statusLabel={bannerStatus}
-          totalDrafted={totalDrafted}
-          totalPlayers={rosteredPlayers.length}
           isAdmin={isAdmin}
           selectionSummary={selectionSummary}
           onStartDraft={draftStatus === 'pending' && isAdmin ? handleStartDraft : undefined}
           canStartDraft={canStartDraft}
           startDraftPending={assignCaptainsMutation.isPending}
-          onReset={isAdmin ? () => setResetConfirmOpen(true) : undefined}
-          isResetting={resetDraftMutation.isPending}
-          onFinalize={isAdmin ? () => finalizeMutation.mutate({ gameId }) : undefined}
-          canFinalize={isAdmin && allDrafted && !finalizeMutation.isPending}
-          finalizePending={finalizeMutation.isPending}
+          onUndo={isAdmin ? () => undoPickMutation.mutate({ gameId }) : undefined}
+          canUndo={hasUndoablePick && !undoPickMutation.isPending}
+          undoPending={undoPickMutation.isPending}
         />
 
         <TeamsSection
@@ -355,20 +364,12 @@ export const GameDraftScreen = ({
           onPick={handlePick}
           isSyncing={isSyncing}
           draftStatus={draftStatus}
-          pendingProfileIds={optimisticPicks}
+          pendingPlayerIds={optimisticPicks}
           readOnly={showSpectatorNotice}
           isAdmin={isAdmin}
           selectedCaptainIds={selectedCaptainIds}
           onSelectCaptain={toggleCaptain}
         />
-
-        {isAdmin ? (
-          <AdminActionsCard
-            onUndo={() => undoPickMutation.mutate({ gameId })}
-            canUndo={hasUndoablePick && !undoPickMutation.isPending}
-            undoPending={undoPickMutation.isPending}
-          />
-        ) : null}
 
         {showSpectatorNotice && draftStatus !== 'completed' ? (
           <SpectatorNotice draftStatus={draftStatus} />
@@ -424,37 +425,46 @@ export const GameDraftScreen = ({
 
 const DraftBanner = ({
   kickoffLabel,
-  startTime,
   statusLabel,
-  totalDrafted,
-  totalPlayers,
   isAdmin,
-  onReset,
-  isResetting,
-  onFinalize,
-  canFinalize,
-  finalizePending,
   onStartDraft,
   canStartDraft,
   startDraftPending,
   selectionSummary,
+  onUndo,
+  canUndo,
+  undoPending,
 }: {
   kickoffLabel: string
-  startTime: string
   statusLabel: string
-  totalDrafted: number
-  totalPlayers: number
   isAdmin: boolean
-  onReset?: () => void
-  isResetting?: boolean
-  onFinalize?: () => void
-  canFinalize?: boolean
-  finalizePending?: boolean
   onStartDraft?: () => void
   canStartDraft?: boolean
   startDraftPending?: boolean
   selectionSummary?: string | null
+  onUndo?: () => void
+  canUndo?: boolean
+  undoPending?: boolean
 }) => {
+  const showUndo = Boolean(onUndo) && ((canUndo ?? false) || (undoPending ?? false))
+  const actionButtonProps = {
+    size: '$2',
+    backgroundColor: '$color2',
+    borderWidth: 1,
+    borderColor: '$color4',
+    pressStyle: { backgroundColor: '$color3' },
+    hoverStyle: { backgroundColor: '$color3' },
+    br: '$10',
+  } as const
+  const primaryAction = onStartDraft
+    ? {
+        label: startDraftPending ? 'Starting…' : 'Start draft',
+        disabled: !canStartDraft,
+        onPress: onStartDraft,
+        pending: startDraftPending,
+        theme: undefined,
+      }
+    : null
   return (
     <YStack
       px="$4"
@@ -466,56 +476,44 @@ const DraftBanner = ({
       $platform-web={{ position: 'sticky', top: 0, zIndex: 10 }}
       gap="$2"
     >
-      <Paragraph theme="alt2" size="$2">
-        {new Date(startTime).toLocaleString()}
-      </Paragraph>
       <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-        <YStack gap="$1">
-          <SizableText size="$6" fontWeight="700">
-            {kickoffLabel}
-          </SizableText>
-          <Paragraph theme="alt1">{statusLabel}</Paragraph>
-          {selectionSummary ? (
-            <Paragraph theme="alt2" size="$2">
-              {selectionSummary}
-            </Paragraph>
-          ) : null}
-        </YStack>
-        <XStack gap="$2" flexWrap="wrap" ai="center">
-          {isAdmin && onStartDraft ? (
-            <Button
-              size="$2"
-              disabled={!canStartDraft}
-              onPress={onStartDraft}
-              iconAfter={startDraftPending ? <Spinner size="small" /> : undefined}
-            >
-              {startDraftPending ? 'Starting…' : 'Start draft with these captains'}
-            </Button>
-          ) : null}
-          {isAdmin && onFinalize ? (
-            <Button
-              size="$2"
-              theme="green"
-              disabled={!canFinalize}
-              onPress={onFinalize}
-              iconAfter={finalizePending ? <Spinner size="small" /> : undefined}
-            >
-              {finalizePending ? 'Finalizing…' : 'Finalize'}
-            </Button>
-          ) : null}
-          {isAdmin && onReset ? (
-            <Button
-              size="$2"
-              theme="red"
-              disabled={isResetting}
-              onPress={onReset}
-              iconAfter={isResetting ? <Spinner size="small" /> : undefined}
-            >
-              {isResetting ? 'Resetting…' : 'Reset'}
-            </Button>
-          ) : null}
-        </XStack>
+        <SizableText size="$6" fontWeight="700">
+          {kickoffLabel}
+        </SizableText>
+        {isAdmin && (primaryAction || showUndo) ? (
+          <XStack gap="$2" flexWrap="wrap" ai="center" jc="flex-end">
+            {primaryAction ? (
+              <Button
+                size="$2"
+                theme={primaryAction.theme}
+                disabled={primaryAction.disabled}
+                onPress={primaryAction.onPress}
+                iconAfter={primaryAction.pending ? <Spinner size="small" /> : undefined}
+              >
+                {primaryAction.label}
+              </Button>
+            ) : null}
+            {showUndo ? (
+              <Button
+                {...actionButtonProps}
+                icon={Undo2}
+                aria-label="Undo last pick"
+                disabled={!canUndo || undoPending}
+                onPress={onUndo}
+                iconAfter={undoPending ? <Spinner size="small" /> : undefined}
+              >
+                {undoPending ? 'Undoing…' : 'Undo last pick'}
+              </Button>
+            ) : null}
+          </XStack>
+        ) : null}
       </XStack>
+      <Paragraph theme="alt1">{statusLabel}</Paragraph>
+      {selectionSummary ? (
+        <Paragraph theme="alt2" size="$2">
+          {selectionSummary}
+        </Paragraph>
+      ) : null}
     </YStack>
   )
 }
@@ -537,7 +535,7 @@ const TeamsSection = ({
   totalDrafted: number
   totalPlayers: number
   availableCount: number
-  recentPick: { teamId: string | null; profileId: string | null } | null
+  recentPick: { teamId: string | null; playerId: string | null } | null
 }) => {
   return (
     <YStack gap="$2">
@@ -585,7 +583,7 @@ const TeamCard = ({
     | null
   isActive: boolean
   draftStatus: string
-  recentPick: { teamId: string | null; profileId: string | null } | null
+  recentPick: { teamId: string | null; playerId: string | null } | null
 }) => {
   const roster = [...(team.game_team_members ?? [])]
     .filter((member) => (captain?.player.id ? member.profile_id !== captain.player.id : true))
@@ -630,26 +628,38 @@ const TeamCard = ({
         <Separator />
         <YStack gap="$2">
           {roster.length ? (
-            roster.map((member, index) => (
-              <YStack
-                key={`${member.id || member.profile_id || 'member'}-${index}`}
-                gap="$1"
-                px="$2"
-                py="$2"
-                br="$3"
-                backgroundColor={
-                  recentPick?.teamId === team.id && recentPick?.profileId === member.profile_id ? '$color3' : undefined
-                }
-              >
-                <Paragraph fontWeight="600">
-                  {member.profiles?.name ?? 'Member'}
-                </Paragraph>
-                <Paragraph theme="alt2" size="$2">
-                  {typeof member.pick_order === 'number' ? `Pick #${member.pick_order}` : 'Pending pick'}
-                </Paragraph>
-                <Separator />
-              </YStack>
-            ))
+            roster.map((member, index) => {
+              const memberId =
+                member.profile_id ?? member.guest_queue_id ?? member.game_queue?.id ?? null
+              const name = member.profile_id
+                ? formatProfileName(member.profiles, 'Member') ?? 'Member'
+                : member.game_queue?.guest_name ?? 'Guest'
+              return (
+                <YStack
+                  key={`${memberId || 'member'}-${index}`}
+                  gap="$1"
+                  px="$2"
+                  py="$2"
+                  br="$3"
+                  backgroundColor={
+                    recentPick?.teamId === team.id && recentPick?.playerId === memberId
+                      ? '$color3'
+                      : undefined
+                  }
+                >
+                  <Paragraph fontWeight="600">{name}</Paragraph>
+                  {!member.profile_id ? (
+                    <Paragraph theme="alt2" size="$2">
+                      Guest
+                    </Paragraph>
+                  ) : null}
+                  <Paragraph theme="alt2" size="$2">
+                    {typeof member.pick_order === 'number' ? `Pick #${member.pick_order}` : 'Pending pick'}
+                  </Paragraph>
+                  <Separator />
+                </YStack>
+              )
+            })
           ) : (
             <Paragraph theme="alt2">No picks yet.</Paragraph>
           )}
@@ -665,7 +675,7 @@ const AvailablePlayersSection = ({
   onPick,
   isSyncing,
   draftStatus,
-  pendingProfileIds,
+  pendingPlayerIds,
   readOnly = false,
   isAdmin,
   selectedCaptainIds,
@@ -673,16 +683,23 @@ const AvailablePlayersSection = ({
 }: {
   availablePlayers: DraftViewModel['availablePlayers']
   canPick: boolean
-  onPick: (profileId: string) => void
+  onPick: (entry: DraftViewModel['availablePlayers'][number]) => void
   isSyncing: boolean
   draftStatus: string
-  pendingProfileIds: string[]
+  pendingPlayerIds: string[]
   readOnly?: boolean
   isAdmin: boolean
   selectedCaptainIds: string[]
   onSelectCaptain?: (profileId: string) => void
 }) => {
-  const hasAvailablePlayers = availablePlayers.length > 0
+  const isCaptainSelectionMode = isAdmin && draftStatus === 'pending'
+  const visiblePlayers = isCaptainSelectionMode
+    ? availablePlayers.filter((entry) => Boolean(entry.profileId))
+    : availablePlayers
+  const hasAvailablePlayers = visiblePlayers.length > 0
+  if (!hasAvailablePlayers && !isSyncing) {
+    return null
+  }
   return (
     <YStack gap="$3">
       <Paragraph theme="alt1" fontWeight="600">
@@ -700,15 +717,18 @@ const AvailablePlayersSection = ({
           ) : null}
           {hasAvailablePlayers ? (
             <YStack gap="$2">
-              {availablePlayers.map((entry, index) => {
-                const rowPending = pendingProfileIds.includes(entry.profileId)
+              {visiblePlayers.map((entry, index) => {
+                const rowPending = pendingPlayerIds.includes(entry.player.id)
                 const record = entry.record ?? { wins: 0, losses: 0, recent: [] }
                 const recentLabel = formatRecentRecord(record.recent)
                 const overallRecord = `${record.wins}-${record.losses}`
                 const positionLabel = entry.player.position || 'No position set'
-                const captainIndex = selectedCaptainIds.indexOf(entry.profileId)
+                const captainIndex = entry.profileId
+                  ? selectedCaptainIds.indexOf(entry.profileId)
+                  : -1
                 const isCaptainSelected = captainIndex !== -1
-                const isCaptainSelectionMode = isAdmin && draftStatus === 'pending'
+                const guestPhone = entry.isGuest ? formatPhoneDisplay(entry.guest?.phone) : null
+                const guestNotes = entry.isGuest ? entry.guest?.notes?.trim() : null
                 const selectionLabel = isCaptainSelected
                   ? `Captain ${captainIndex + 1}`
                   : 'Pick captain'
@@ -734,12 +754,27 @@ const AvailablePlayersSection = ({
                           {entry.player.name ?? 'Member'}
                           {entry.player.jerseyNumber ? ` · #${entry.player.jerseyNumber}` : ''}
                         </Paragraph>
-                        <Paragraph theme="alt2" size="$2">
-                          {positionLabel} · Record {overallRecord}
-                        </Paragraph>
-                        <Paragraph theme="alt2" size="$2">
-                          Last 5: {recentLabel || '—'}
-                        </Paragraph>
+                        {entry.isGuest ? (
+                          <>
+                            <Paragraph theme="alt2" size="$2">
+                              {guestPhone ? `Guest · ${guestPhone}` : 'Guest'}
+                            </Paragraph>
+                            {guestNotes ? (
+                              <Paragraph theme="alt2" size="$2">
+                                {guestNotes}
+                              </Paragraph>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <Paragraph theme="alt2" size="$2">
+                              {positionLabel} · Record {overallRecord}
+                            </Paragraph>
+                            <Paragraph theme="alt2" size="$2">
+                              Last 5: {recentLabel || '—'}
+                            </Paragraph>
+                          </>
+                        )}
                       </YStack>
                       {/** Primary orange for live draft action */}
                     {shouldShowAction ? (
@@ -750,9 +785,11 @@ const AvailablePlayersSection = ({
                         disabled={isCaptainSelectionMode ? false : !canPick || rowPending || readOnly}
                         onPress={() => {
                           if (isCaptainSelectionMode) {
-                            onSelectCaptain?.(entry.profileId)
+                            if (entry.profileId) {
+                              onSelectCaptain?.(entry.profileId)
+                            }
                           } else if (canPick && !readOnly) {
-                            onPick(entry.profileId)
+                            onPick(entry)
                           }
                         }}
                         iconAfter={rowPending ? <Spinner size="small" /> : undefined}
@@ -780,34 +817,6 @@ const AvailablePlayersSection = ({
     </YStack>
   )
 }
-
-const AdminActionsCard = ({
-  onUndo,
-  canUndo,
-  undoPending,
-}: {
-  onUndo: () => void
-  canUndo: boolean
-  undoPending: boolean
-}) => (
-  <Card px="$4" py="$4" bordered $platform-native={{ borderWidth: 0 }}>
-    <YStack gap="$3">
-      <SizableText size="$5" fontWeight="600">
-        Admin tools
-      </SizableText>
-      <YStack gap="$2">
-        <Button
-          variant="outlined"
-          disabled={!canUndo}
-          onPress={onUndo}
-          iconAfter={undoPending ? <Spinner size="small" /> : undefined}
-        >
-          {undoPending ? 'Undoing…' : 'Undo last pick'}
-        </Button>
-      </YStack>
-    </YStack>
-  </Card>
-)
 
 const RoleAlert = ({ message }: { message: string }) => (
   <Card

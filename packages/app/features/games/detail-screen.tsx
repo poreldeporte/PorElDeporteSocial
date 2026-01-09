@@ -20,12 +20,14 @@ import {
   Handshake,
   Heart,
   Plus,
+  UserPlus,
   ShieldCheck,
   Zap,
 } from '@tamagui/lucide-icons'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { api } from 'app/utils/api'
+import { isProfileApproved } from 'app/utils/auth/profileApproval'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import { useRouter } from 'solito/router'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
@@ -34,7 +36,14 @@ import { useLink } from 'solito/link'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { getDockSpacer } from 'app/constants/dock'
 
-import { AddPlayerSheet, AdminPanel, CombinedStatusBadge, GameActionBar, RateGameSheet, RosterSection } from './components'
+import {
+  AddGuestSheet,
+  AddPlayerSheet,
+  CombinedStatusBadge,
+  GameActionBar,
+  RateGameSheet,
+  RosterSection,
+} from './components'
 import { getGameCtaIcon, type GameCtaState } from './cta-icons'
 import { deriveCombinedStatus, deriveUserStateMessage, getConfirmCountdownLabel } from './status-helpers'
 import { useGameDetailState } from './useGameDetailState'
@@ -99,13 +108,16 @@ export const GameDetailScreen = ({
   const utils = api.useUtils()
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
-  const { role, user } = useUser()
+  const { isAdmin, user, profile } = useUser()
   const insets = useSafeAreaInsets()
   const draftLink = useLink({ href: `/games/${gameId}/draft` })
+  const resultLink = useLink({ href: `/games/${gameId}/result` })
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [rateOpen, setRateOpen] = useState(false)
   const [addPlayerOpen, setAddPlayerOpen] = useState(false)
+  const [addGuestOpen, setAddGuestOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [confirmingGuestId, setConfirmingGuestId] = useState<string | null>(null)
 
   const removeMutation = api.queue.removeMember.useMutation({
     onSuccess: async ({ gameId }) => {
@@ -113,6 +125,14 @@ export const GameDetailScreen = ({
       toast.show('Player removed')
     },
     onError: (err) => toast.show('Unable to remove player', { message: err.message }),
+    onSettled: () => setRemovingId(null),
+  })
+  const removeGuestMutation = api.queue.removeGuest.useMutation({
+    onSuccess: async ({ gameId }) => {
+      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: gameId })])
+      toast.show('Guest removed')
+    },
+    onError: (err) => toast.show('Unable to remove guest', { message: err.message }),
     onSettled: () => setRemovingId(null),
   })
   const confirmAttendanceMutation = api.queue.markAttendanceConfirmed.useMutation({
@@ -123,6 +143,17 @@ export const GameDetailScreen = ({
     onError: (err) => toast.show('Unable to confirm attendance', { message: err.message }),
     onSettled: () => setConfirmingId(null),
   })
+  const confirmGuestMutation = api.queue.confirmGuestAttendance.useMutation({
+    onSuccess: async ({ gameId: resolvedGameId }) => {
+      await Promise.all([
+        utils.games.list.invalidate(),
+        utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
+      ])
+      toast.show('Guest confirmed')
+    },
+    onError: (err) => toast.show('Unable to confirm guest', { message: err.message }),
+    onSettled: () => setConfirmingGuestId(null),
+  })
 
   const view = useGameDetailState({
     game: data,
@@ -131,8 +162,20 @@ export const GameDetailScreen = ({
   })
   useGameRealtimeSync(data?.id)
 
-  const canManage = !!data && role === 'admin'
-  const draftVisible = !!data && (canManage || data.draftModeEnabled !== false)
+  const canManage = !!data && isAdmin
+  const isApprovedMember = isProfileApproved(profile)
+  const canAddGuest =
+    !!data &&
+    data.status === 'scheduled' &&
+    (canManage || (isApprovedMember && !view.isLocked))
+  const draftEnabled = !!data && data.draftModeEnabled !== false
+  const showDraftCard =
+    draftEnabled &&
+    data.status === 'scheduled' &&
+    (canManage ||
+      (data.draftStatus !== 'completed' &&
+        (view.rosteredCount >= data.capacity || data.draftStatus !== 'pending')))
+  const resultActionLabel = data && canManage ? getResultActionLabel(data) : null
   const userAttendanceConfirmed =
     view.userEntry?.status === 'rostered' &&
     (!data.confirmationEnabled || Boolean(view.userEntry?.attendanceConfirmedAt))
@@ -170,6 +213,57 @@ export const GameDetailScreen = ({
     isGrabOnly: view.isGrabOnly,
     spotsLeft: view.spotsLeft,
   })
+  const showAddPlayer = canManage && data.status === 'scheduled'
+  const rosterActions =
+    canAddGuest || showAddPlayer ? (
+      <XStack ai="center" gap="$1">
+        {canAddGuest ? (
+          <Button
+            size="$2"
+            circular
+            icon={UserPlus}
+            aria-label="Add guest"
+            backgroundColor="$color2"
+            borderWidth={1}
+            borderColor="$color4"
+            pressStyle={{ backgroundColor: '$color3' }}
+            hoverStyle={{ backgroundColor: '$color3' }}
+            onPress={() => setAddGuestOpen(true)}
+          />
+        ) : null}
+        {showAddPlayer ? (
+          <Button
+            size="$2"
+            circular
+            icon={Plus}
+            aria-label="Add player"
+            backgroundColor="$color2"
+            borderWidth={1}
+            borderColor="$color4"
+            pressStyle={{ backgroundColor: '$color3' }}
+            hoverStyle={{ backgroundColor: '$color3' }}
+            onPress={() => setAddPlayerOpen(true)}
+          />
+        ) : null}
+      </XStack>
+    ) : null
+  const handleRemoveEntry = (entry: GameDetail['queue'][number]) => {
+    setRemovingId(entry.id)
+    if (entry.isGuest) {
+      removeGuestMutation.mutate({ queueId: entry.id })
+    } else {
+      removeMutation.mutate({ queueId: entry.id })
+    }
+  }
+  const handleConfirmMember = (profileId: string | null) => {
+    if (!profileId) return
+    setConfirmingId(profileId)
+    confirmAttendanceMutation.mutate({ gameId: data.id, profileId })
+  }
+  const handleConfirmGuest = (queueId: string) => {
+    setConfirmingGuestId(queueId)
+    confirmGuestMutation.mutate({ queueId })
+  }
 
   const handleCta = () => {
     if (!data) return
@@ -229,7 +323,11 @@ export const GameDetailScreen = ({
       >
         {headerSpacer}
         <YStack gap="$3">
-          <GameHeader kickoffLabel={view.kickoffLabel} locationName={data.locationName} status={displayStatus} />
+          <GameHeader
+            kickoffLabel={view.kickoffLabel}
+            locationName={data.locationName}
+            status={displayStatus}
+          />
 
           <YStack gap="$2">
             {isWeb ? (
@@ -245,18 +343,24 @@ export const GameDetailScreen = ({
                 confirmationWindowStart={view.confirmationWindowStart}
               />
             ) : null}
-            {canManage ? <AdminPanel game={data} /> : null}
-            {draftVisible &&
-            !canManage &&
-            data.draftStatus !== 'completed' &&
-            (view.rosteredCount >= data.capacity || data.draftStatus !== 'pending') ? (
+            {showDraftCard ? (
               <DraftStatusCard draftStatus={data.draftStatus} canManage={canManage} draftLink={draftLink} />
             ) : null}
           </YStack>
 
           {shouldShowMatchSummary({ result: data.result, teams: data.teams ?? [], draftStatus: data.draftStatus, showEmptyState: canManage }) ? (
             <>
-              <SectionTitle>Match summary</SectionTitle>
+              <SectionTitle
+                action={
+                  resultActionLabel ? (
+                    <Button size="$2" chromeless iconAfter={ArrowRight} {...resultLink}>
+                      {resultActionLabel}
+                    </Button>
+                  ) : null
+                }
+              >
+                Match summary
+              </SectionTitle>
               <ResultSummary
                 result={data.result}
                 teams={data.teams ?? []}
@@ -269,39 +373,22 @@ export const GameDetailScreen = ({
 
           <SectionTitle
             meta={`${view.rosteredCount}/${data.capacity}`}
-            action={
-              canManage && data.status === 'scheduled' ? (
-                <Button
-                  size="$2"
-                  circular
-                  icon={Plus}
-                  aria-label="Add player"
-                  backgroundColor="$color2"
-                  borderWidth={1}
-                  borderColor="$color4"
-                  pressStyle={{ backgroundColor: '$color3' }}
-                  hoverStyle={{ backgroundColor: '$color3' }}
-                  onPress={() => setAddPlayerOpen(true)}
-                />
-              ) : null
-            }
+            action={rosterActions}
           >
             Roster
           </SectionTitle>
           <RosterSection
             entries={view.rosteredPlayers}
             canManage={canManage}
+            currentProfileId={user?.id ?? null}
             removingId={removingId}
             confirmingId={confirmingId}
+            confirmingGuestId={confirmingGuestId}
             confirmationEnabled={data.confirmationEnabled}
-            onRemovePlayer={(queueId) => {
-              setRemovingId(queueId)
-              removeMutation.mutate({ queueId })
-            }}
-            onConfirmAttendance={(profileId) => {
-              setConfirmingId(profileId)
-              confirmAttendanceMutation.mutate({ gameId: data.id, profileId })
-            }}
+            isConfirmationOpen={view.isConfirmationOpen}
+            onRemoveEntry={handleRemoveEntry}
+            onConfirmAttendance={handleConfirmMember}
+            onConfirmGuest={handleConfirmGuest}
           />
 
           <SectionTitle>Waitlist</SectionTitle>
@@ -309,11 +396,9 @@ export const GameDetailScreen = ({
             entries={view.waitlistedPlayers}
             emptyLabel="No one on the waitlist yet."
             canManage={canManage}
+            currentProfileId={user?.id ?? null}
             removingId={removingId}
-            onRemovePlayer={(queueId) => {
-              setRemovingId(queueId)
-              removeMutation.mutate({ queueId })
-            }}
+            onRemoveEntry={handleRemoveEntry}
           />
 
           <SectionTitle>Community guidelines</SectionTitle>
@@ -336,6 +421,9 @@ export const GameDetailScreen = ({
         gameId={data.id}
         gameName={data.name}
       />
+      {canAddGuest ? (
+        <AddGuestSheet open={addGuestOpen} onOpenChange={setAddGuestOpen} gameId={data.id} />
+      ) : null}
       {canManage ? (
         <AddPlayerSheet
           open={addPlayerOpen}
@@ -559,6 +647,18 @@ const getDraftStatusContent = (
         hint: canManage ? 'Tap to set captains' : 'Captains coming soon',
       }
   }
+}
+
+const getResultActionLabel = (game: GameDetail) => {
+  if (game.status === 'cancelled') return null
+  const teamsReady = game.teams.length >= 2
+  const captainsReady = game.captains.length >= 2
+  if (!game.result) {
+    if (game.draftStatus !== 'completed') return null
+    if (!teamsReady || !captainsReady) return null
+    return 'Report result'
+  }
+  return game.result.status !== 'confirmed' ? 'Confirm result' : 'Update result'
 }
 
 const SectionTitle = ({

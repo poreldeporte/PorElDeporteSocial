@@ -9,10 +9,12 @@ import {
   notifyCaptainTurn,
   notifyCaptainsAssigned,
   notifyGameCancelled,
+  notifyGuestNeedsConfirmation,
   notifyWaitlistDemoted,
   notifyWaitlistPromoted,
 } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
+import { formatProfileName } from '../utils/profileName'
 
 type GameRow = Database['public']['Tables']['games']['Row']
 type QueueRow = Database['public']['Tables']['game_queue']['Row']
@@ -25,6 +27,7 @@ type CommunitySummary = Pick<
   CommunityRow,
   | 'id'
   | 'community_timezone'
+  | 'community_priority_enabled'
   | 'confirmation_window_hours_before_kickoff'
   | 'confirmation_reminders_local_times'
   | 'crunch_time_enabled'
@@ -33,7 +36,15 @@ type CommunitySummary = Pick<
 >
 
 type QueueWithProfile = QueueRow & {
-  profiles: Pick<ProfileRow, 'id' | 'name' | 'avatar_url' | 'jersey_number' | 'position'> | null
+  guest_name: string | null
+  guest_phone: string | null
+  guest_notes: string | null
+  added_by_profile_id: string | null
+  added_by: Pick<ProfileRow, 'id' | 'name' | 'first_name' | 'last_name'> | null
+  profiles: Pick<
+    ProfileRow,
+    'id' | 'name' | 'first_name' | 'last_name' | 'avatar_url' | 'jersey_number' | 'position'
+  > | null
 }
 
 type GameResultRow = {
@@ -47,9 +58,20 @@ type GameResultRow = {
 }
 
 type GameTeamMemberRow = {
-  profile_id: string
+  profile_id: string | null
+  guest_queue_id: string | null
   pick_order: number | null
-  profiles: Pick<ProfileRow, 'id' | 'name' | 'avatar_url' | 'jersey_number' | 'position'> | null
+  profiles: Pick<
+    ProfileRow,
+    'id' | 'name' | 'first_name' | 'last_name' | 'avatar_url' | 'jersey_number' | 'position'
+  > | null
+  game_queue: {
+    id: string
+    guest_name: string | null
+    guest_phone: string | null
+    guest_notes: string | null
+    added_by_profile_id: string | null
+  } | null
 }
 
 type GameTeamRow = {
@@ -62,7 +84,9 @@ type GameTeamRow = {
 type GameDetailRow = GameRow & {
   communities: CommunitySummary | null
   game_queue: QueueWithProfile[] | null
-  game_captains: (CaptainRow & { profiles: Pick<ProfileRow, 'id' | 'name' | 'avatar_url'> | null })[] | null
+  game_captains: (CaptainRow & {
+    profiles: Pick<ProfileRow, 'id' | 'name' | 'first_name' | 'last_name' | 'avatar_url'> | null
+  })[] | null
   game_results: GameResultRow[] | GameResultRow | null
   game_teams: GameTeamRow[] | null
 }
@@ -70,7 +94,7 @@ type GameDetailRow = GameRow & {
 type GameListTeamRow = {
   id: string
   draft_order: number
-  profiles: Pick<ProfileRow, 'id' | 'name'> | null
+  profiles: Pick<ProfileRow, 'id' | 'name' | 'first_name' | 'last_name'> | null
 }
 
 type GameListRow = GameRow & {
@@ -105,6 +129,7 @@ const communityFields = `
   communities!games_community_id_fkey (
     id,
     community_timezone,
+    community_priority_enabled,
     confirmation_window_hours_before_kickoff,
     confirmation_reminders_local_times,
     crunch_time_enabled,
@@ -139,7 +164,9 @@ const listHistorySelect = `
     draft_order,
     profiles!game_teams_captain_profile_id_fkey (
       id,
-      name
+      name,
+      first_name,
+      last_name
     )
   )
 `
@@ -226,7 +253,7 @@ export const gamesRouter = createTRPCRouter({
         .map((team) => ({
           id: team.id,
           draftOrder: team.draft_order,
-          captainName: team.profiles?.name ?? null,
+          captainName: formatProfileName(team.profiles, null),
         }))
         .sort((a, b) => a.draftOrder - b.draftOrder)
       return {
@@ -266,6 +293,7 @@ export const gamesRouter = createTRPCRouter({
           ? {
               id: game.communities.id,
               timezone: game.communities.community_timezone,
+              communityPriorityEnabled: game.communities.community_priority_enabled,
               confirmationWindowHoursBeforeKickoff:
                 game.communities.confirmation_window_hours_before_kickoff,
               confirmationRemindersLocalTimes: game.communities.confirmation_reminders_local_times,
@@ -296,9 +324,21 @@ export const gamesRouter = createTRPCRouter({
             promoted_at,
             dropped_at,
             attendance_confirmed_at,
-            profiles (
+            guest_name,
+            guest_phone,
+            guest_notes,
+            added_by_profile_id,
+            added_by:profiles!game_queue_added_by_profile_id_fkey (
               id,
               name,
+              first_name,
+              last_name
+            ),
+            profiles!game_queue_profile_id_fkey (
+              id,
+              name,
+              first_name,
+              last_name,
               avatar_url,
               jersey_number,
               position
@@ -310,6 +350,8 @@ export const gamesRouter = createTRPCRouter({
             profiles (
               id,
               name,
+              first_name,
+              last_name,
               avatar_url,
               jersey_number
             )
@@ -329,13 +371,23 @@ export const gamesRouter = createTRPCRouter({
             captain_profile_id,
             game_team_members (
               profile_id,
+              guest_queue_id,
               pick_order,
-            profiles!game_team_members_profile_id_fkey (
-              id,
-              name,
-              avatar_url,
-              jersey_number,
-              position
+              profiles!game_team_members_profile_id_fkey (
+                id,
+                name,
+                first_name,
+                last_name,
+                avatar_url,
+                jersey_number,
+                position
+              ),
+              game_queue!game_team_members_guest_queue_id_fkey (
+                id,
+                guest_name,
+                guest_phone,
+                guest_notes,
+                added_by_profile_id
               )
             )
           )
@@ -353,23 +405,44 @@ export const gamesRouter = createTRPCRouter({
       }
 
       const game = data as GameDetailRow
-      const baseQueue = (game.game_queue ?? []).map((entry) => ({
-        id: entry.id,
-        status: entry.status,
-        joinedAt: entry.joined_at,
-        promotedAt: entry.promoted_at,
-        droppedAt: entry.dropped_at,
-        profileId: entry.profile_id,
-        attendanceConfirmedAt: entry.attendance_confirmed_at,
-        player: {
-          id: entry.profiles?.id ?? entry.profile_id,
-          name: entry.profiles?.name ?? null,
-          avatarUrl: entry.profiles?.avatar_url ?? null,
-          jerseyNumber: entry.profiles?.jersey_number ?? null,
-          position: entry.profiles?.position ?? null,
-        },
-      }))
-      const profileIdSet = new Set(baseQueue.map((entry) => entry.profileId))
+      const baseQueue = (game.game_queue ?? []).map((entry) => {
+        const isGuest = !entry.profile_id
+        const playerId = entry.profile_id ?? entry.id
+        const guest =
+          isGuest
+            ? {
+                name: entry.guest_name ?? 'Guest',
+                phone: entry.guest_phone ?? null,
+                notes: entry.guest_notes ?? null,
+                addedByProfileId: entry.added_by_profile_id ?? null,
+                addedByName: formatProfileName(entry.added_by, null),
+              }
+            : null
+        const playerName = isGuest ? guest?.name ?? 'Guest' : formatProfileName(entry.profiles, null)
+        return {
+          id: entry.id,
+          status: entry.status,
+          joinedAt: entry.joined_at,
+          promotedAt: entry.promoted_at,
+          droppedAt: entry.dropped_at,
+          profileId: entry.profile_id,
+          playerId,
+          isGuest,
+          guest,
+          attendanceConfirmedAt: entry.attendance_confirmed_at,
+          player: {
+            id: playerId,
+            name: playerName,
+            avatarUrl: entry.profiles?.avatar_url ?? null,
+            jerseyNumber: entry.profiles?.jersey_number ?? null,
+            position: entry.profiles?.position ?? null,
+          },
+        }
+      })
+      const profileIds = baseQueue
+        .map((entry) => entry.profileId)
+        .filter((profileId): profileId is string => Boolean(profileId))
+      const profileIdSet = new Set(profileIds)
       let recordMap = new Map<string, { wins: number; losses: number; recent: string[] }>()
       if (profileIdSet.size > 0) {
         const { data: recordRows, error: recordError } = await ctx.supabase.rpc('get_player_recent_records', {
@@ -387,6 +460,12 @@ export const gamesRouter = createTRPCRouter({
         )
       }
       const queue = baseQueue.map((entry) => {
+        if (!entry.profileId) {
+          return {
+            ...entry,
+            record: null,
+          }
+        }
         const record = recordMap.get(entry.profileId)
         return {
           ...entry,
@@ -399,7 +478,7 @@ export const gamesRouter = createTRPCRouter({
         profileId: captain.profile_id,
         player: {
           id: captain.profiles?.id ?? captain.profile_id,
-          name: captain.profiles?.name ?? null,
+          name: formatProfileName(captain.profiles, null),
           avatarUrl: captain.profiles?.avatar_url ?? null,
           jerseyNumber: captain.profiles?.jersey_number ?? null,
         },
@@ -409,17 +488,35 @@ export const gamesRouter = createTRPCRouter({
         name: team.name,
         captainProfileId: team.captain_profile_id,
         members: (team.game_team_members ?? [])
-          .map((member) => ({
-            profileId: member.profile_id,
-            pickOrder: member.pick_order,
-            player: {
-              id: member.profiles?.id ?? member.profile_id,
-              name: member.profiles?.name ?? null,
-              avatarUrl: member.profiles?.avatar_url ?? null,
-              jerseyNumber: member.profiles?.jersey_number ?? null,
-              position: member.profiles?.position ?? null,
-            },
-          }))
+          .map((member) => {
+            const isGuest = !member.profile_id && Boolean(member.guest_queue_id)
+            const guest =
+              isGuest
+                ? {
+                    name: member.game_queue?.guest_name ?? 'Guest',
+                    phone: member.game_queue?.guest_phone ?? null,
+                    notes: member.game_queue?.guest_notes ?? null,
+                    addedByProfileId: member.game_queue?.added_by_profile_id ?? null,
+                  }
+                : null
+            const playerId =
+              member.profile_id ?? member.guest_queue_id ?? member.game_queue?.id ?? null
+            const playerName = isGuest ? guest?.name ?? 'Guest' : formatProfileName(member.profiles, null)
+            return {
+              profileId: member.profile_id,
+              guestQueueId: member.guest_queue_id,
+              isGuest,
+              guest,
+              pickOrder: member.pick_order,
+              player: {
+                id: playerId ?? member.profile_id ?? member.guest_queue_id ?? '',
+                name: playerName,
+                avatarUrl: isGuest ? null : member.profiles?.avatar_url ?? null,
+                jerseyNumber: isGuest ? null : member.profiles?.jersey_number ?? null,
+                position: isGuest ? null : member.profiles?.position ?? null,
+              },
+            }
+          })
           .sort((a, b) => {
             const aOrder = typeof a.pickOrder === 'number' ? a.pickOrder : Number.MAX_SAFE_INTEGER
             const bOrder = typeof b.pickOrder === 'number' ? b.pickOrder : Number.MAX_SAFE_INTEGER
@@ -487,6 +584,7 @@ export const gamesRouter = createTRPCRouter({
           ? {
               id: game.communities.id,
               timezone: game.communities.community_timezone,
+              communityPriorityEnabled: game.communities.community_priority_enabled,
               confirmationWindowHoursBeforeKickoff:
                 game.communities.confirmation_window_hours_before_kickoff,
               confirmationRemindersLocalTimes: game.communities.confirmation_reminders_local_times,
@@ -613,10 +711,20 @@ export const gamesRouter = createTRPCRouter({
 
       const promotedProfileIds = (reconcileData?.promoted_profile_ids ?? []) as string[]
       const demotedProfileIds = (reconcileData?.demoted_profile_ids ?? []) as string[]
+      const promotedGuestQueueIds = (reconcileData?.promoted_guest_queue_ids ?? []) as string[]
 
       await Promise.all(
         promotedProfileIds.map((profileId) =>
           notifyWaitlistPromoted({ supabaseAdmin, gameId: input.id, profileId }).catch(() => {})
+        )
+      )
+      await Promise.all(
+        promotedGuestQueueIds.map((guestQueueId) =>
+          notifyGuestNeedsConfirmation({
+            supabaseAdmin,
+            gameId: input.id,
+            guestQueueId,
+          }).catch(() => {})
         )
       )
       await Promise.all(
@@ -625,7 +733,7 @@ export const gamesRouter = createTRPCRouter({
         )
       )
 
-      if (promotedProfileIds.length || demotedProfileIds.length) {
+      if (promotedProfileIds.length || demotedProfileIds.length || promotedGuestQueueIds.length) {
         const { data: draftRow, error: draftError } = await supabaseAdmin
           .from('games')
           .select('draft_status')
@@ -678,6 +786,21 @@ export const gamesRouter = createTRPCRouter({
       } catch {}
 
       return data
+    }),
+  delete: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await ensureAdmin(ctx.supabase, ctx.user.id)
+
+      const { error } = await supabaseAdmin.from('games').delete().eq('id', input.id)
+      if (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message ?? 'Unable to delete game',
+        })
+      }
+
+      return { ok: true }
     }),
 
   assignCaptains: protectedProcedure

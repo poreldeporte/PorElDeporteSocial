@@ -18,8 +18,7 @@ type ScrollHeaderProps = {
 export const CreateScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const pathname = usePathname()
   const router = useRouter()
-  const { role } = useUser()
-  const isAdmin = role === 'admin'
+  const { isAdmin } = useUser()
 
   const handleSuccess = () => {
     if (pathname === '/create') {

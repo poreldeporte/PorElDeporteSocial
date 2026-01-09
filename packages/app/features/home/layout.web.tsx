@@ -14,6 +14,7 @@ import { ChevronLeft, Plus, ShoppingBag } from '@tamagui/lucide-icons'
 import { getScreenLayout, type ScreenLayoutId } from 'app/navigation/layouts'
 import { getRoutesById, navRoutes, profileMenuRouteIds, webTabRouteIds } from 'app/navigation/routes'
 import { usePathname } from 'app/utils/usePathname'
+import { formatPhoneDisplay } from 'app/utils/phone'
 import { useUser } from 'app/utils/useUser'
 import { useState } from 'react'
 import { SolitoImage } from 'solito/image'
@@ -69,8 +70,7 @@ export const HomeLayout = ({
   const layoutBackHref =
     typeof layoutBackConfig === 'function' ? layoutBackConfig(pathname) : layoutBackConfig
   const derivedBackHref = backHref ?? layoutBackHref
-  const { role } = useUser()
-  const isAdmin = role === 'admin'
+  const { isAdmin } = useUser()
   return (
     <YStack f={1} bg="$color1">
       <Header
@@ -114,8 +114,7 @@ const UserAvatar = () => {
 }
 
 const CtaButton = (props: ButtonProps) => {
-  const { role } = useUser()
-  const isAdmin = role === 'admin'
+  const { isAdmin } = useUser()
   const createRoute = navRoutes.create
   if (!isAdmin) return null
   return (
@@ -153,7 +152,7 @@ const ProfileMenu = () => {
           <YStack>
             <SizableText fontWeight="600">{displayName || 'Member'}</SizableText>
             <SizableText theme="alt2" size="$2">
-              {profile?.email ?? user?.phone ?? user?.email ?? ''}
+              {profile?.email ?? formatPhoneDisplay(user?.phone) ?? user?.email ?? ''}
             </SizableText>
           </YStack>
           <Separator />

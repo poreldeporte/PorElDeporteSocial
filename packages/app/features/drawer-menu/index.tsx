@@ -2,6 +2,7 @@ import { Avatar, Paragraph, Settings, XStack, YStack, getTokens, useWindowDimens
 import { DrawerContentScrollView } from '@react-navigation/drawer'
 import { Box, Cog, Milestone, ShoppingCart, User, Users } from '@tamagui/lucide-icons'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { formatProfileName } from 'app/utils/profileName'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 import { SolitoImage } from 'solito/image'
@@ -9,7 +10,7 @@ import { useLink } from 'solito/link'
 
 export function DrawerMenu(props) {
   const { profile, avatarUrl } = useUser()
-  const name = profile?.name
+  const name = formatProfileName(profile, 'No Name') ?? 'No Name'
   const insets = useSafeAreaInsets()
   const height = useWindowDimensions().height
 

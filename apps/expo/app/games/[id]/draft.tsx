@@ -1,9 +1,12 @@
-import { ChevronLeft } from '@tamagui/lucide-icons'
+import { useState } from 'react'
+
+import { ChevronLeft, RotateCcw } from '@tamagui/lucide-icons'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { getScreenLayout } from '@my/app/navigation/layouts'
+import { useUser } from '@my/app/utils/useUser'
 import { GameDraftScreen } from 'app/features/games/draft-screen'
-import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { FloatingHeaderLayout } from '../../../components/FloatingHeaderLayout'
 
@@ -13,6 +16,17 @@ export default function Screen() {
   const params = useLocalSearchParams<{ id?: string }>()
   const id = Array.isArray(params.id) ? params.id[0] : params.id
   const router = useRouter()
+  const { isAdmin } = useUser()
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const rightActions = isAdmin
+    ? [
+        {
+          icon: RotateCcw,
+          onPress: () => setResetConfirmOpen(true),
+          variant: 'dark' as const,
+        },
+      ]
+    : undefined
 
   if (!id) return null
 
@@ -24,6 +38,7 @@ export default function Screen() {
           title={layout.title}
           leftIcon={ChevronLeft}
           onPressLeft={() => router.back()}
+          rightActions={rightActions}
         >
           {({ scrollProps, HeaderSpacer, topInset }) => (
             <GameDraftScreen
@@ -31,6 +46,8 @@ export default function Screen() {
               scrollProps={scrollProps}
               headerSpacer={HeaderSpacer}
               topInset={topInset}
+              resetConfirmOpen={resetConfirmOpen}
+              onResetConfirmOpenChange={setResetConfirmOpen}
             />
           )}
         </FloatingHeaderLayout>
