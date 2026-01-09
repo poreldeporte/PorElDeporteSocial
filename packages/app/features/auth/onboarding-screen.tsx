@@ -1,4 +1,4 @@
-import { Button, H2, Spinner, YStack } from '@my/ui/public'
+import { AnimatePresence, Button, H2, Spinner, YStack } from '@my/ui/public'
 import { maxGringoLanding } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
@@ -42,6 +42,23 @@ export const OnboardingScreen = () => {
     <YStack f={1} bg="$color1" overflow="hidden">
       <ImageBackground source={maxGringoLanding} resizeMode="cover" style={{ flex: 1 }}>
         <YStack f={1} position="relative">
+          <AnimatePresence>
+            {isNavigating ? (
+              <YStack
+                key="auth-transition"
+                animation="slow"
+                enterStyle={{ opacity: 0 }}
+                exitStyle={{ opacity: 0 }}
+                position="absolute"
+                top={0}
+                right={0}
+                bottom={0}
+                left={0}
+                backgroundColor="rgba(0,0,0,0.12)"
+                pointerEvents="none"
+              />
+            ) : null}
+          </AnimatePresence>
           <YStack position="absolute" top={paddingTop} right={sidePadding} ai="flex-end">
             <H2
               fontSize={56}
@@ -112,10 +129,11 @@ export const OnboardingScreen = () => {
               w="100%"
               disabled={isNavigating}
               iconAfter={isNavigating ? <Spinner size="small" color="#000" /> : undefined}
+              disabledStyle={{ backgroundColor: '#fff', borderColor: '#fff', opacity: 0.95 }}
               onPress={handleGetStarted}
               pressStyle={{ opacity: 0.85 }}
             >
-              Get started
+              {isNavigating ? 'Opening…' : 'Get started'}
             </Button>
           </YStack>
         </YStack>

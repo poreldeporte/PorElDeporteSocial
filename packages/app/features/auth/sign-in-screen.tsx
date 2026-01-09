@@ -1,5 +1,6 @@
 import {
   Button,
+  AnimatePresence,
   FieldError,
   FormWrapper,
   H2,
@@ -186,42 +187,49 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
     <YStack f={1} bg="$color1">
       <FormWrapper f={1} jc="space-between" gap="$0">
       <FormWrapper.Body p="$0" scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
-          {step === 'phone' ? (
-            <YStack
-              key="phone-step"
-              px={SCREEN_CONTENT_PADDING.horizontal}
-              gap="$5"
-              ai="center"
-              style={{ paddingTop: contentPaddingTop }}
-            >
-              <AuthHeader title={title} subtitle={subtitle} />
-              <Controller
-                control={phoneForm.control}
-                name="phone"
-                render={({ field, fieldState }) => (
-                  <PhoneInputField
-                    value={field.value}
-                    onChange={(next) => {
-                      field.onChange(next)
-                      phoneForm.clearErrors('phone')
-                    }}
-                    onBlur={field.onBlur}
-                    error={fieldState.error?.message}
-                    country={country}
-                    onCountryChange={setCountry}
-                    selectedCountry={selectedCountry}
-                    options={countryOptions}
-                    disabled={status !== 'idle'}
-                  />
-                )}
-              />
-            </YStack>
-          ) : (
+          <AnimatePresence>
+            {step === 'phone' ? (
+              <YStack
+                key="phone-step"
+                px={SCREEN_CONTENT_PADDING.horizontal}
+                gap="$5"
+                ai="center"
+                animation="slow"
+                enterStyle={{ opacity: 0, y: 10 }}
+                exitStyle={{ opacity: 0, y: -10 }}
+                style={{ paddingTop: contentPaddingTop }}
+              >
+                <AuthHeader title={title} subtitle={subtitle} />
+                <Controller
+                  control={phoneForm.control}
+                  name="phone"
+                  render={({ field, fieldState }) => (
+                    <PhoneInputField
+                      value={field.value}
+                      onChange={(next) => {
+                        field.onChange(next)
+                        phoneForm.clearErrors('phone')
+                      }}
+                      onBlur={field.onBlur}
+                      error={fieldState.error?.message}
+                      country={country}
+                      onCountryChange={setCountry}
+                      selectedCountry={selectedCountry}
+                      options={countryOptions}
+                      disabled={status !== 'idle'}
+                    />
+                  )}
+                />
+              </YStack>
+            ) : (
               <YStack
                 key="code-step"
                 px={SCREEN_CONTENT_PADDING.horizontal}
                 gap="$5"
                 ai="center"
+                animation="slow"
+                enterStyle={{ opacity: 0, y: 10 }}
+                exitStyle={{ opacity: 0, y: -10 }}
                 style={{ paddingTop: contentPaddingTop }}
               >
                 <AuthHeader
@@ -232,17 +240,17 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
                   control={codeForm.control}
                   name="code"
                   defaultValue=""
-                render={({ field, fieldState }) => (
-                  <OtpInputField
-                    value={field.value}
-                    onChange={(next) => {
-                      field.onChange(next)
-                      codeForm.clearErrors('code')
-                    }}
-                    onComplete={(next) => {
-                      if (status === 'idle') verifyCode(next)
-                    }}
-                    error={fieldState.error?.message}
+                  render={({ field, fieldState }) => (
+                    <OtpInputField
+                      value={field.value}
+                      onChange={(next) => {
+                        field.onChange(next)
+                        codeForm.clearErrors('code')
+                      }}
+                      onComplete={(next) => {
+                        if (status === 'idle') verifyCode(next)
+                      }}
+                      error={fieldState.error?.message}
                       disabled={status !== 'idle'}
                     />
                   )}
@@ -254,23 +262,24 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
                   <Button
                     chromeless
                     size="$2"
-                  onPress={resendCode}
-                  disabled={resendSeconds > 0 || status !== 'idle'}
-                  color={resendSeconds > 0 ? '$color10' : PRIMARY_COLOR}
-                >
-                  {resendSeconds > 0 ? `Resend code in ${resendSeconds}s` : 'Send new code'}
-                </Button>
-                <XStack ai="center" gap="$1">
-                  <Paragraph fontSize={15} theme="alt2">
-                    Not your number?
-                  </Paragraph>
-                  <Button chromeless size="$2" onPress={resetToPhone} color={PRIMARY_COLOR}>
-                    Edit number
+                    onPress={resendCode}
+                    disabled={resendSeconds > 0 || status !== 'idle'}
+                    color={resendSeconds > 0 ? '$color10' : PRIMARY_COLOR}
+                  >
+                    {resendSeconds > 0 ? `Resend code in ${resendSeconds}s` : 'Send new code'}
                   </Button>
-                </XStack>
+                  <XStack ai="center" gap="$1">
+                    <Paragraph fontSize={15} theme="alt2">
+                      Not your number?
+                    </Paragraph>
+                    <Button chromeless size="$2" onPress={resetToPhone} color={PRIMARY_COLOR}>
+                      Edit number
+                    </Button>
+                  </XStack>
+                </YStack>
               </YStack>
-            </YStack>
-          )}
+            )}
+          </AnimatePresence>
         </FormWrapper.Body>
         <FormWrapper.Footer pb={SCREEN_CONTENT_PADDING.bottom} px={SCREEN_CONTENT_PADDING.horizontal}>
           <Button
