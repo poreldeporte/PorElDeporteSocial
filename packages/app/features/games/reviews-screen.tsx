@@ -24,8 +24,7 @@ export const GameReviewsScreen = ({
   scrollProps,
   headerSpacer,
 }: { gameId: string } & ScrollHeaderProps) => {
-  const { role, isLoading: isLoadingUser } = useUser()
-  const isAdmin = role === 'admin'
+  const { isAdmin, isLoading: isLoadingUser } = useUser()
   const insets = useSafeAreaInsets()
   const { data, isLoading, error, refetch } = api.reviews.listByGame.useQuery(
     { gameId },

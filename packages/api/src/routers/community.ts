@@ -12,6 +12,7 @@ type CommunityRow = Database['public']['Tables']['communities']['Row']
 const communityFields = `
   id,
   community_timezone,
+  community_priority_enabled,
   confirmation_window_hours_before_kickoff,
   confirmation_reminders_local_times,
   crunch_time_enabled,
@@ -21,6 +22,7 @@ const communityFields = `
 
 const updateDefaultsInput = z.object({
   communityTimezone: z.string().min(1).optional(),
+  communityPriorityEnabled: z.boolean().optional(),
   confirmationWindowHoursBeforeKickoff: z.number().int().min(0).optional(),
   confirmationRemindersLocalTimes: z.array(z.string()).optional(),
   crunchTimeEnabled: z.boolean().optional(),
@@ -51,6 +53,7 @@ export const communityRouter = createTRPCRouter({
     return {
       id: row.id,
       timezone: row.community_timezone,
+      communityPriorityEnabled: row.community_priority_enabled,
       confirmationWindowHoursBeforeKickoff: row.confirmation_window_hours_before_kickoff,
       confirmationRemindersLocalTimes: row.confirmation_reminders_local_times,
       crunchTimeEnabled: row.crunch_time_enabled,
@@ -81,6 +84,9 @@ export const communityRouter = createTRPCRouter({
 
     const payload: Database['public']['Tables']['communities']['Update'] = {}
     if (input.communityTimezone !== undefined) payload.community_timezone = input.communityTimezone
+    if (input.communityPriorityEnabled !== undefined) {
+      payload.community_priority_enabled = input.communityPriorityEnabled
+    }
     if (input.confirmationWindowHoursBeforeKickoff !== undefined) {
       payload.confirmation_window_hours_before_kickoff = input.confirmationWindowHoursBeforeKickoff
     }
@@ -128,6 +134,7 @@ export const communityRouter = createTRPCRouter({
     return {
       id: data.id,
       timezone: data.community_timezone,
+      communityPriorityEnabled: data.community_priority_enabled,
       confirmationWindowHoursBeforeKickoff: data.confirmation_window_hours_before_kickoff,
       confirmationRemindersLocalTimes: data.confirmation_reminders_local_times,
       crunchTimeEnabled: data.crunch_time_enabled,

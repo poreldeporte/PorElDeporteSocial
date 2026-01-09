@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { CHAT_REACTION_EMOJIS } from 'app/constants/chat'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
+import { formatProfileName } from '../utils/profileName'
 
 const reactionEnum = z.enum(CHAT_REACTION_EMOJIS)
 
@@ -11,10 +12,7 @@ const resolveDisplayName = (profile?: {
   first_name: string | null
   last_name: string | null
 }) => {
-  if (!profile) return 'Member'
-  if (profile.name && profile.name.trim()) return profile.name
-  const combined = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
-  return combined || 'Member'
+  return formatProfileName(profile, 'Member')
 }
 
 export const chatRouter = createTRPCRouter({
@@ -243,7 +241,7 @@ export const chatRouter = createTRPCRouter({
         throw profileError
       }
 
-      if (profile?.role !== 'admin') {
+      if (profile?.role !== 'admin' && profile?.role !== 'owner') {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Admins only' })
       }
 

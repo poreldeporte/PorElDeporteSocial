@@ -12,6 +12,7 @@ type RecordDraftEventOptions = {
   supabaseAdmin: SupabaseClient<Database>
   teamId?: string | null
   profileId?: string | null
+  guestQueueId?: string | null
   createdBy?: string | null
   payload?: Record<string, unknown>
 }
@@ -22,6 +23,7 @@ export const recordDraftEvent = async ({
   supabaseAdmin,
   teamId = null,
   profileId = null,
+  guestQueueId = null,
   createdBy = null,
   payload = {},
 }: RecordDraftEventOptions) => {
@@ -29,6 +31,7 @@ export const recordDraftEvent = async ({
     game_id: gameId,
     team_id: teamId,
     profile_id: profileId,
+    guest_queue_id: guestQueueId,
     action,
     payload,
     created_by: createdBy,

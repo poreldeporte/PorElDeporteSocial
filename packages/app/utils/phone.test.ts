@@ -1,6 +1,6 @@
 import {
-  formatE164ForDisplay,
   formatPhoneInput,
+  formatPhoneDisplay,
   getPhoneCountryOptions,
   parsePhoneToE164,
   resetPhoneCountryOptions,
@@ -8,11 +8,11 @@ import {
 
 describe('phone utils', () => {
   it('formats US numbers as you type', () => {
-    expect(formatPhoneInput('3055551212', 'US')).toBe('(305) 555-1212')
+    expect(formatPhoneInput('3055551212', 'US')).toBe('(305)555-1212')
   })
 
   it('parses E.164 for a valid US number', () => {
-    expect(parsePhoneToE164('(305) 555-1212', 'US')).toBe('+13055551212')
+    expect(parsePhoneToE164('3055551212', 'US')).toBe('+13055551212')
   })
 
   it('returns digits when formatting fails', () => {
@@ -20,7 +20,7 @@ describe('phone utils', () => {
   })
 
   it('formats E.164 for display', () => {
-    expect(formatE164ForDisplay('+13055551212')).toBe('+1 305 555 1212')
+    expect(formatPhoneDisplay('+13055551212')).toBe('+1(305)555-1212')
   })
 
   it('includes US in the country list', () => {

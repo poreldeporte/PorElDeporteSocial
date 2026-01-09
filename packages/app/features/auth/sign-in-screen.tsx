@@ -1,3 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+import { SolitoImage } from 'solito/image'
+import { useRouter } from 'solito/router'
+
 import {
   Button,
   FieldError,
@@ -14,24 +19,22 @@ import {
 } from '@my/ui/public'
 import { pedLogo } from 'app/assets'
 import { CountryPicker } from 'app/components/CountryPicker'
+import { UsPhoneMaskInput } from 'app/components/UsPhoneMaskInput'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
 import { PROFILE_COMPLETION_FIELDS, isProfileComplete } from 'app/utils/auth/profileCompletion'
 import {
-  formatE164ForDisplay,
+  formatPhoneDisplay,
   formatPhoneInput,
   getPhoneCountryOptions,
+  normalizePhoneDigits,
   parsePhoneToE164,
   type PhoneCountryOption,
 } from 'app/utils/phone'
+import { usePathname } from 'app/utils/usePathname'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
-import { usePathname } from 'app/utils/usePathname'
-import { useEffect, useRef, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import { SolitoImage } from 'solito/image'
-import { useRouter } from 'solito/router'
 
 const RESEND_SECONDS = 30
 const DEFAULT_COUNTRY: PhoneCountryOption['code'] = 'US'
@@ -65,7 +68,6 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const countryOptions = getPhoneCountryOptions()
   const selectedCountry =
     countryOptions.find((option) => option.code === country) ?? countryOptions[0]
-  const phoneValue = phoneForm.watch('phone')
   const codeValue = codeForm.watch('code')
   const codeDigits = codeValue?.replace(/\D/g, '') ?? ''
 
@@ -80,10 +82,11 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   }, [codeForm, pathname, phoneForm])
 
   useEffect(() => {
-    if (!phoneValue) return
-    const formatted = formatPhoneInput(phoneValue, country)
-    if (formatted !== phoneValue) phoneForm.setValue('phone', formatted)
-  }, [country, phoneForm, phoneValue])
+    const current = phoneForm.getValues('phone')
+    if (!current) return
+    const normalized = normalizePhoneDigits(current, country)
+    if (normalized !== current) phoneForm.setValue('phone', normalized)
+  }, [country, phoneForm])
 
   useEffect(() => {
     if (step !== 'code' || resendSeconds <= 0) return
@@ -175,7 +178,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
     setStep('phone')
   }
 
-  const phoneDisplay = phone ? formatE164ForDisplay(phone) : 'your number'
+  const phoneDisplay = phone ? formatPhoneDisplay(phone) : 'your number'
   const contentPaddingTop = SCREEN_CONTENT_PADDING.top
   const submitDisabled = status !== 'idle'
 
@@ -364,7 +367,7 @@ const PhoneInputField = ({
   options,
   disabled,
 }: PhoneInputFieldProps) => {
-  const placeholder = formatPhoneInput('2015550123', country) || '201-555-0123'
+  const placeholder = formatPhoneInput('2015550123', country) || '2015550123'
 
   return (
     <YStack gap="$2" w="100%">
@@ -394,28 +397,40 @@ const PhoneInputField = ({
             variant="dial"
             searchPlaceholder="Search country or code"
           />
-          <Input
-            value={value ?? ''}
-            onChangeText={(text) => onChange(formatPhoneInput(text, country))}
-            onBlur={onBlur}
-            placeholder={placeholder}
-            placeholderTextColor="$color10"
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            keyboardType="phone-pad"
-            inputMode="numeric"
-            maxLength={24}
-            selectionColor={PRIMARY_COLOR}
-            caretColor={PRIMARY_COLOR}
-            disabled={disabled}
-            flex={1}
-            fontSize={17}
-            color="$color"
-            borderWidth={0}
-            backgroundColor="transparent"
-            px={0}
-            py={0}
-          />
+          {country === 'US' ? (
+            <UsPhoneMaskInput
+              value={value ?? ''}
+              onChange={onChange}
+              onBlur={onBlur}
+              disabled={disabled}
+              textProps={{ fontSize: 17, color: '$color' }}
+              inputProps={{ selectionColor: PRIMARY_COLOR, caretColor: PRIMARY_COLOR }}
+            />
+          ) : (
+            <Input
+              value={value ?? ''}
+              onChangeText={(text) => onChange(normalizePhoneDigits(text, country))}
+              onBlur={onBlur}
+              placeholder={placeholder}
+              placeholderTextColor="$color10"
+              autoComplete="tel"
+              suppressHydrationWarning
+              textContentType="telephoneNumber"
+              keyboardType="phone-pad"
+              inputMode="numeric"
+              maxLength={24}
+              selectionColor={PRIMARY_COLOR}
+              caretColor={PRIMARY_COLOR}
+              disabled={disabled}
+              flex={1}
+              fontSize={17}
+              color="$color"
+              borderWidth={0}
+              backgroundColor="transparent"
+              px={0}
+              py={0}
+            />
+          )}
         </XStack>
       </YStack>
       <FieldError message={error} />

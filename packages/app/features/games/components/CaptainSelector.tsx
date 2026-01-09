@@ -98,10 +98,12 @@ export const CaptainSelector = ({ gameId, rosteredPlayers, captains }: CaptainSe
 
   const rows = useMemo(
     () =>
-      rosteredPlayers.map((player) => ({
-        id: player.profileId,
-        name: player.player.name ?? 'Member',
-      })),
+      rosteredPlayers
+        .filter((player) => Boolean(player.profileId))
+        .map((player) => ({
+          id: player.profileId as string,
+          name: player.player.name ?? 'Member',
+        })),
     [rosteredPlayers]
   )
   const nameById = useMemo(() => new Map(rows.map((row) => [row.id, row.name])), [rows])

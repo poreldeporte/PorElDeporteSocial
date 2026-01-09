@@ -19,10 +19,10 @@ const layout = getScreenLayout('adminApprovals')
 
 export default function Screen() {
   const router = useRouter()
-  const { role, isLoading } = useUser()
+  const { isAdmin, isLoading } = useUser()
   const supabase = useSupabase()
   const queryClient = useQueryClient()
-  const realtimeEnabled = role === 'admin' && !isLoading
+  const realtimeEnabled = isAdmin && !isLoading
   const invalidatePendingCount = () => {
     void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending-count'] })
   }

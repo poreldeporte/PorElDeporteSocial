@@ -7,10 +7,18 @@ type DraftTeam = {
   game_team_members:
     | {
         id: string
-        profile_id: string
+        profile_id: string | null
+        guest_queue_id?: string | null
         pick_order?: number | null
         assigned_at: string
         profiles: { name: string | null; avatar_url: string | null } | null
+        game_queue?: {
+          id: string
+          guest_name: string | null
+          guest_phone: string | null
+          guest_notes: string | null
+          added_by_profile_id: string | null
+        } | null
       }[]
     | null
   name: string
@@ -26,7 +34,7 @@ export type DraftViewModelArgs = {
   gameDetail?: GameDetail | null
   gameMeta?: DraftMeta
   teams: DraftTeam[]
-  draftedProfileIds: Set<string>
+  draftedPlayerIds: Set<string>
   optimisticPicks: string[]
   captainTeam?: DraftTeam | null
   currentTurnTeam?: DraftTeam | null
@@ -42,10 +50,10 @@ const sortRostered = (entries: QueueEntry[]) =>
   )
 
 const getCombinedDraftedIds = (
-  draftedProfileIds: Set<string>,
+  draftedPlayerIds: Set<string>,
   optimisticPicks: string[]
 ) => {
-  const combined = new Set(draftedProfileIds)
+  const combined = new Set(draftedPlayerIds)
   optimisticPicks.forEach((id) => combined.add(id))
   return combined
 }
@@ -67,7 +75,7 @@ export const deriveDraftViewModel = ({
   gameDetail,
   gameMeta,
   teams,
-  draftedProfileIds,
+  draftedPlayerIds,
   optimisticPicks,
   captainTeam,
   currentTurnTeam,
@@ -76,15 +84,17 @@ export const deriveDraftViewModel = ({
 }: DraftViewModelArgs) => {
   const draftStatus = gameDetail?.draftStatus ?? gameMeta?.draft_status ?? 'pending'
   const captains = gameDetail?.captains ?? []
-  const captainIds = new Set(captains.map((captain) => captain.player.id))
+  const captainIds = new Set(captains.map((captain) => captain.profileId))
 
   const rosteredRoster = sortRostered(
     (gameDetail?.queue ?? []).filter((entry) => entry.status === 'rostered')
   )
-  const rosteredPlayers = rosteredRoster.filter((entry) => !captainIds.has(entry.player.id))
-  const combinedDraftedProfileIds = getCombinedDraftedIds(draftedProfileIds, optimisticPicks)
+  const rosteredPlayers = rosteredRoster.filter(
+    (entry) => !entry.profileId || !captainIds.has(entry.profileId)
+  )
+  const combinedDraftedPlayerIds = getCombinedDraftedIds(draftedPlayerIds, optimisticPicks)
   const availablePlayers = rosteredPlayers.filter(
-    (entry) => !combinedDraftedProfileIds.has(entry.profileId)
+    (entry) => !combinedDraftedPlayerIds.has(entry.player.id)
   )
 
   const totalDrafted = rosteredPlayers.length - availablePlayers.length
@@ -122,7 +132,7 @@ export const deriveDraftViewModel = ({
     rosteredRoster,
     rosteredPlayers,
     availablePlayers,
-    combinedDraftedProfileIds,
+    combinedDraftedPlayerIds,
     totalDrafted,
     allDrafted,
     hasCaptains,

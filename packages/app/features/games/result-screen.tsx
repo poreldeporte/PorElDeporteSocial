@@ -18,6 +18,7 @@ import {
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
+import { formatProfileName } from 'app/utils/profileName'
 import { useTeamsState } from 'app/utils/useTeamsState'
 import { useRouter } from 'solito/router'
 
@@ -293,7 +294,7 @@ const ResultScoreCard = ({
   const roster =
     (team.game_team_members ?? []).map((member, index) => ({
       key: member.profile_id ?? member.id ?? `${team.id}-${index}`,
-      name: member.profiles?.name ?? 'Player',
+      name: formatProfileName(member.profiles, 'Player') ?? 'Player',
       isCaptain: member.profile_id === team.captain_profile_id,
     })) ?? []
 

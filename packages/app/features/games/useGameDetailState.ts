@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import {
   DEFAULT_CONFIRMATION_WINDOW_HOURS,
+  DEFAULT_COMMUNITY_PRIORITY_ENABLED,
   DEFAULT_CRUNCH_TIME_ENABLED,
   DEFAULT_CRUNCH_TIME_START_TIME_LOCAL,
 } from '@my/config/game'
@@ -56,8 +57,15 @@ export const deriveCtaState = ({
   return rosterFull ? 'join-waitlist' : 'claim'
 }
 
-const sortRostered = (entries: QueueEntry[]) =>
-  [...entries].sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime())
+const sortQueue = (entries: QueueEntry[], priorityEnabled: boolean) =>
+  [...entries].sort((a, b) => {
+    if (priorityEnabled) {
+      const guestA = a.isGuest ? 1 : 0
+      const guestB = b.isGuest ? 1 : 0
+      if (guestA !== guestB) return guestA - guestB
+    }
+    return new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
+  })
 
 export const computeGameDetailState = ({
   game,
@@ -84,6 +92,8 @@ export const computeGameDetailState = ({
     DEFAULT_CRUNCH_TIME_START_TIME_LOCAL
   const communityTimezone =
     community?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC'
+  const communityPriorityEnabled =
+    community?.communityPriorityEnabled ?? DEFAULT_COMMUNITY_PRIORITY_ENABLED
 
   const joinCutoff = startDate ? buildJoinCutoff(startDate, joinCutoffOffsetMinutes) : null
   const isLocked = joinCutoff ? now >= joinCutoff.getTime() : false
@@ -114,12 +124,14 @@ export const computeGameDetailState = ({
   const isCrunchTimeOpen =
     crunchTimeStart && joinCutoff ? now >= crunchTimeStart.getTime() && now < joinCutoff.getTime() : false
 
-  const rosteredPlayers = sortRostered(
-    (game?.queue ?? []).filter((entry) => entry.status === 'rostered')
+  const rosteredPlayers = sortQueue(
+    (game?.queue ?? []).filter((entry) => entry.status === 'rostered'),
+    communityPriorityEnabled
   )
-  const waitlistedPlayers = (game?.queue ?? [])
-    .filter((entry) => entry.status === 'waitlisted')
-    .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime())
+  const waitlistedPlayers = sortQueue(
+    (game?.queue ?? []).filter((entry) => entry.status === 'waitlisted'),
+    communityPriorityEnabled
+  )
   const rosteredCount = game?.rosteredCount ?? rosteredPlayers.length
   const waitlistedCount = game?.waitlistedCount ?? waitlistedPlayers.length
   const spotsLeft = game ? Math.max(game.capacity - rosteredCount, 0) : 0
@@ -128,8 +140,7 @@ export const computeGameDetailState = ({
     ? rosteredPlayers.filter((entry) => !entry.attendanceConfirmedAt).length
     : 0
 
-  const userEntry =
-    game && userId ? game.queue.find((entry) => entry.player.id === userId) ?? null : null
+  const userEntry = game && userId ? game.queue.find((entry) => entry.profileId === userId) ?? null : null
 
   const userStatus = game ? userEntry?.status ?? game.userStatus : 'none'
   const hasReview = Boolean(game?.hasReview)

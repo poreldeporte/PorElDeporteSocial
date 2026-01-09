@@ -1,7 +1,7 @@
 import { Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 
 import { parseBirthDateParts } from 'app/utils/birthDate'
-import { formatE164ForDisplay, formatPhoneNumber, getPhoneCountryOptions } from 'app/utils/phone'
+import { formatPhoneDisplay, getPhoneCountryOptions } from 'app/utils/phone'
 
 import { profileFieldCopy } from './field-copy'
 
@@ -39,12 +39,8 @@ const formatBirthDate = (value?: string | null) => {
 }
 
 const formatPhone = (value?: string | null, fallback = 'Add info') => {
-  if (!value) return fallback
-  const trimmed = value.trim()
-  if (!trimmed) return fallback
-  const formatted = formatE164ForDisplay(trimmed)
-  if (formatted !== trimmed) return formatted
-  return formatPhoneNumber(trimmed) || trimmed
+  const formatted = formatPhoneDisplay(value)
+  return formatted || fallback
 }
 
 const formatJerseyNumber = (value?: number | null) => {

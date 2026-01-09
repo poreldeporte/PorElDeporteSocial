@@ -21,14 +21,14 @@ export const GameEditScreen = ({
   headerSpacer,
   topInset,
 }: { gameId: string } & ScrollHeaderProps) => {
-  const { role } = useUser()
+  const { isAdmin } = useUser()
   const router = useRouter()
   const { data, isLoading, error } = api.games.byId.useQuery(
     { id: gameId },
     { enabled: !!gameId }
   )
 
-  if (role !== 'admin') {
+  if (!isAdmin) {
     return (
       <YStack f={1} ai="center" jc="center" px={SCREEN_CONTENT_PADDING.horizontal} pt={topInset ?? 0}>
         <Paragraph theme="alt2">Only admins can edit games.</Paragraph>

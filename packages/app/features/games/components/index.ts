@@ -1,4 +1,5 @@
 export * from './AdminPanel'
+export * from './AddGuestSheet'
 export * from './AddPlayerSheet'
 export * from './GameStatus'
 export * from './RosterSection'

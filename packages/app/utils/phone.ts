@@ -1,8 +1,9 @@
 import countries from 'i18n-iso-countries'
 import en from 'i18n-iso-countries/langs/en.json'
-import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
 
 const splitDigits = (value: string) => value.replace(/\D/g, '')
+const MAX_E164_DIGITS = 15
 
 export type PhoneCountryOption = {
   code: CountryCode
@@ -38,6 +39,47 @@ const getCountryName = (code: CountryCode, displayNames: Intl.DisplayNames | nul
   return countries.getName(code, 'en') ?? code
 }
 
+const getCallingCode = (country: CountryCode) => {
+  try {
+    return getCountryCallingCode(country)
+  } catch {
+    return null
+  }
+}
+
+const formatUsNational = (digits: string) => {
+  const local = digits.slice(0, 10)
+  if (!local) return ''
+  if (local.length <= 3) return local.length === 3 ? `(${local})` : `(${local}`
+  if (local.length <= 6) return `(${local.slice(0, 3)})${local.slice(3)}`
+  return `(${local.slice(0, 3)})${local.slice(3, 6)}-${local.slice(6)}`
+}
+
+const formatUsDisplay = (digits: string) => {
+  const national = formatUsNational(digits)
+  return national ? `+1${national}` : ''
+}
+
+export const normalizePhoneDigits = (value: string, country: CountryCode) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const digits = splitDigits(trimmed)
+  if (!digits) return ''
+  const startsWithPlus = trimmed.startsWith('+')
+  if (country === 'US') {
+    const local = digits.startsWith('1') ? digits.slice(1) : digits
+    return local.slice(0, 10)
+  }
+  const callingCode = getCallingCode(country)
+  if (!callingCode) return digits.slice(0, MAX_E164_DIGITS)
+  const local =
+    startsWithPlus && digits.startsWith(callingCode)
+      ? digits.slice(callingCode.length)
+      : digits
+  const maxLocal = Math.max(0, MAX_E164_DIGITS - callingCode.length)
+  return local.slice(0, maxLocal)
+}
+
 export const getPhoneCountryOptions = () => {
   if (cachedCountryOptions) return cachedCountryOptions
   const displayNames = getDisplayNames()
@@ -61,40 +103,46 @@ export const resetPhoneCountryOptions = () => {
 }
 
 export const formatPhoneInput = (value: string, country: CountryCode) => {
-  const digits = splitDigits(value).slice(0, 15)
+  const digits = normalizePhoneDigits(value, country)
   if (!digits) return ''
-  try {
-    const formatter = new AsYouType(country)
-    return formatter.input(digits)
-  } catch {
-    return digits
-  }
+  if (country === 'US') return formatUsNational(digits)
+  return digits
 }
 
 export const parsePhoneToE164 = (value: string, country: CountryCode) => {
-  const parsed = parsePhoneNumberFromString(value, country)
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const digits = splitDigits(trimmed)
+  if (!digits) return null
+  const startsWithPlus = trimmed.startsWith('+')
+  if (startsWithPlus) {
+    const parsed = parsePhoneNumberFromString(`+${digits}`)
+    if (!parsed || !parsed.isValid()) return null
+    if (parsed.country === 'US' && parsed.nationalNumber.length !== 10) return null
+    return parsed.number
+  }
+  if (country === 'US') {
+    const local = digits.startsWith('1') ? digits.slice(1) : digits
+    if (local.length !== 10) return null
+    return `+1${local}`
+  }
+  const parsed = parsePhoneNumberFromString(digits, country)
   if (!parsed || !parsed.isValid()) return null
   return parsed.number
 }
 
-export const formatE164ForDisplay = (value: string) => {
-  const parsed = parsePhoneNumberFromString(value)
-  if (!parsed) return value
-  return parsed.formatInternational()
-}
-
-export const formatPhoneNumber = (value: string) => {
-  const digits = splitDigits(value)
-  if (!digits) return ''
-  if (digits.length <= 3) return digits
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
-
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+export const formatPhoneDisplay = (value?: string | null) => {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const parsed = parsePhoneNumberFromString(trimmed)
+  if (parsed && parsed.isValid()) {
+    if (parsed.country === 'US') return formatUsDisplay(parsed.nationalNumber)
+    return parsed.number
   }
-
-  const localDigits = digits.slice(-10)
-  const countryDigits = digits.slice(0, Math.max(0, digits.length - 10))
-  const prefix = countryDigits ? `+${countryDigits}` : '+1'
-  return `${prefix} (${localDigits.slice(0, 3)}) ${localDigits.slice(3, 6)}-${localDigits.slice(6)}`
+  const digits = splitDigits(trimmed)
+  if (!digits) return ''
+  if (digits.length === 10) return formatUsDisplay(digits)
+  if (digits.length === 11 && digits.startsWith('1')) return formatUsDisplay(digits.slice(1))
+  return `+${digits.slice(0, MAX_E164_DIGITS)}`
 }

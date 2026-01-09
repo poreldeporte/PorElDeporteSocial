@@ -11,7 +11,7 @@ type TeamsStateProps = {
 
 export const useTeamsState = ({ gameId }: TeamsStateProps = {}) => {
   const utils = api.useUtils()
-  const { user, role } = useUser()
+  const { user, isAdmin } = useUser()
   const query = api.teams.state.useQuery(
     { gameId: gameId! },
     {
@@ -28,10 +28,14 @@ export const useTeamsState = ({ gameId }: TeamsStateProps = {}) => {
     events: [],
   }
 
-  const draftedProfileIds = useMemo(() => {
-    return new Set(
-      teams.flatMap((team) => team.game_team_members?.map((member) => member.profile_id) ?? [])
+  const draftedPlayerIds = useMemo(() => {
+    const ids = teams.flatMap(
+      (team) =>
+        team.game_team_members
+          ?.map((member) => member.profile_id ?? member.guest_queue_id)
+          .filter(Boolean) ?? []
     )
+    return new Set(ids)
   }, [teams])
 
   const captainTeam = useMemo(() => {
@@ -140,10 +144,10 @@ export const useTeamsState = ({ gameId }: TeamsStateProps = {}) => {
     game,
     teams,
     events: events ?? [],
-    draftedProfileIds,
+    draftedPlayerIds,
     captainTeam,
     currentTurnTeam,
-    isAdmin: role === 'admin',
+    isAdmin,
     isCaptain: Boolean(captainTeam),
     isCaptainTurn,
     refetch,

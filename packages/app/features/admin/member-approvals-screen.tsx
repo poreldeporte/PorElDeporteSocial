@@ -15,8 +15,10 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { formatProfileName } from 'app/utils/profileName'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { formatPhoneDisplay } from 'app/utils/phone'
 import { useRouter } from 'solito/router'
 
 import { useMemberApprovalsRealtime } from './member-approvals-realtime'
@@ -34,9 +36,7 @@ type PendingProfile = {
 }
 
 const buildMemberName = (profile: PendingProfile) => {
-  if (profile.name?.trim()) return profile.name.trim()
-  const composed = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
-  return composed || 'New member'
+  return formatProfileName(profile, 'New member') ?? 'New member'
 }
 
 type ScrollHeaderProps = {
@@ -50,13 +50,13 @@ export const MemberApprovalsScreen = ({
   headerSpacer,
   topInset,
 }: ScrollHeaderProps = {}) => {
-  const { role, isLoading } = useUser()
+  const { isAdmin, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
   const queryClient = useQueryClient()
   const router = useRouter()
   const [approvingId, setApprovingId] = useState<string | null>(null)
-  const realtimeEnabled = role === 'admin' && !isLoading
+  const realtimeEnabled = isAdmin && !isLoading
   const scheduleInvalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
   }, [queryClient])
@@ -82,7 +82,7 @@ export const MemberApprovalsScreen = ({
       if (error) throw new Error(error.message)
       return data ?? []
     },
-    enabled: role === 'admin' && !isLoading,
+    enabled: isAdmin && !isLoading,
   })
 
   const approveMutation = useMutation({
@@ -121,7 +121,7 @@ export const MemberApprovalsScreen = ({
     )
   }
 
-  if (role !== 'admin') {
+  if (!isAdmin) {
     return (
       <YStack f={1} ai="center" jc="center" px="$6" gap="$2" pt={topInset ?? 0}>
         <SizableText size="$6" fontWeight="700">
@@ -198,7 +198,11 @@ export const MemberApprovalsScreen = ({
                     {displayName}
                   </SizableText>
                   {member.email ? <Paragraph theme="alt2">Email: {member.email}</Paragraph> : null}
-                  {member.phone ? <Paragraph theme="alt2">Phone: {member.phone}</Paragraph> : null}
+                  {member.phone ? (
+                    <Paragraph theme="alt2">
+                      Phone: {formatPhoneDisplay(member.phone) || member.phone}
+                    </Paragraph>
+                  ) : null}
                   {member.position ? (
                     <Paragraph theme="alt2">Position: {member.position}</Paragraph>
                   ) : null}

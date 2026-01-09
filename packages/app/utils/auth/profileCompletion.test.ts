@@ -4,7 +4,7 @@ const completeProfile = {
   first_name: 'Jules',
   last_name: 'Winnfield',
   email: 'jules@example.com',
-  phone: '+1 305 555 1234',
+  phone: '+13055551234',
   jersey_number: 8,
   position: 'Defender',
   birth_date: '1980-06-12',

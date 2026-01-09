@@ -6,7 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { resetDraftForGame } from '../services/draft'
-import { notifyWaitlistPromoted } from '../services/notifications'
+import { notifyGuestNeedsConfirmation, notifyWaitlistPromoted } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
 const joinInput = z.object({
@@ -16,6 +16,16 @@ const joinInput = z.object({
 const leaveInput = joinInput
 const confirmInput = joinInput
 const grabInput = joinInput
+const addGuestInput = z.object({
+  gameId: z.string().uuid('Invalid game id'),
+  firstName: z.string().trim().min(1, 'First name is required'),
+  lastName: z.string().trim().min(1, 'Last name is required'),
+  phone: z.string().trim().min(1, 'Guest phone is required'),
+  notes: z.string().nullable().optional(),
+})
+const confirmGuestInput = z.object({
+  queueId: z.string().uuid('Invalid queue id'),
+})
 
 const adminAddInput = z.object({
   gameId: z.string().uuid('Invalid game id'),
@@ -29,6 +39,7 @@ type QueueStatus = Database['public']['Enums']['game_queue_status']
 type RpcResult = {
   status: QueueStatus
   promoted_profile_id?: string | null
+  promoted_guest_queue_id?: string | null
 }
 
 type ConfirmationRules = {
@@ -61,6 +72,11 @@ const mapRpcError = (error: PostgrestError) => {
       return new TRPCError({ code: 'BAD_REQUEST', message: 'You are not on the waitlist' })
     case 'no_open_spot':
       return new TRPCError({ code: 'BAD_REQUEST', message: 'No open roster spot to grab' })
+    case 'guest_limit_reached':
+      return new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Guest limit reached (max 4 per member).',
+      })
     case 'queue_not_found':
       return new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
     case 'unauthenticated':
@@ -113,6 +129,12 @@ const fetchDraftStatus = async (supabase: SupabaseClient<Database>, gameId: stri
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return data?.draft_status ?? null
+}
+
+const isUserAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
+  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  return data?.role === 'admin' || data?.role === 'owner'
 }
 
 const resetDraftIfNeeded = async ({
@@ -222,9 +244,15 @@ export const queueRouter = createTRPCRouter({
     const result = data as RpcResult | null
     const leaveStatus = unwrapRpcResult(result)
     const promotedProfileId = result?.promoted_profile_id ?? null
+    const promotedGuestQueueId = result?.promoted_guest_queue_id ?? null
     if (promotedProfileId) {
       await safelyNotify(() =>
         notifyWaitlistPromoted({ supabaseAdmin, gameId: input.gameId, profileId: promotedProfileId })
+      )
+    }
+    if (promotedGuestQueueId) {
+      await safelyNotify(() =>
+        notifyGuestNeedsConfirmation({ supabaseAdmin, gameId: input.gameId, guestQueueId: promotedGuestQueueId })
       )
     }
 
@@ -287,6 +315,89 @@ export const queueRouter = createTRPCRouter({
       return { gameId: input.gameId }
     }),
 
+  addGuest: protectedProcedure.input(addGuestInput).mutation(async ({ ctx, input }) => {
+    const guestName = [input.firstName.trim(), input.lastName.trim()].filter(Boolean).join(' ').trim()
+    const { data, error } = await ctx.supabase.rpc('add_guest_to_queue', {
+      p_game_id: input.gameId,
+      p_guest_name: guestName,
+      p_guest_phone: input.phone.trim(),
+      p_guest_notes: input.notes?.trim() || null,
+    })
+
+    if (error) throw mapRpcError(error)
+
+    const result = data as { status?: QueueStatus; queue_id?: string | null } | null
+    if (!result?.status) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Queue mutation returned an empty status',
+      })
+    }
+
+    const queueId = result.queue_id ?? null
+    if (result.status === 'rostered' && queueId) {
+      await safelyNotify(() =>
+        notifyGuestNeedsConfirmation({ supabaseAdmin, gameId: input.gameId, guestQueueId: queueId })
+      )
+    }
+
+    await resetDraftIfNeeded({
+      gameId: input.gameId,
+      actorId: ctx.user.id,
+      rosterChanged: result.status === 'rostered',
+    })
+
+    return { status: result.status, queueId }
+  }),
+
+  confirmGuestAttendance: protectedProcedure
+    .input(confirmGuestInput)
+    .mutation(async ({ ctx, input }) => {
+      const { data: queueRow, error: queueError } = await supabaseAdmin
+        .from('game_queue')
+        .select('id, game_id, profile_id, added_by_profile_id, status, attendance_confirmed_at')
+        .eq('id', input.queueId)
+        .maybeSingle()
+
+      if (queueError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: queueError.message })
+      }
+      if (!queueRow) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
+      }
+      if (queueRow.profile_id) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Queue entry is not a guest' })
+      }
+      if (queueRow.status !== 'rostered') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Guest is not rostered' })
+      }
+
+      const admin = await isUserAdmin(ctx.supabase, ctx.user.id)
+      if (!admin && queueRow.added_by_profile_id !== ctx.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the adder can confirm this guest' })
+      }
+
+      if (!queueRow.attendance_confirmed_at) {
+        if (!admin) {
+          const rules = await fetchConfirmationRules(ctx.supabase, queueRow.game_id)
+          ensureConfirmationWindowOpen(rules)
+        }
+
+        const { error: updateError } = await supabaseAdmin
+          .from('game_queue')
+          .update({ attendance_confirmed_at: new Date().toISOString() })
+          .eq('id', input.queueId)
+          .eq('status', 'rostered')
+          .is('attendance_confirmed_at', null)
+
+        if (updateError) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: updateError.message })
+        }
+      }
+
+      return { gameId: queueRow.game_id }
+    }),
+
   addMember: protectedProcedure.input(adminAddInput).mutation(async ({ ctx, input }) => {
     await ensureAdmin(ctx.supabase, ctx.user.id)
 
@@ -343,6 +454,65 @@ export const queueRouter = createTRPCRouter({
     return { ok: true }
   }),
 
+  removeGuest: protectedProcedure
+    .input(confirmGuestInput)
+    .mutation(async ({ ctx, input }) => {
+      const { data: queueRow, error: queueFetchError } = await supabaseAdmin
+        .from('game_queue')
+        .select('game_id, profile_id, status, added_by_profile_id')
+        .eq('id', input.queueId)
+        .maybeSingle()
+
+      if (queueFetchError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: queueFetchError.message })
+      }
+      if (!queueRow) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
+      }
+      if (queueRow.profile_id) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Queue entry is not a guest' })
+      }
+
+      const admin = await isUserAdmin(ctx.supabase, ctx.user.id)
+      if (!admin && queueRow.added_by_profile_id !== ctx.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the adder can remove this guest' })
+      }
+
+      const { data, error } = await supabaseAdmin.rpc('admin_remove_queue_entry', {
+        p_queue_id: input.queueId,
+      })
+
+      if (error) throw mapRpcError(error)
+
+      const result = data as RpcResult | null
+      unwrapRpcResult(result)
+
+      const promotedProfileId = result?.promoted_profile_id ?? null
+      const promotedGuestQueueId = result?.promoted_guest_queue_id ?? null
+      if (promotedProfileId) {
+        await safelyNotify(() =>
+          notifyWaitlistPromoted({ supabaseAdmin, gameId: queueRow.game_id, profileId: promotedProfileId })
+        )
+      }
+      if (promotedGuestQueueId) {
+        await safelyNotify(() =>
+          notifyGuestNeedsConfirmation({
+            supabaseAdmin,
+            gameId: queueRow.game_id,
+            guestQueueId: promotedGuestQueueId,
+          })
+        )
+      }
+
+      await resetDraftIfNeeded({
+        gameId: queueRow.game_id,
+        actorId: ctx.user.id,
+        rosterChanged: queueRow.status === 'rostered',
+      })
+
+      return { gameId: queueRow.game_id }
+    }),
+
   removeMember: protectedProcedure
     .input(z.object({ queueId: z.string().uuid('Invalid queue id') }))
     .mutation(async ({ ctx, input }) => {
@@ -371,9 +541,19 @@ export const queueRouter = createTRPCRouter({
       unwrapRpcResult(result)
 
       const promotedProfileId = result?.promoted_profile_id ?? null
+      const promotedGuestQueueId = result?.promoted_guest_queue_id ?? null
       if (promotedProfileId) {
         await safelyNotify(() =>
           notifyWaitlistPromoted({ supabaseAdmin, gameId: queueRow.game_id, profileId: promotedProfileId })
+        )
+      }
+      if (promotedGuestQueueId) {
+        await safelyNotify(() =>
+          notifyGuestNeedsConfirmation({
+            supabaseAdmin,
+            gameId: queueRow.game_id,
+            guestQueueId: promotedGuestQueueId,
+          })
         )
       }
 

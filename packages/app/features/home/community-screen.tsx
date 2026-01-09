@@ -17,7 +17,7 @@ type ScrollHeaderProps = {
 }
 
 export const CommunityScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
-  const { user, displayName, role } = useUser()
+  const { user, displayName, isAdmin } = useUser()
   const insets = useSafeAreaInsets()
   const dockSpacer = getDockSpacer(insets.bottom)
 
@@ -28,7 +28,7 @@ export const CommunityScreen = ({ scrollProps, headerSpacer, topInset }: ScrollH
         roomId={COMMUNITY_CHAT_ROOM}
         currentUserId={user?.id}
         currentUserName={displayName}
-        isAdmin={role === 'admin'}
+        isAdmin={isAdmin}
         scrollProps={scrollProps}
         topInset={topInset}
         bottomInset={dockSpacer}

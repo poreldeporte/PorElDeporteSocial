@@ -31,6 +31,7 @@ type CountryPickerProps = {
   searchPlaceholder?: string
   placeholder?: string
   popularCountries?: PhoneCountryOption['code'][]
+  showLabel?: boolean
 }
 
 export const CountryPicker = ({
@@ -44,6 +45,7 @@ export const CountryPicker = ({
   searchPlaceholder = 'Search country',
   placeholder = 'Select country',
   popularCountries = DEFAULT_POPULAR_COUNTRIES,
+  showLabel = true,
 }: CountryPickerProps) => {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -93,9 +95,11 @@ export const CountryPicker = ({
       >
         <XStack ai="center" gap="$1">
           {selectedOption ? <Text fontSize={17}>{selectedOption.flag}</Text> : null}
-          <Text fontSize={17} fontWeight="700">
-            {triggerLabel}
-          </Text>
+          {showLabel ? (
+            <Text fontSize={17} fontWeight="700">
+              {triggerLabel}
+            </Text>
+          ) : null}
           <ChevronDown size={16} color="$color10" />
         </XStack>
       </Button>
