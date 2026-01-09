@@ -2,6 +2,7 @@ import { Button, H2, Spinner, YStack } from '@my/ui/public'
 import { maxGringoLanding } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { getPhoneCountryOptions } from 'app/utils/phone'
 import { usePathname } from 'app/utils/usePathname'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useEffect, useState } from 'react'
@@ -22,6 +23,7 @@ export const OnboardingScreen = () => {
   const buttonHeight = 54
   useEffect(() => {
     void import('app/features/auth/sign-in-screen')
+    getPhoneCountryOptions()
   }, [])
   useEffect(() => {
     setIsNavigating(false)

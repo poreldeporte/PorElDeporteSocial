@@ -8,6 +8,7 @@ import {
   LoadingOverlay,
   Paragraph,
   SizableText,
+  Text,
   XStack,
   YStack,
 } from '@my/ui/public'

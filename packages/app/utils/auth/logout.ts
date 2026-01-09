@@ -1,10 +1,12 @@
 import { useCallback } from 'react'
+import { Platform } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { api } from 'app/utils/api'
 import { loadPushToken, clearPushToken } from 'app/utils/notifications/pushToken'
 import { useSessionContext } from 'app/utils/supabase/useSessionContext'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
+import { useRouter } from 'solito/router'
 
 export type LogoutOptions = {
   userId?: string | null
@@ -59,20 +61,29 @@ export const useLogout = () => {
   const supabase = useSupabase()
   const { session } = useSessionContext()
   const queryClient = useQueryClient()
+  const router = useRouter()
   const { mutateAsync: unregisterDevice } = api.notifications.unregisterDevice.useMutation()
+  const redirectPath = Platform.OS === 'web' ? '/sign-in' : '/onboarding'
 
   return useCallback(
     (options?: LogoutOptions) => {
       const userId = options?.userId ?? session?.user?.id ?? null
       return runLogout({
         userId,
-        signOut: () => supabase.auth.signOut({ scope: 'local' }),
+        signOut: async () => {
+          const { error } = await supabase.auth.signOut()
+          if (error) {
+            await supabase.auth.signOut({ scope: 'local' })
+          }
+        },
         clearCaches: () => queryClient.clear(),
         loadPushToken,
         unregisterPushToken: (token) => unregisterDevice({ expoPushToken: token }),
         clearPushToken,
+      }).finally(() => {
+        router.replace(redirectPath)
       })
     },
-    [supabase, queryClient, session?.user?.id, unregisterDevice]
+    [supabase, queryClient, router, redirectPath, session?.user?.id, unregisterDevice]
   )
 }

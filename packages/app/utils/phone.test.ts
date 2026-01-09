@@ -15,6 +15,10 @@ describe('phone utils', () => {
     expect(parsePhoneToE164('(305) 555-1212', 'US')).toBe('+13055551212')
   })
 
+  it('returns digits when formatting fails', () => {
+    expect(formatPhoneInput('305-555-1212', 'ZZ' as any)).toBe('3055551212')
+  })
+
   it('formats E.164 for display', () => {
     expect(formatE164ForDisplay('+13055551212')).toBe('+1 305 555 1212')
   })

@@ -63,8 +63,12 @@ export const resetPhoneCountryOptions = () => {
 export const formatPhoneInput = (value: string, country: CountryCode) => {
   const digits = splitDigits(value).slice(0, 15)
   if (!digits) return ''
-  const formatter = new AsYouType(country)
-  return formatter.input(digits)
+  try {
+    const formatter = new AsYouType(country)
+    return formatter.input(digits)
+  } catch {
+    return digits
+  }
 }
 
 export const parsePhoneToE164 = (value: string, country: CountryCode) => {
