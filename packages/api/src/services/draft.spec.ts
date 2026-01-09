@@ -8,8 +8,14 @@ const baseSnapshot = {
     draft_status: 'pending',
     capacity: 10,
     start_time: '2025-01-02T00:00:00.000Z',
+    draft_mode_enabled: true,
+    confirmation_enabled: true,
+    join_cutoff_offset_minutes_from_kickoff: 0,
   },
-  confirmedCount: 10,
+  community: {
+    confirmation_window_hours_before_kickoff: 24,
+  },
+  rosteredCount: 10,
   attendanceConfirmedCount: 10,
 }
 
@@ -24,10 +30,10 @@ describe('getDraftStartBlocker', () => {
 
   it('blocks when the roster is not fully confirmed', () => {
     const blocker = getDraftStartBlocker({
-      snapshot: { ...baseSnapshot, confirmedCount: 9 },
+      snapshot: { ...baseSnapshot, attendanceConfirmedCount: 9 },
       captainCount: 2,
     })
-    expect(blocker).toBe('Full roster must be confirmed before assigning captains')
+    expect(blocker).toBe('All rostered players must confirm attendance before assigning captains')
   })
 
   it('blocks when the confirmation window is closed', () => {

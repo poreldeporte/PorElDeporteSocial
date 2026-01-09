@@ -3,32 +3,44 @@ import { useMemo } from 'react'
 import { useLink } from 'solito/link'
 import { useRouter } from 'solito/router'
 
-import { CONFIRMATION_WINDOW_MS, DEFAULT_WAITLIST_LIMIT } from '@my/config/game'
+import {
+  DEFAULT_CONFIRMATION_WINDOW_HOURS,
+  DEFAULT_CRUNCH_TIME_ENABLED,
+  DEFAULT_CRUNCH_TIME_START_TIME_LOCAL,
+} from '@my/config/game'
 import { CombinedStatusBadge, StatusNote } from 'app/features/games/components'
-import { getGameCtaIcon } from 'app/features/games/cta-icons'
+import { getGameCtaIcon, type GameCtaState } from 'app/features/games/cta-icons'
 import { deriveCombinedStatus, getConfirmCountdownLabel } from 'app/features/games/status-helpers'
 import type { GameListItem } from 'app/features/games/types'
-import { formatGameKickoffLabel } from 'app/features/games/time-utils'
+import { buildConfirmationWindowStart, buildJoinCutoff, buildZonedTime, formatGameKickoffLabel } from 'app/features/games/time-utils'
 import { BRAND_COLORS } from 'app/constants/colors'
 
-type CtaState = 'join' | 'leave-confirmed' | 'leave-waitlisted'
-
-const ctaCopy: Record<CtaState, string> = {
-  join: 'Claim spot',
-  'leave-confirmed': 'Drop out',
-  'leave-waitlisted': 'Leave waitlist',
+const ctaCopy: Record<GameCtaState, string> = {
+  claim: 'Claim spot',
+  'join-waitlist': 'Join waitlist',
+  'grab-open-spot': 'Grab open spot',
+  drop: 'Drop',
 }
 
-const deriveCtaState = (game: GameListItem): CtaState => {
-  if (game.userStatus === 'confirmed') return 'leave-confirmed'
-  if (game.userStatus === 'waitlisted') return 'leave-waitlisted'
-  return 'join'
+const deriveCtaState = ({
+  userStatus,
+  rosterFull,
+  isGrabOnly,
+}: {
+  userStatus: GameListItem['userStatus']
+  rosterFull: boolean
+  isGrabOnly: boolean
+}): GameCtaState => {
+  if (userStatus === 'rostered') return 'drop'
+  if (userStatus === 'waitlisted') return isGrabOnly ? 'grab-open-spot' : 'drop'
+  return rosterFull ? 'join-waitlist' : 'claim'
 }
 
 type Props = {
   game: GameListItem
   onJoin: (gameId: string) => void
   onLeave: (gameId: string) => void
+  onGrabOpenSpot: (gameId: string) => void
   isPending: boolean
   onConfirmAttendance?: (gameId: string) => void
   isConfirming?: boolean
@@ -38,6 +50,7 @@ export const GameCard = ({
   game,
   onJoin,
   onLeave,
+  onGrabOpenSpot,
   isPending,
   onConfirmAttendance,
   isConfirming,
@@ -45,34 +58,81 @@ export const GameCard = ({
   const startDate = useMemo(() => new Date(game.startTime), [game.startTime])
   const now = Date.now()
   const kickoffLabel = useMemo(() => formatGameKickoffLabel(startDate), [startDate])
-  const confirmationWindowStart = useMemo(
-    () => (startDate ? new Date(startDate.getTime() - CONFIRMATION_WINDOW_MS) : null),
-    [startDate]
-  )
-  const ctaState = deriveCtaState(game)
-  const waitlistCapacity = game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT
   const hasStarted = startDate ? now >= startDate.getTime() : false
+
+  const community = game.community
+  const confirmationEnabled = game.confirmationEnabled ?? true
+  const confirmationWindowHours =
+    community?.confirmationWindowHoursBeforeKickoff ?? DEFAULT_CONFIRMATION_WINDOW_HOURS
+  const joinCutoffOffsetMinutes = game.joinCutoffOffsetMinutesFromKickoff ?? 0
+  const crunchTimeEnabled = community?.crunchTimeEnabled ?? DEFAULT_CRUNCH_TIME_ENABLED
+  const crunchTimeStartTimeLocal =
+    game.crunchTimeStartTimeLocal ??
+    community?.crunchTimeStartTimeLocal ??
+    DEFAULT_CRUNCH_TIME_START_TIME_LOCAL
+  const communityTimezone =
+    community?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC'
+
+  const joinCutoff = startDate ? buildJoinCutoff(startDate, joinCutoffOffsetMinutes) : null
+  const isLocked = joinCutoff ? now >= joinCutoff.getTime() : false
+
+  const confirmationWindowStart =
+    startDate && confirmationEnabled
+      ? buildConfirmationWindowStart(startDate, confirmationWindowHours)
+      : null
+  const confirmationWindowConfigured =
+    Boolean(confirmationWindowStart && joinCutoff && joinCutoff > confirmationWindowStart)
   const isConfirmationOpen =
-    confirmationWindowStart && startDate
-      ? now >= confirmationWindowStart.getTime() && now < startDate.getTime()
+    confirmationWindowConfigured && confirmationWindowStart && joinCutoff
+      ? now >= confirmationWindowStart.getTime() && now < joinCutoff.getTime()
       : false
-  const canJoin = game.status !== 'cancelled' && game.status !== 'completed' && !hasStarted
+
+  const crunchTimeStartCandidate =
+    startDate && confirmationWindowConfigured && confirmationEnabled && crunchTimeEnabled && joinCutoff
+      ? buildZonedTime({
+          startTime: startDate,
+          timeZone: communityTimezone,
+          timeLocal: crunchTimeStartTimeLocal,
+        })
+      : null
+  const crunchTimeStart =
+    crunchTimeStartCandidate && joinCutoff && crunchTimeStartCandidate < joinCutoff
+      ? crunchTimeStartCandidate
+      : null
+  const isCrunchTimeOpen =
+    crunchTimeStart && joinCutoff ? now >= crunchTimeStart.getTime() && now < joinCutoff.getTime() : false
+
+  const rosteredCount = game.rosteredCount ?? 0
+  const waitlistedCount = game.waitlistedCount ?? 0
+  const rosterFull = rosteredCount >= game.capacity
+  const unconfirmedRosterCount = confirmationEnabled
+    ? Math.max(rosteredCount - (game.attendanceConfirmedCount ?? 0), 0)
+    : 0
+  const userAttendanceConfirmed =
+    game.userStatus === 'rostered' && (!confirmationEnabled || Boolean(game.attendanceConfirmedAt))
+  const isGrabOnly =
+    game.status === 'scheduled' && rosterFull && unconfirmedRosterCount > 0 && isCrunchTimeOpen
+  const ctaState = deriveCtaState({
+    userStatus: game.userStatus,
+    rosterFull,
+    isGrabOnly,
+  })
+  const canJoin = game.status === 'scheduled' && !hasStarted && !isLocked
   const router = useRouter()
   const detailHref = `/games/${game.id}`
   const detailLink = useLink({ href: detailHref })
   const canConfirmAttendance =
-    game.userStatus === 'confirmed' &&
+    confirmationEnabled &&
+    game.userStatus === 'rostered' &&
     !game.attendanceConfirmedAt &&
     isConfirmationOpen
   const combinedStatus = deriveCombinedStatus({
     gameStatus: game.status,
-    confirmedCount: game.confirmedCount,
+    rosteredCount: rosteredCount,
     capacity: game.capacity,
-    attendanceConfirmedCount: game.attendanceConfirmedCount ?? 0,
-    waitlistedCount: game.waitlistedCount ?? 0,
-    waitlistCapacity: game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT,
+    isLocked,
     userStatus: game.userStatus === 'none' ? undefined : game.userStatus,
-    attendanceConfirmed: Boolean(game.attendanceConfirmedAt),
+    attendanceConfirmed: userAttendanceConfirmed,
     canConfirmAttendance,
   })
   const confirmCountdownLabel = getConfirmCountdownLabel({
@@ -88,9 +148,7 @@ export const GameCard = ({
       ? { ...combinedStatus, label: confirmCountdownLabel }
       : combinedStatus
   const showConfirmCta = canConfirmAttendance
-
-  const waitlistLabel = `${game.waitlistedCount}`
-  const spotsLeft = Math.max(game.capacity - game.confirmedCount, 0)
+  const spotsLeft = Math.max(game.capacity - rosteredCount, 0)
 
   const handleCardPress = () => {
     if (detailLink.onPress) {
@@ -101,14 +159,13 @@ export const GameCard = ({
   }
 
   const isRateCta = game.status === 'completed'
-  const isJoinWaitlist = ctaState === 'join' && spotsLeft === 0
-  const ctaTheme = isRateCta
-    ? 'alt2'
-    : ctaState === 'join' || showConfirmCta
-      ? undefined
-      : 'alt2'
+  const isJoinAction =
+    ctaState === 'claim' || ctaState === 'join-waitlist' || ctaState === 'grab-open-spot'
+  const canLeave =
+    game.status === 'scheduled' && !hasStarted && !isLocked && game.draftStatus !== 'in_progress'
+  const ctaTheme = isRateCta ? 'alt2' : isJoinAction || showConfirmCta ? undefined : 'alt2'
   const primaryButtonStyle =
-    !isPending && !isRateCta && ctaState === 'join'
+    !isPending && !isRateCta && isJoinAction
       ? {
           backgroundColor: 'transparent',
           borderColor: BRAND_COLORS.primary,
@@ -121,13 +178,13 @@ export const GameCard = ({
     ? 'Rate the game'
     : showConfirmCta
       ? 'Confirm spot'
-      : isJoinWaitlist
-        ? 'Join waitlist'
-        : ctaCopy[ctaState]
+      : ctaCopy[ctaState]
   const ctaDisabled =
     isRateCta ||
     isPending ||
-    (ctaState === 'join' && !canJoin) ||
+    ((ctaState === 'claim' || ctaState === 'join-waitlist') && !canJoin) ||
+    (ctaState === 'grab-open-spot' && !isGrabOnly) ||
+    (ctaState === 'drop' && !canLeave) ||
     (showConfirmCta && isConfirming)
   const handleCtaPress = () => {
     if (isRateCta) return
@@ -135,7 +192,8 @@ export const GameCard = ({
       onConfirmAttendance(game.id)
       return
     }
-    if (ctaState === 'join') onJoin(game.id)
+    if (ctaState === 'claim' || ctaState === 'join-waitlist') onJoin(game.id)
+    else if (ctaState === 'grab-open-spot') onGrabOpenSpot(game.id)
     else onLeave(game.id)
   }
   const primaryIcon = getGameCtaIcon({
@@ -170,7 +228,7 @@ export const GameCard = ({
             {game.locationName ?? 'Venue TBD'}
           </Paragraph>
           <Paragraph theme="alt2" size="$2">
-            {`${game.confirmedCount}/${game.capacity} players${game.waitlistedCount > 0 ? ` • ${game.waitlistedCount}/${game.waitlistCapacity ?? DEFAULT_WAITLIST_LIMIT} on waitlist` : ''}`}
+            {`${rosteredCount}/${game.capacity} players${waitlistedCount > 0 ? ` • ${waitlistedCount} on waitlist` : ''}`}
           </Paragraph>
         </YStack>
       </YStack>

@@ -4,6 +4,7 @@ import {
   Card,
   Checkbox,
   FieldError,
+  Fieldset,
   FormWrapper,
   FullscreenSpinner,
   Paragraph,
@@ -20,10 +21,13 @@ import {
 import type { ScrollViewProps } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { pedLogo } from 'app/assets'
+import { BRAND_COLORS } from 'app/constants/colors'
 import { getDockSpacer } from 'app/constants/dock'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { CountryPicker } from 'app/components/CountryPicker'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { SchemaForm } from 'app/utils/SchemaForm'
+import { getPhoneCountryOptions, type PhoneCountryOption } from 'app/utils/phone'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
@@ -31,7 +35,7 @@ import { type ReactNode, useRef } from 'react'
 import { createParam } from 'solito'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
-import { useFormContext } from 'react-hook-form'
+import { useController, useFormContext } from 'react-hook-form'
 import { Check as CheckIcon } from '@tamagui/lucide-icons'
 
 import { api } from '../../utils/api'
@@ -109,6 +113,7 @@ const EditProfileForm = ({
   showStatusBadge = true,
   onComplete,
   floatingCta = false,
+  showBrandAccent = false,
   scrollProps,
   headerSpacer,
 }: {
@@ -119,6 +124,7 @@ const EditProfileForm = ({
   showStatusBadge?: boolean
   onComplete?: () => void
   floatingCta?: boolean
+  showBrandAccent?: boolean
   scrollProps?: ScrollViewProps
   headerSpacer?: ReactNode
 }) => {
@@ -146,6 +152,7 @@ const EditProfileForm = ({
           email: data.email.trim(),
           phone: data.phone.trim(),
           address: data.address?.trim() || null,
+          nationality: data.nationality?.trim() || null,
           name: `${data.firstName} ${data.lastName}`.trim(),
           birth_date: birthDate,
           jersey_number: data.jerseyNumber,
@@ -221,6 +228,7 @@ const EditProfileForm = ({
           email: initial.email,
           phone: initial.phone,
           address: initial.address,
+          nationality: initial.nationality,
           birthDate: initial.birthDate,
           jerseyNumber: initial.jerseyNumber,
           position: initial.position ?? [],
@@ -249,6 +257,9 @@ const EditProfileForm = ({
                 <Paragraph theme="alt2" size="$2" textAlign="center">
                   Private club details for lineups and access.
                 </Paragraph>
+                {showBrandAccent ? (
+                  <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+                ) : null}
               </YStack>
               <YStack gap="$4">
                 <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
@@ -277,6 +288,7 @@ const EditProfileForm = ({
                         Verified via SMS. Contact the club to change it.
                       </Paragraph>
                     </YStack>
+                    <NationalityField />
                   </YStack>
                 </Card>
                 <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
@@ -364,6 +376,7 @@ type ProfileRow = {
   email: string | null
   phone: string | null
   address: string | null
+  nationality: string | null
   birth_date: string | null
   jersey_number: number | null
   position: string | null
@@ -375,6 +388,7 @@ type ProfileFormInitial = {
   email: string
   phone: string
   address?: string
+  nationality: string
   birthDate: BirthDateParts
   jerseyNumber?: number
   position: string[]
@@ -389,6 +403,7 @@ const buildProfileFormInitial = (
   email: profile.email ?? user?.email ?? '',
   phone: profile.phone ?? user?.phone ?? '',
   address: profile.address ?? '',
+  nationality: profile.nationality ?? '',
   birthDate: parseBirthDateParts(profile.birth_date) ?? emptyBirthDateParts(),
   jerseyNumber: profile.jersey_number ?? undefined,
   position: profile.position
@@ -442,7 +457,7 @@ export const AdminProfileEditScreen = ({
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, first_name, last_name, email, phone, address, birth_date, jersey_number, position, approval_status'
+          'id, first_name, last_name, email, phone, address, nationality, birth_date, jersey_number, position, approval_status'
         )
         .eq('id', profileId)
         .single()
@@ -511,6 +526,8 @@ export const AdminProfileEditScreen = ({
       initial={initial}
       approvalStatus={approvalStatus}
       submitLabel="Save changes"
+      floatingCta
+      showBrandAccent
       onComplete={() => {
         void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
         router.back()
@@ -518,6 +535,46 @@ export const AdminProfileEditScreen = ({
       scrollProps={scrollProps}
       headerSpacer={headerSpacer}
     />
+  )
+}
+
+const NationalityField = () => {
+  const { control, formState } = useFormContext<ProfileUpdateFieldValues>()
+  const { field, fieldState } = useController({ control, name: 'nationality' })
+  const options = getPhoneCountryOptions()
+  const value = (field.value || null) as PhoneCountryOption['code'] | null
+  const selected = value ? options.find((option) => option.code === value) ?? null : null
+  const errorMessage = fieldState.error?.message
+
+  return (
+    <Theme name={errorMessage ? 'red' : null} forceClassName>
+      <Fieldset gap="$2">
+        <Label theme="alt1" size="$3">
+          Nationality (Optional)
+        </Label>
+        <YStack
+          borderWidth={1}
+          borderColor="$borderColor"
+          borderRadius={12}
+          backgroundColor="$background"
+          px="$3"
+          py="$2"
+        >
+          <CountryPicker
+            value={value}
+            onChange={(code) => field.onChange(code)}
+            selected={selected}
+            options={options}
+            disabled={formState.isSubmitting}
+            variant="country"
+            title="Select nationality"
+            placeholder="Select country"
+            popularCountries={['US', 'AR', 'BR', 'GB', 'DE', 'ES']}
+          />
+        </YStack>
+        <FieldError message={errorMessage} />
+      </Fieldset>
+    </Theme>
   )
 }
 

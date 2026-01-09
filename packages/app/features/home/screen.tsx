@@ -26,20 +26,31 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
   const gamesQuery = api.games.list.useQuery({ scope: 'upcoming' }, { enabled: Boolean(user) })
   useGamesListRealtime(Boolean(user))
   useStatsRealtime(Boolean(user))
-  const { join, leave, confirmAttendance, pendingGameId, isPending, isConfirming } = useQueueActions()
+  const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
+    useQueueActions()
+
+  const canShowDraft = useMemo(
+    () => (game: { draftModeEnabled?: boolean | null }) =>
+      role === 'admin' || game.draftModeEnabled !== false,
+    [role]
+  )
 
   const myDraftGame = useMemo(() => {
     if (!gamesQuery.data || !user?.id) return null
     return gamesQuery.data.find(
       (game) =>
         game.draftStatus === 'in_progress' &&
+        canShowDraft(game) &&
         (role === 'admin' || game.captainIds?.includes(user.id))
     )
-  }, [gamesQuery.data, role, user?.id])
+  }, [canShowDraft, gamesQuery.data, role, user?.id])
 
   const liveDraftGame = useMemo(
-    () => gamesQuery.data?.find((game) => game.draftStatus === 'in_progress') ?? null,
-    [gamesQuery.data]
+    () =>
+      gamesQuery.data?.find(
+        (game) => game.draftStatus === 'in_progress' && canShowDraft(game)
+      ) ?? null,
+    [canShowDraft, gamesQuery.data]
   )
   const { myUpcomingGames, nextAvailableGame } = useMemo(() => {
     const games = gamesQuery.data ?? []
@@ -50,14 +61,14 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
     const myUpcoming = upcoming.filter(
-      (game) => game.userStatus === 'confirmed' || game.userStatus === 'waitlisted'
+      (game) => game.userStatus === 'rostered' || game.userStatus === 'waitlisted'
     )
     const nextAvailable =
       upcoming.find(
         (game) =>
           game.status === 'scheduled' &&
-          game.confirmedCount < game.capacity &&
-          (game.userStatus === 'none' || game.userStatus === 'cancelled')
+          game.rosteredCount < game.capacity &&
+          (game.userStatus === 'none' || game.userStatus === 'dropped')
       ) ?? null
 
     return { myUpcomingGames: myUpcoming, nextAvailableGame: nextAvailable }
@@ -104,6 +115,7 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
                   game={game}
                   onJoin={join}
                   onLeave={leave}
+                  onGrabOpenSpot={grabOpenSpot}
                   onConfirmAttendance={confirmAttendance}
                   isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
                   isConfirming={isConfirming}
@@ -120,6 +132,7 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
             titleOverride="Next available kickoff"
             onJoin={join}
             onLeave={leave}
+            onGrabOpenSpot={grabOpenSpot}
             onConfirmAttendance={confirmAttendance}
             isPending={isPending}
             pendingGameId={pendingGameId}

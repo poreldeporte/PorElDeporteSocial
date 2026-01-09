@@ -19,6 +19,7 @@
     "@my/supabase": "*",
     "@my/ui": "*",
     "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/datetimepicker": "8.3.0",
     "@rehookify/datepicker": "^6.6.6",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/auth-helpers-react": "^0.5.0",

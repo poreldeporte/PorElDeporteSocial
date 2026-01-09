@@ -13,6 +13,7 @@ import {
   useToastController,
 } from '@my/ui/public'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
@@ -141,24 +142,29 @@ export const MemberApprovalsScreen = ({
     )
   }
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
-  const baseContentStyle = headerSpacer
-    ? { ...screenContentContainerStyle, paddingTop: 0 }
-    : screenContentContainerStyle
+  const baseContentStyle = {
+    ...screenContentContainerStyle,
+    paddingTop: headerSpacer ? 0 : screenContentContainerStyle.paddingTop,
+    flexGrow: 1,
+  }
   const mergedContentStyle = Array.isArray(contentContainerStyle)
     ? [baseContentStyle, ...contentContainerStyle]
     : [baseContentStyle, contentContainerStyle]
 
   return (
-    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+    <ScrollView
+      style={{ flex: 1 }}
+      {...scrollViewProps}
+      contentContainerStyle={mergedContentStyle}
+    >
       {headerSpacer}
       <YStack maw={900} mx="auto" w="100%" space="$4" py="$4">
         <YStack gap="$2">
           <SizableText size="$6" fontWeight="700">
-            Member approvals
+            Applications
           </SizableText>
-          <Paragraph theme="alt2">
-            Review profiles and approve access when the details look right.
-          </Paragraph>
+          <Paragraph theme="alt2">Review profiles and approve access when the details look right.</Paragraph>
+          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
         </YStack>
         {pendingQuery.isError ? (
           <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">

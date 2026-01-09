@@ -2,8 +2,9 @@ import type { ScrollViewProps } from 'react-native'
 import { useMemo, type ReactNode } from 'react'
 
 import { Avatar, Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack } from '@my/ui/public'
-import { ArrowRight, Shield, Share2, Sparkles, Trophy, UserCog, Users } from '@tamagui/lucide-icons'
+import { ArrowRight, Shield, Sparkles, Star, Trophy, UserCog, Users } from '@tamagui/lucide-icons'
 import { pedLogo } from 'app/assets'
+import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import type { GameListItem } from 'app/features/games/types'
 import { useLogout } from 'app/utils/auth/logout'
@@ -40,6 +41,8 @@ type ScrollHeaderProps = {
   topInset?: number
 }
 
+type PillTone = 'neutral' | 'active' | 'primary'
+
 export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const data = useProfileData()
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
@@ -56,12 +59,17 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
       <YStack maw={900} mx="auto" w="100%" space="$4">
         <ProfileHero
           name={data.displayName}
-          role={data.role}
           avatarUrl={data.avatarUrl}
           userId={data.userId}
           onEdit={data.onEdit}
           onReviewMembers={data.onReviewMembers}
           onLogout={data.onLogout}
+        />
+        <BadgeSection
+          role={data.role}
+          stats={data.stats}
+          recentForm={data.recentForm}
+          attendanceStreak={data.attendanceStreak}
         />
         <PerformanceSection
           stats={data.stats}
@@ -82,11 +90,11 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
           email={data.profileEmail}
           phone={data.profile?.phone}
           address={data.profile?.address}
+          nationality={data.profile?.nationality}
           birthDate={data.profile?.birth_date}
           jerseyNumber={data.profile?.jersey_number}
           position={data.profile?.position}
         />
-        <BadgeSection role={data.role} stats={data.stats} recentForm={data.recentForm} />
       </YStack>
     </ScrollView>
   )
@@ -99,7 +107,7 @@ const useProfileData = () => {
   const editLink = useLink({ href: '/profile/edit' })
   const approvalsLink = useLink({ href: '/admin/approvals' })
   const logout = useLogout()
-  const scheduleLink = useLink({ href: '/games' })
+  const historyLink = useLink({ href: '/games/history' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
   const historyQuery = api.games.list.useQuery({ scope: 'past' })
 
@@ -116,9 +124,13 @@ const useProfileData = () => {
   const recentForm = leaderboardEntry?.recent ?? []
   const recentGames = useMemo(() => {
     const allGames = historyQuery.data ?? []
-    const mine = allGames.filter((game) => game.userStatus === 'confirmed')
+    const mine = allGames.filter((game) => game.userStatus === 'rostered')
     return mine.slice(0, 5)
   }, [historyQuery.data])
+  const attendanceStreak = useMemo(
+    () => getAttendanceStreak(historyQuery.data ?? []),
+    [historyQuery.data]
+  )
 
   return {
     profile,
@@ -133,18 +145,18 @@ const useProfileData = () => {
     performance,
     recentForm,
     recentGames,
+    attendanceStreak,
     isStatsLoading: leaderboardQuery.isLoading,
     isHistoryLoading: historyQuery.isLoading,
     historyError: Boolean(historyQuery.error),
     onHistoryRetry: historyQuery.refetch,
-    historyLink: scheduleLink,
+    historyLink,
     profileEmail: profile?.email ?? user?.email ?? null,
   }
 }
 
 const ProfileHero = ({
   name,
-  role,
   avatarUrl,
   userId,
   onEdit,
@@ -152,7 +164,6 @@ const ProfileHero = ({
   onLogout,
 }: {
   name: string
-  role: string
   avatarUrl: string
   userId: string
   onEdit?: () => void
@@ -168,7 +179,6 @@ const ProfileHero = ({
             <SizableText size="$6" fontWeight="700">
               {name}
             </SizableText>
-            <Pill label={formatRole(role)} icon={Shield} />
           </XStack>
         </YStack>
       </XStack>
@@ -325,23 +335,74 @@ const BadgeSection = ({
   role,
   stats,
   recentForm,
+  attendanceStreak,
 }: {
   role: string
   stats: StatSnapshot
   recentForm: string[]
+  attendanceStreak: number
 }) => {
-  const badges = buildBadges(role, stats, recentForm)
+  const tierProgress = getTierProgress(stats.games)
+  const badges = buildBadges(role, stats, recentForm, tierProgress.current, attendanceStreak)
+  const progressRows = [
+    ...tierProgress.progress.map((entry) => ({
+      id: entry.tier.id,
+      label: entry.tier.label,
+      valueLabel: entry.unlocked
+        ? 'Unlocked'
+        : `${entry.currentCount}/${entry.tier.minGames} games`,
+      percent: entry.percent,
+    })),
+    {
+      id: 'ironman',
+      label: 'Ironman',
+      valueLabel: `${Math.min(attendanceStreak, IRONMAN_STREAK)}/${IRONMAN_STREAK} in a row`,
+      percent: Math.min(attendanceStreak / IRONMAN_STREAK, 1),
+    },
+    {
+      id: 'community',
+      label: 'Community builder',
+      valueLabel: '0/3 referrals',
+      percent: 0,
+    },
+  ]
   return (
     <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3" backgroundColor="$color2">
       <SizableText size="$5" fontWeight="600">
         Badges
       </SizableText>
+      <Paragraph theme="alt2">Earn badges as you play and contribute to the club.</Paragraph>
+      <BadgeProgressList progress={progressRows} />
       <XStack gap="$2" flexWrap="wrap">
         {badges.map((badge) => (
           <Pill key={badge.label} label={badge.label} icon={badge.icon} tone={badge.tone} />
         ))}
       </XStack>
     </Card>
+  )
+}
+
+const BadgeProgressList = ({
+  progress,
+}: {
+  progress: Array<{ id: string; label: string; valueLabel: string; percent: number }>
+}) => {
+  return (
+    <YStack gap="$2">
+      {progress.map(({ id, label, valueLabel, percent }) => (
+        <YStack key={id} gap="$1">
+          <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
+            <Pill label={label} />
+            <Paragraph theme="alt2" size="$2">
+              {valueLabel}
+            </Paragraph>
+          </XStack>
+          <YStack h={6} br="$10" backgroundColor="$color3" overflow="hidden">
+            <YStack h="100%" w={`${Math.round(percent * 100)}%`} backgroundColor={BRAND_COLORS.primary} />
+          </YStack>
+        </YStack>
+      ))}
+    </YStack>
   )
 }
 
@@ -376,10 +437,11 @@ const Pill = ({
 }: {
   label: string
   icon?: typeof Shield
-  tone?: 'neutral' | 'active'
+  tone?: PillTone
 }) => {
-  const backgroundColor = tone === 'active' ? '$color9' : '$color3'
-  const color = tone === 'active' ? '$color1' : '$color11'
+  const backgroundColor =
+    tone === 'primary' ? BRAND_COLORS.primary : tone === 'active' ? '$color9' : '$color3'
+  const color = tone === 'primary' ? '$background' : tone === 'active' ? '$color1' : '$color11'
   return (
     <XStack ai="center" gap="$1.5" px="$2.5" py="$1" br="$10" backgroundColor={backgroundColor}>
       {Icon ? <Icon size={14} color={color} /> : null}
@@ -479,6 +541,15 @@ const shareProfile = async (name: string) => {
   }
 }
 
+const BADGE_TIERS = [
+  { id: 'rookie', label: 'Rookie', minGames: 5 },
+  { id: 'player', label: 'Player', minGames: 15 },
+  { id: 'legend', label: 'Legend', minGames: 30 },
+] as const
+const IRONMAN_STREAK = 5
+
+type BadgeTier = (typeof BADGE_TIERS)[number]
+
 const deriveStats = (
   entry: ReturnType<typeof api.stats.leaderboard.useQuery>['data'][number] | null
 ): StatSnapshot => {
@@ -528,18 +599,48 @@ const buildPerformanceMetrics = (
 const formatStatus = (status: string) => {
   if (status === 'completed') return 'Completed'
   if (status === 'cancelled') return 'Cancelled'
-  if (status === 'locked') return 'Locked'
   return 'Scheduled'
 }
 
-const buildBadges = (role: string, stats: StatSnapshot, recentForm: string[]) => {
-  const winStreak = getWinStreak(recentForm)
-  const badges: Array<{ label: string; icon: typeof Shield; tone?: 'active' }> = [
-    { label: formatRole(role), icon: Shield, tone: 'active' },
-  ]
+const getTierProgress = (games: number) => {
+  const progress = BADGE_TIERS.map((tier) => {
+    const currentCount = Math.min(games, tier.minGames)
+    const percent = tier.minGames ? Math.min(currentCount / tier.minGames, 1) : 1
+    return {
+      tier,
+      currentCount,
+      percent,
+      unlocked: games >= tier.minGames,
+    }
+  })
+  const current = progress.filter((entry) => entry.unlocked).pop()?.tier ?? null
+  return { current, progress }
+}
 
+const buildBadges = (
+  role: string,
+  stats: StatSnapshot,
+  recentForm: string[],
+  tier: BadgeTier | null,
+  attendanceStreak: number
+) => {
+  const winStreak = getWinStreak(recentForm)
+  const badges: Array<{ label: string; icon: typeof Shield; tone?: PillTone }> = []
+
+  if (tier) {
+    badges.push({ label: tier.label, icon: Star, tone: 'active' })
+  }
+  badges.push({
+    label: formatRole(role),
+    icon: Shield,
+    tone: role === 'admin' ? 'primary' : 'neutral',
+  })
+
+  if (attendanceStreak >= IRONMAN_STREAK) {
+    badges.push({ label: 'Ironman', icon: Trophy })
+  }
   if (stats.gamesAsCaptain > 0) {
-    badges.push({ label: `Captain x${stats.gamesAsCaptain}`, icon: Shield })
+    badges.push({ label: 'Capitan', icon: Shield })
   }
   if (stats.goalDiff > 0) {
     badges.push({ label: `Goal diff +${stats.goalDiff}`, icon: Sparkles })
@@ -547,11 +648,8 @@ const buildBadges = (role: string, stats: StatSnapshot, recentForm: string[]) =>
   if (stats.winRate >= 0.6 && stats.games >= 3) {
     badges.push({ label: `Top form ${formatPercent(stats.winRate)}`, icon: Trophy })
   }
-  if (winStreak >= 2) {
+  if (winStreak >= 3) {
     badges.push({ label: `Win streak ${winStreak}`, icon: Sparkles })
-  }
-  if (badges.length < 3 && stats.games >= 1) {
-    badges.push({ label: `${stats.games} games played`, icon: Sparkles })
   }
   return badges
 }
@@ -560,6 +658,16 @@ const getWinStreak = (recentForm: string[]) => {
   let streak = 0
   for (const result of recentForm) {
     if (result !== 'W') break
+    streak += 1
+  }
+  return streak
+}
+
+const getAttendanceStreak = (games: GameListItem[]) => {
+  let streak = 0
+  for (const game of games) {
+    if (game.status !== 'completed') continue
+    if (game.userStatus !== 'rostered') break
     streak += 1
   }
   return streak

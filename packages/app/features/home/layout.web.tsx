@@ -29,6 +29,7 @@ export type HomeLayoutProps = {
   backHref?: string
   backLabel?: string
   pageTitle?: string
+  headerRight?: React.ReactNode
 }
 
 const headerTitleByLayout: Partial<Record<ScreenLayoutId, string>> = {
@@ -36,6 +37,7 @@ const headerTitleByLayout: Partial<Record<ScreenLayoutId, string>> = {
   gamesList: 'Schedule',
   gameDetail: 'Game Info',
   gameDraft: 'Draft Room',
+  gameReviews: 'Game Reviews',
   community: 'La Familia',
   profile: 'My Profile',
 }
@@ -45,6 +47,7 @@ const headerBackByLayout: Partial<
 > = {
   gameDetail: '/games',
   gameDraft: (pathname) => pathname.replace(/\/draft\/?$/, '') || '/games',
+  gameReviews: (pathname) => pathname.replace(/\/reviews\/?$/, '') || '/games',
 }
 
 export const HomeLayout = ({
@@ -55,6 +58,7 @@ export const HomeLayout = ({
   backHref,
   backLabel,
   pageTitle,
+  headerRight,
 }: HomeLayoutProps) => {
   const defaultLayout = getScreenLayout('tabsRoot')
   const activeLayout = layoutId ? getScreenLayout(layoutId) : defaultLayout
@@ -69,7 +73,13 @@ export const HomeLayout = ({
   const isAdmin = role === 'admin'
   return (
     <YStack f={1} bg="$color1">
-      <Header title={headerTitle} backHref={derivedBackHref} layoutId={activeLayout.id} isAdmin={isAdmin} />
+      <Header
+        title={headerTitle}
+        backHref={derivedBackHref}
+        layoutId={activeLayout.id}
+        isAdmin={isAdmin}
+        headerRight={headerRight}
+      />
       <YStack
         {...(fullPage && { flex: 1 })}
         {...(padded && {
@@ -174,11 +184,13 @@ const Header = ({
   title,
   layoutId,
   isAdmin,
+  headerRight,
 }: {
   backHref?: string
   title: string
   layoutId: ScreenLayoutId
   isAdmin: boolean
+  headerRight?: React.ReactNode
 }) => {
   const showBack = Boolean(backHref)
   const showCreate = layoutId === 'gamesList' && isAdmin
@@ -249,7 +261,14 @@ const Header = ({
           {title}
         </SizableText>
         <XStack pos="absolute" r="$2">
-          <ShopButton />
+          {headerRight === null ? null : headerRight ? (
+            <XStack ai="center" gap="$2">
+              {headerRight}
+              <ShopButton />
+            </XStack>
+          ) : (
+            <ShopButton />
+          )}
         </XStack>
       </XStack>
     </YStack>

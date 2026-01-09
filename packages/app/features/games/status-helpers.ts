@@ -11,38 +11,24 @@ export type AvailabilityDescriptor = {
 
 export const deriveAvailabilityStatus = ({
   status,
-  confirmedCount,
+  rosteredCount,
   capacity,
-  attendanceConfirmedCount,
-  waitlistedCount: _waitlistedCount,
-  waitlistCapacity,
+  isLocked = false,
 }: {
   status: GameStatus
-  confirmedCount: number
+  rosteredCount: number
   capacity: number
-  attendanceConfirmedCount?: number
-  waitlistedCount?: number
-  waitlistCapacity?: number
+  isLocked?: boolean
 }): AvailabilityDescriptor => {
   if (status === 'cancelled') return { state: 'cancelled', label: 'Cancelled', tone: 'warning' }
   if (status === 'completed') return { state: 'completed', label: 'Completed', tone: 'neutral' }
-  if (status === 'locked') return { state: 'locked', label: 'Locked', tone: 'neutral' }
+  if (isLocked) return { state: 'locked', label: 'Locked', tone: 'neutral' }
 
-  const rosterFilled = confirmedCount >= capacity
-  if (!rosterFilled) {
-    return { state: 'open', label: 'Spots open', tone: 'success' }
-  }
-
-  const confirmedAttendanceCount =
-    attendanceConfirmedCount !== undefined ? attendanceConfirmedCount : confirmedCount
-  const waitlistEnabled = typeof waitlistCapacity === 'number' && waitlistCapacity > 0
-  if (!waitlistEnabled) return { state: 'locked', label: 'Locked', tone: 'neutral' }
-  if (confirmedAttendanceCount >= capacity) return { state: 'locked', label: 'Locked', tone: 'neutral' }
-
-  return { state: 'waitlist', label: 'Waitlist', tone: 'warning' }
+  if (rosteredCount < capacity) return { state: 'open', label: 'Spots open', tone: 'success' }
+  return { state: 'waitlist', label: 'Waitlist open', tone: 'warning' }
 }
 
-type QueueStatus = 'confirmed' | 'waitlisted' | 'cancelled' | 'none'
+type QueueStatus = 'rostered' | 'waitlisted' | 'dropped' | 'none'
 
 export const deriveUserBadge = ({
   queueStatus,
@@ -54,7 +40,7 @@ export const deriveUserBadge = ({
   canConfirmAttendance?: boolean
 }): { label: string; tone: StatusTone } | null => {
   if (!queueStatus || queueStatus === 'none') return null
-  if (queueStatus === 'confirmed') {
+  if (queueStatus === 'rostered') {
     return attendanceConfirmed
       ? { label: 'Confirmed', tone: 'success' }
       : canConfirmAttendance
@@ -62,7 +48,7 @@ export const deriveUserBadge = ({
         : { label: 'On roster', tone: 'neutral' }
   }
   if (queueStatus === 'waitlisted') return { label: 'On waitlist', tone: 'warning' }
-  if (queueStatus === 'cancelled') return null
+  if (queueStatus === 'dropped') return null
   return null
 }
 
@@ -83,7 +69,7 @@ export const getConfirmCountdownLabel = ({
   gameStatus?: GameStatus
   now?: number
 }) => {
-  if (userStatus !== 'confirmed') return null
+  if (userStatus !== 'rostered') return null
   if (attendanceConfirmedAt) return null
   if (isConfirmationOpen) return null
   if (gameStatus === 'cancelled' || gameStatus === 'completed') return null
@@ -96,33 +82,27 @@ export const getConfirmCountdownLabel = ({
 
 export const deriveCombinedStatus = ({
   gameStatus,
-  confirmedCount,
+  rosteredCount,
   capacity,
-  attendanceConfirmedCount,
-  waitlistedCount,
-  waitlistCapacity,
+  isLocked,
   userStatus,
   attendanceConfirmed,
   canConfirmAttendance,
 }: {
   gameStatus: GameStatus
-  confirmedCount: number
+  rosteredCount: number
   capacity: number
-  attendanceConfirmedCount?: number
-  waitlistedCount?: number
-  waitlistCapacity?: number
+  isLocked?: boolean
   userStatus?: QueueStatus | null
   attendanceConfirmed?: boolean
   canConfirmAttendance?: boolean
 }): CombinedStatus => {
-  const isUserOnRoster = userStatus === 'confirmed'
+  const isUserOnRoster = userStatus === 'rostered'
   const availability = deriveAvailabilityStatus({
     status: gameStatus,
-    confirmedCount,
+    rosteredCount,
     capacity,
-    attendanceConfirmedCount,
-    waitlistedCount,
-    waitlistCapacity,
+    isLocked,
   })
   const userBadge = deriveUserBadge({
     queueStatus: userStatus,
@@ -142,7 +122,7 @@ export const deriveCombinedStatus = ({
   if (userBadge?.label === 'On waitlist') return { label: userBadge.label, tone: userBadge.tone }
 
   if (availability?.state === 'locked' && !isUserOnRoster) {
-    return { label: 'Roster full', tone: 'neutral' }
+    return { label: availability.label, tone: availability.tone }
   }
   if (availability?.state === 'waitlist') {
     return { label: 'Waitlist open', tone: availability.tone }
@@ -160,6 +140,8 @@ export const deriveUserStateMessage = ({
   canConfirmAttendance,
   confirmationWindowStart,
   gameStatus,
+  isLocked = false,
+  isGrabOnly = false,
   spotsLeft,
 }: {
   queueStatus?: QueueStatus | null
@@ -167,17 +149,23 @@ export const deriveUserStateMessage = ({
   canConfirmAttendance: boolean
   confirmationWindowStart?: Date | null
   gameStatus: GameStatus
+  isLocked?: boolean
+  isGrabOnly?: boolean
   spotsLeft: number
 }) => {
   if (gameStatus === 'cancelled') return 'This run was cancelled.'
   if (gameStatus === 'completed') return 'This run already wrapped.'
-  if (queueStatus === 'confirmed') {
+  if (queueStatus === 'rostered') {
     if (attendanceConfirmed) return 'You’re locked in. Drop out only if life or death.'
     if (canConfirmAttendance) return 'Confirm spot now.'
     return 'You’re on the roster.'
   }
-  if (queueStatus === 'waitlisted') return 'You’re on the waitlist. We’ll ping you if a spot opens.'
-  if (gameStatus === 'locked') return 'Roster full.'
+  if (queueStatus === 'waitlisted') {
+    return isGrabOnly
+      ? 'Grab an open spot as soon as one opens.'
+      : 'You’re on the waitlist. We’ll ping you if a spot opens.'
+  }
+  if (isLocked) return 'Join cutoff passed.'
   if (spotsLeft > 0) return 'Spots open—tap to grab one.'
   return 'Join the waitlist and we’ll ping you if a spot opens.'
 }

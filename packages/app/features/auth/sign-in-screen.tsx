@@ -7,15 +7,13 @@ import {
   Link,
   LoadingOverlay,
   Paragraph,
-  ScrollView,
-  Sheet,
   SizableText,
   Text,
   XStack,
   YStack,
 } from '@my/ui/public'
-import { ChevronDown } from '@tamagui/lucide-icons'
 import { pedLogo } from 'app/assets'
+import { CountryPicker } from 'app/components/CountryPicker'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
@@ -30,14 +28,13 @@ import {
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { usePathname } from 'app/utils/usePathname'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
 
 const RESEND_SECONDS = 30
 const DEFAULT_COUNTRY: PhoneCountryOption['code'] = 'US'
-const POPULAR_COUNTRIES: PhoneCountryOption['code'][] = ['US', 'MX', 'CA']
 const PRIMARY_COLOR = BRAND_COLORS.primary
 
 type PhoneValues = {
@@ -394,6 +391,8 @@ const PhoneInputField = ({
             selected={selectedCountry}
             options={options}
             disabled={disabled}
+            variant="dial"
+            searchPlaceholder="Search country or code"
           />
           <Input
             value={value ?? ''}
@@ -422,199 +421,6 @@ const PhoneInputField = ({
       <FieldError message={error} />
     </YStack>
   )
-}
-
-type CountryPickerProps = {
-  value: PhoneCountryOption['code']
-  onChange: (value: PhoneCountryOption['code']) => void
-  selected: PhoneCountryOption
-  options: PhoneCountryOption[]
-  disabled?: boolean
-}
-
-const CountryPicker = ({ value, onChange, selected, options, disabled }: CountryPickerProps) => {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const normalizedQuery = query.trim().toLowerCase()
-  const popularOptions = useMemo(
-    () => options.filter((option) => POPULAR_COUNTRIES.includes(option.code)),
-    [options]
-  )
-  const filteredOptions = useMemo(
-    () => filterCountryOptions(options, normalizedQuery),
-    [normalizedQuery, options]
-  )
-  const otherOptions = useMemo(() => {
-    if (normalizedQuery) return filteredOptions
-    return options.filter((option) => !POPULAR_COUNTRIES.includes(option.code))
-  }, [filteredOptions, normalizedQuery, options])
-
-  useEffect(() => {
-    if (!open) setQuery('')
-  }, [open])
-
-  const handleSelect = (code: PhoneCountryOption['code']) => {
-    onChange(code)
-    setOpen(false)
-    setQuery('')
-  }
-
-  return (
-    <>
-      <Button
-        chromeless
-        onPress={() => setOpen(true)}
-        disabled={disabled}
-        padding={0}
-        flexShrink={0}
-        alignSelf="center"
-        backgroundColor="transparent"
-        pressStyle={{ opacity: 0.7 }}
-      >
-        <XStack ai="center" gap="$1">
-          <Text fontSize={17}>{selected.flag}</Text>
-          <Text fontSize={17} fontWeight="700">+{selected.callingCode}</Text>
-          <ChevronDown size={16} color="$color10" />
-        </XStack>
-      </Button>
-      <Sheet
-        open={open}
-        onOpenChange={setOpen}
-        modal
-        snapPoints={[70]}
-        snapPointsMode="percent"
-        dismissOnSnapToBottom
-        dismissOnOverlayPress
-        animationConfig={{
-          type: 'spring',
-          damping: 20,
-          mass: 1.2,
-          stiffness: 250,
-        }}
-      >
-        <Sheet.Overlay
-          opacity={0.5}
-          animation="lazy"
-          enterStyle={{ opacity: 0 }}
-        exitStyle={{ opacity: 0 }}
-        zIndex={0}
-      />
-      <Sheet.Frame backgroundColor="$background">
-        <YStack px="$4" pt="$4" pb="$3" gap="$3">
-          <XStack ai="center" jc="space-between">
-            <SizableText fontSize={20} fontWeight="700">
-              Select country
-            </SizableText>
-            <Button
-              chromeless
-              size="$2"
-              onPress={() => setOpen(false)}
-              color={PRIMARY_COLOR}
-            >
-              Close
-            </Button>
-          </XStack>
-          <Input
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search country or code"
-            placeholderTextColor="$color10"
-            autoCapitalize="none"
-            autoCorrect={false}
-            inputMode="search"
-            borderRadius={12}
-            borderColor="$borderColor"
-            backgroundColor="$background"
-            selectionColor={PRIMARY_COLOR}
-            caretColor={PRIMARY_COLOR}
-            color="$color"
-          />
-        </YStack>
-        <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-          <YStack>
-              {!normalizedQuery && popularOptions.length > 0 ? (
-                <CountrySection
-                  title="Popular"
-                  options={popularOptions}
-                  selected={value}
-                  onSelect={handleSelect}
-                />
-              ) : null}
-              <CountrySection
-                title={normalizedQuery ? 'Results' : 'All countries'}
-                options={otherOptions}
-                selected={value}
-                onSelect={handleSelect}
-              />
-              {normalizedQuery && filteredOptions.length === 0 ? (
-                <Paragraph theme="alt2" fontSize={14} textAlign="center" py="$4">
-                  No matches found.
-                </Paragraph>
-              ) : null}
-            </YStack>
-          </ScrollView>
-        </Sheet.Frame>
-      </Sheet>
-    </>
-  )
-}
-
-type CountrySectionProps = {
-  title: string
-  options: PhoneCountryOption[]
-  selected: PhoneCountryOption['code']
-  onSelect: (code: PhoneCountryOption['code']) => void
-}
-
-const CountrySection = ({ title, options, selected, onSelect }: CountrySectionProps) => {
-  if (!options.length) return null
-  return (
-    <YStack>
-      <Paragraph px="$4" py="$2" theme="alt2" fontSize={13} textTransform="uppercase">
-        {title}
-      </Paragraph>
-      {options.map((option) => {
-        const isSelected = option.code === selected
-        return (
-          <Button
-            key={option.code}
-            chromeless
-            onPress={() => onSelect(option.code)}
-            justifyContent="space-between"
-            alignItems="center"
-            px="$4"
-            height={52}
-            borderBottomWidth={1}
-            borderColor="$borderColor"
-            backgroundColor={isSelected ? '$backgroundPress' : 'transparent'}
-          >
-            <XStack ai="center" gap="$2" flex={1}>
-              <Text fontSize={18}>{option.flag}</Text>
-              <Text fontSize={16}>
-                {option.name}
-              </Text>
-            </XStack>
-            <Text fontSize={15} color="$color10">
-              +{option.callingCode}
-            </Text>
-          </Button>
-        )
-      })}
-    </YStack>
-  )
-}
-
-const filterCountryOptions = (options: PhoneCountryOption[], query: string) => {
-  if (!query) return options
-  const numericQuery = query.replace(/\D/g, '')
-  return options.filter((option) => {
-    const name = option.name.toLowerCase()
-    const code = option.code.toLowerCase()
-    const matchesCallingCode = numericQuery
-      ? option.callingCode.includes(numericQuery)
-      : option.callingCode.includes(query)
-    return name.includes(query) || matchesCallingCode || code.includes(query)
-  })
 }
 
 const formatOtpError = (message: string) => {

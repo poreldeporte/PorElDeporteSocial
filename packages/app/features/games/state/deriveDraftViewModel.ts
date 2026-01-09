@@ -36,7 +36,7 @@ export type DraftViewModelArgs = {
 
 export type DraftViewModel = ReturnType<typeof deriveDraftViewModel>
 
-const sortConfirmed = (entries: QueueEntry[]) =>
+const sortRostered = (entries: QueueEntry[]) =>
   [...entries].sort(
     (a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
   )
@@ -78,17 +78,17 @@ export const deriveDraftViewModel = ({
   const captains = gameDetail?.captains ?? []
   const captainIds = new Set(captains.map((captain) => captain.player.id))
 
-  const confirmedRoster = sortConfirmed(
-    (gameDetail?.queue ?? []).filter((entry) => entry.status === 'confirmed')
+  const rosteredRoster = sortRostered(
+    (gameDetail?.queue ?? []).filter((entry) => entry.status === 'rostered')
   )
-  const confirmedPlayers = confirmedRoster.filter((entry) => !captainIds.has(entry.player.id))
+  const rosteredPlayers = rosteredRoster.filter((entry) => !captainIds.has(entry.player.id))
   const combinedDraftedProfileIds = getCombinedDraftedIds(draftedProfileIds, optimisticPicks)
-  const availablePlayers = confirmedPlayers.filter(
+  const availablePlayers = rosteredPlayers.filter(
     (entry) => !combinedDraftedProfileIds.has(entry.profileId)
   )
 
-  const totalDrafted = confirmedPlayers.length - availablePlayers.length
-  const allDrafted = confirmedPlayers.length > 0 && availablePlayers.length === 0
+  const totalDrafted = rosteredPlayers.length - availablePlayers.length
+  const allDrafted = rosteredPlayers.length > 0 && availablePlayers.length === 0
   const hasCaptains = captains.length >= 2
 
   const captainNameByTeamId = getCaptainNameMap(teams, captains)
@@ -119,8 +119,8 @@ export const deriveDraftViewModel = ({
     draftStatus,
     captains,
     captainIds,
-    confirmedRoster,
-    confirmedPlayers,
+    rosteredRoster,
+    rosteredPlayers,
     availablePlayers,
     combinedDraftedProfileIds,
     totalDrafted,

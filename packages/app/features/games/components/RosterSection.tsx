@@ -1,3 +1,7 @@
+import { Alert } from 'react-native'
+
+import { Check, X } from '@tamagui/lucide-icons'
+
 import { Button, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 import type { QueueEntry } from '../types'
 import { StatusBadge } from './GameStatus'
@@ -7,7 +11,10 @@ type Props = {
   emptyLabel?: string
   canManage?: boolean
   removingId?: string | null
+  confirmingId?: string | null
   onRemovePlayer?: (queueId: string) => void
+  onConfirmAttendance?: (profileId: string) => void
+  confirmationEnabled?: boolean
 }
 
 export const RosterSection = ({
@@ -15,7 +22,10 @@ export const RosterSection = ({
   emptyLabel = 'No players yet.',
   canManage = false,
   removingId,
+  confirmingId,
   onRemovePlayer,
+  onConfirmAttendance,
+  confirmationEnabled = true,
 }: Props) => (
   <Card bordered $platform-native={{ borderWidth: 0 }} px="$3" py="$2" gap="$2">
     {entries.length === 0 ? (
@@ -29,7 +39,10 @@ export const RosterSection = ({
             index={index}
             canRemove={canManage}
             isRemoving={removingId === entry.id}
+            isConfirming={confirmingId === entry.profileId}
             onRemove={() => onRemovePlayer?.(entry.id)}
+            onConfirm={() => onConfirmAttendance?.(entry.profileId)}
+            confirmationEnabled={confirmationEnabled}
           />
         ))}
       </YStack>
@@ -42,15 +55,38 @@ const PlayerRow = ({
   index,
   canRemove,
   isRemoving,
+  isConfirming,
   onRemove,
+  onConfirm,
+  confirmationEnabled = true,
 }: {
   entry: QueueEntry
   index: number
   canRemove?: boolean
   isRemoving?: boolean
+  isConfirming?: boolean
   onRemove?: () => void
+  onConfirm?: () => void
+  confirmationEnabled?: boolean
 }) => {
-  const confirmed = Boolean(entry.attendanceConfirmedAt)
+  const confirmed =
+    entry.status === 'rostered' && (!confirmationEnabled || Boolean(entry.attendanceConfirmedAt))
+  const canConfirm =
+    canRemove && confirmationEnabled && entry.status === 'rostered' && !entry.attendanceConfirmedAt
+  const handleConfirm = () => {
+    if (!onConfirm || isConfirming) return
+    Alert.alert('Confirm attendance?', 'This marks the player as confirmed for this game.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', style: 'default', onPress: onConfirm },
+    ])
+  }
+  const handleRemove = () => {
+    if (!onRemove || isRemoving) return
+    Alert.alert('Remove player?', 'This removes them from this game.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: onRemove },
+    ])
+  }
   const record = entry.record
   const recent = record?.recent?.length ? record.recent.join(' ') : null
   const jersey = typeof entry.player.jerseyNumber === 'number' ? `#${entry.player.jerseyNumber}` : null
@@ -77,7 +113,23 @@ const PlayerRow = ({
         ) : null}
       </YStack>
       <XStack ai="center" gap="$1">
-        {entry.status === 'confirmed' ? (
+        {canConfirm ? (
+          <Button
+            size="$2"
+            circular
+            icon={Check}
+            theme="green"
+            backgroundColor="$color2"
+            borderWidth={1}
+            borderColor="$color5"
+            pressStyle={{ backgroundColor: '$color3' }}
+            hoverStyle={{ backgroundColor: '$color3' }}
+            aria-label="Confirm attendance"
+            disabled={isConfirming}
+            onPress={handleConfirm}
+          />
+        ) : null}
+        {entry.status === 'rostered' ? (
           <StatusBadge tone={confirmed ? 'success' : 'warning'} showIcon={false}>
             {confirmed ? 'Confirmed' : 'Pending'}
           </StatusBadge>
@@ -85,13 +137,18 @@ const PlayerRow = ({
         {canRemove ? (
           <Button
             size="$2"
-            variant="outlined"
+            circular
+            icon={X}
             theme="red"
+            backgroundColor="$color2"
+            borderWidth={1}
+            borderColor="$color5"
+            pressStyle={{ backgroundColor: '$color3' }}
+            hoverStyle={{ backgroundColor: '$color3' }}
+            aria-label="Remove player"
             disabled={isRemoving}
-            onPress={onRemove}
-          >
-            {isRemoving ? 'Removing…' : 'Remove'}
-          </Button>
+            onPress={handleRemove}
+          />
         ) : null}
       </XStack>
     </XStack>

@@ -21,7 +21,10 @@ import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useTeamsState } from 'app/utils/useTeamsState'
+
+import { useRouter } from 'solito/router'
 import { AlertDialog } from 'tamagui'
+
 import { StatusBadge } from './components'
 import { deriveDraftViewModel } from './state/deriveDraftViewModel'
 import type { GameDetail } from './types'
@@ -47,6 +50,7 @@ export const GameDraftScreen = ({
 }: DraftScreenProps & ScrollHeaderProps) => {
   const toast = useToastController()
   const utils = api.useUtils()
+  const router = useRouter()
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [optimisticPicks, setOptimisticPicks] = useState<string[]>([])
   const [selectedCaptainIds, setSelectedCaptainIds] = useState<string[]>([])
@@ -127,11 +131,20 @@ export const GameDraftScreen = ({
       isCaptainTurn,
     ]
   )
+
+  if (!gameLoading && gameDetail && gameDetail.draftModeEnabled === false && !isAdmin) {
+    return (
+      <YStack f={1} ai="center" jc="center" gap="$2" px="$4" pt={topInset ?? 0}>
+        <Paragraph theme="alt2">Draft room is hidden for this game.</Paragraph>
+        <Button onPress={() => router.push(`/games/${gameId}`)}>Back to game</Button>
+      </YStack>
+    )
+  }
   const {
     draftStatus,
     captains,
-    confirmedRoster,
-    confirmedPlayers,
+    rosteredRoster,
+    rosteredPlayers,
     availablePlayers,
     totalDrafted,
     allDrafted,
@@ -143,20 +156,20 @@ export const GameDraftScreen = ({
     currentCaptainTeam,
   } = draftView
 
-  const confirmedCount = confirmedRoster.length
+  const rosteredCount = rosteredRoster.length
   const availableCaptainCounts = useMemo(() => {
     const counts: number[] = []
-    for (let i = 2; i <= confirmedCount; i += 1) {
-      if (confirmedCount % i === 0) counts.push(i)
+    for (let i = 2; i <= rosteredCount; i += 1) {
+      if (rosteredCount % i === 0) counts.push(i)
     }
     return counts
-  }, [confirmedCount])
+  }, [rosteredCount])
   const selectedCaptainCount = selectedCaptainIds.length
   const isValidCaptainCount =
     selectedCaptainCount >= 2 && availableCaptainCounts.includes(selectedCaptainCount)
   const captainTeamSize =
     isValidCaptainCount && selectedCaptainCount > 0
-      ? Math.floor(confirmedCount / selectedCaptainCount)
+      ? Math.floor(rosteredCount / selectedCaptainCount)
       : 0
 
   const [recentPick, setRecentPick] = useState<{ teamId: string | null; profileId: string | null } | null>(null)
@@ -203,11 +216,11 @@ export const GameDraftScreen = ({
     }
     setSelectedCaptainIds((prev) => {
       const filtered = prev.filter((id) =>
-        confirmedRoster.some((entry) => entry.profileId === id)
+        rosteredRoster.some((entry) => entry.profileId === id)
       )
       return filtered.length === prev.length ? prev : filtered
     })
-  }, [confirmedRoster, draftStatus, hasCaptains])
+  }, [rosteredRoster, draftStatus, hasCaptains])
 
   if (gameLoading || query.isLoading) {
     return (
@@ -269,7 +282,7 @@ export const GameDraftScreen = ({
     pickNumber: pickNumberWithPending,
     hasAvailablePlayers,
     totalDrafted,
-    totalPlayers: confirmedPlayers.length,
+    totalPlayers: rosteredPlayers.length,
   })
   const showSpectatorNotice = !isAdmin && !isCaptain
   const canStartDraft =
@@ -280,7 +293,7 @@ export const GameDraftScreen = ({
         ? 'Pick captains below to start the draft.'
         : isValidCaptainCount
           ? `Selected ${selectedCaptainCount} captains · Teams of ${captainTeamSize}`
-          : `Selected ${selectedCaptainCount} captains · Must divide ${confirmedCount} roster`
+          : `Selected ${selectedCaptainCount} captains · Must divide ${rosteredCount} roster`
       : null
 
   const toggleCaptain = (profileId: string) => {
@@ -310,7 +323,7 @@ export const GameDraftScreen = ({
           startTime={gameDetail.startTime}
           statusLabel={bannerStatus}
           totalDrafted={totalDrafted}
-          totalPlayers={confirmedPlayers.length}
+          totalPlayers={rosteredPlayers.length}
           isAdmin={isAdmin}
           selectionSummary={selectionSummary}
           onStartDraft={draftStatus === 'pending' && isAdmin ? handleStartDraft : undefined}
@@ -329,7 +342,7 @@ export const GameDraftScreen = ({
           currentTurnTeamId={currentTurnTeam?.id ?? null}
           draftStatus={draftStatus}
           totalDrafted={totalDrafted}
-          totalPlayers={confirmedPlayers.length}
+          totalPlayers={rosteredPlayers.length}
           availableCount={availablePlayers.length}
           recentPick={recentPick}
         />
@@ -385,7 +398,7 @@ export const GameDraftScreen = ({
           >
             <AlertDialog.Title fontWeight="700">Reset draft?</AlertDialog.Title>
             <AlertDialog.Description>
-              This clears captains, teams, and picks so you can start over. Players will remain confirmed in the game
+              This clears captains, teams, and picks so you can start over. Players will remain rostered in the game
               queue.
             </AlertDialog.Description>
             <XStack gap="$3">

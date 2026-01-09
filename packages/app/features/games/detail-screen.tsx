@@ -19,6 +19,7 @@ import {
   Calendar,
   Handshake,
   Heart,
+  Plus,
   ShieldCheck,
   Zap,
 } from '@tamagui/lucide-icons'
@@ -33,7 +34,7 @@ import { useLink } from 'solito/link'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { getDockSpacer } from 'app/constants/dock'
 
-import { AdminPanel, CombinedStatusBadge, GameActionBar, RosterSection } from './components'
+import { AddPlayerSheet, AdminPanel, CombinedStatusBadge, GameActionBar, RateGameSheet, RosterSection } from './components'
 import { getGameCtaIcon, type GameCtaState } from './cta-icons'
 import { deriveCombinedStatus, deriveUserStateMessage, getConfirmCountdownLabel } from './status-helpers'
 import { useGameDetailState } from './useGameDetailState'
@@ -96,11 +97,15 @@ export const GameDetailScreen = ({
   const router = useRouter()
   const toast = useToastController()
   const utils = api.useUtils()
-  const { join, leave, confirmAttendance, pendingGameId, isPending, isConfirming } = useQueueActions()
+  const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
+    useQueueActions()
   const { role, user } = useUser()
   const insets = useSafeAreaInsets()
   const draftLink = useLink({ href: `/games/${gameId}/draft` })
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [rateOpen, setRateOpen] = useState(false)
+  const [addPlayerOpen, setAddPlayerOpen] = useState(false)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   const removeMutation = api.queue.removeMember.useMutation({
     onSuccess: async ({ gameId }) => {
@@ -109,6 +114,14 @@ export const GameDetailScreen = ({
     },
     onError: (err) => toast.show('Unable to remove player', { message: err.message }),
     onSettled: () => setRemovingId(null),
+  })
+  const confirmAttendanceMutation = api.queue.markAttendanceConfirmed.useMutation({
+    onSuccess: async () => {
+      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: gameId })])
+      toast.show('Attendance confirmed')
+    },
+    onError: (err) => toast.show('Unable to confirm attendance', { message: err.message }),
+    onSettled: () => setConfirmingId(null),
   })
 
   const view = useGameDetailState({
@@ -119,16 +132,18 @@ export const GameDetailScreen = ({
   useGameRealtimeSync(data?.id)
 
   const canManage = !!data && role === 'admin'
+  const draftVisible = !!data && (canManage || data.draftModeEnabled !== false)
+  const userAttendanceConfirmed =
+    view.userEntry?.status === 'rostered' &&
+    (!data.confirmationEnabled || Boolean(view.userEntry?.attendanceConfirmedAt))
   const combinedStatus = data
     ? deriveCombinedStatus({
         gameStatus: data.status,
-        confirmedCount: view.confirmedCount,
+        rosteredCount: view.rosteredCount,
         capacity: data.capacity,
-        attendanceConfirmedCount: view.confirmedPlayers.filter((player) => Boolean(player.attendanceConfirmedAt)).length,
-        waitlistedCount: view.waitlistedCount,
-        waitlistCapacity: view.waitlistCapacity,
+        isLocked: view.isLocked,
         userStatus: view.userEntry?.status ?? 'none',
-        attendanceConfirmed: Boolean(view.userEntry?.attendanceConfirmedAt),
+        attendanceConfirmed: userAttendanceConfirmed,
         canConfirmAttendance: view.canConfirmAttendance,
       })
     : null
@@ -147,18 +162,30 @@ export const GameDetailScreen = ({
       : combinedStatus
   const userStateMessage = deriveUserStateMessage({
     queueStatus: view.userEntry?.status ?? 'none',
-    attendanceConfirmed: Boolean(view.userEntry?.attendanceConfirmedAt),
+    attendanceConfirmed: userAttendanceConfirmed,
     canConfirmAttendance: view.canConfirmAttendance,
     confirmationWindowStart: view.confirmationWindowStart,
     gameStatus: data?.status ?? 'scheduled',
+    isLocked: view.isLocked,
+    isGrabOnly: view.isGrabOnly,
     spotsLeft: view.spotsLeft,
   })
 
   const handleCta = () => {
     if (!data) return
-    if (view.ctaState === 'join') {
+    if (view.ctaLabel === 'Rate the game') {
+      setRateOpen(true)
+      return
+    }
+    if (view.ctaState === 'claim' || view.ctaState === 'join-waitlist') {
       join(data.id)
-    } else {
+      return
+    }
+    if (view.ctaState === 'grab-open-spot') {
+      grabOpenSpot(data.id)
+      return
+    }
+    if (view.ctaState === 'drop') {
       leave(data.id)
     }
   }
@@ -218,13 +245,14 @@ export const GameDetailScreen = ({
                 confirmationWindowStart={view.confirmationWindowStart}
               />
             ) : null}
-            {data.draftStatus !== 'completed' &&
-            (view.confirmedCount >= data.capacity || data.draftStatus !== 'pending') ? (
+            {canManage ? <AdminPanel game={data} /> : null}
+            {draftVisible &&
+            !canManage &&
+            data.draftStatus !== 'completed' &&
+            (view.rosteredCount >= data.capacity || data.draftStatus !== 'pending') ? (
               <DraftStatusCard draftStatus={data.draftStatus} canManage={canManage} draftLink={draftLink} />
             ) : null}
           </YStack>
-
-          {canManage ? <AdminPanel game={data} /> : null}
 
           {shouldShowMatchSummary({ result: data.result, teams: data.teams ?? [], draftStatus: data.draftStatus, showEmptyState: canManage }) ? (
             <>
@@ -239,14 +267,40 @@ export const GameDetailScreen = ({
             </>
           ) : null}
 
-          <SectionTitle meta={`${view.confirmedCount}/${data.capacity}`}>Roster</SectionTitle>
+          <SectionTitle
+            meta={`${view.rosteredCount}/${data.capacity}`}
+            action={
+              canManage && data.status === 'scheduled' ? (
+                <Button
+                  size="$2"
+                  circular
+                  icon={Plus}
+                  aria-label="Add player"
+                  backgroundColor="$color2"
+                  borderWidth={1}
+                  borderColor="$color4"
+                  pressStyle={{ backgroundColor: '$color3' }}
+                  hoverStyle={{ backgroundColor: '$color3' }}
+                  onPress={() => setAddPlayerOpen(true)}
+                />
+              ) : null
+            }
+          >
+            Roster
+          </SectionTitle>
           <RosterSection
-            entries={view.confirmedPlayers}
+            entries={view.rosteredPlayers}
             canManage={canManage}
             removingId={removingId}
+            confirmingId={confirmingId}
+            confirmationEnabled={data.confirmationEnabled}
             onRemovePlayer={(queueId) => {
               setRemovingId(queueId)
               removeMutation.mutate({ queueId })
+            }}
+            onConfirmAttendance={(profileId) => {
+              setConfirmingId(profileId)
+              confirmAttendanceMutation.mutate({ gameId: data.id, profileId })
             }}
           />
 
@@ -274,6 +328,20 @@ export const GameDetailScreen = ({
           onCta={handleCta}
           onConfirmAttendance={() => confirmAttendance(data.id)}
           isConfirming={isConfirming}
+        />
+      ) : null}
+      <RateGameSheet
+        open={rateOpen}
+        onOpenChange={setRateOpen}
+        gameId={data.id}
+        gameName={data.name}
+      />
+      {canManage ? (
+        <AddPlayerSheet
+          open={addPlayerOpen}
+          onOpenChange={setAddPlayerOpen}
+          gameId={data.id}
+          queue={data.queue ?? []}
         />
       ) : null}
     </YStack>
@@ -330,15 +398,18 @@ const AttendanceCard = ({
   const isRateCta = ctaLabel === 'Rate the game'
   const isConfirmation = canConfirmAttendance && Boolean(confirmationWindowStart)
   const isJoinWaitlist = ctaLabel === 'Join waitlist'
-  const isClaimCta = !isConfirmation && (ctaLabel === 'Claim spot' || isJoinWaitlist)
+  const isGrabOpenSpot = ctaLabel === 'Grab open spot'
+  const isClaimCta = !isConfirmation && (ctaLabel === 'Claim spot' || isJoinWaitlist || isGrabOpenSpot)
   const ctaState: GameCtaState | undefined =
-    ctaLabel === 'Drop out'
-      ? 'leave-confirmed'
-      : ctaLabel === 'Leave waitlist'
-        ? 'leave-waitlisted'
-        : ctaLabel === 'Claim spot' || ctaLabel === 'Join waitlist'
-          ? 'join'
-          : undefined
+    ctaLabel === 'Drop'
+      ? 'drop'
+      : ctaLabel === 'Claim spot'
+        ? 'claim'
+        : ctaLabel === 'Join waitlist'
+          ? 'join-waitlist'
+          : ctaLabel === 'Grab open spot'
+            ? 'grab-open-spot'
+            : undefined
   const icon = getGameCtaIcon({
     isPending: isLoading,
     showConfirm: isConfirmation,
@@ -483,22 +554,35 @@ const getDraftStatusContent = (
       return {
         headline: canManage ? 'Pick captains to unlock drafting' : 'Captains coming soon',
         subline: canManage
-          ? 'Choose confirmed captains so we can start picking.'
+          ? 'Choose rostered captains so we can start picking.'
           : 'We’ll draft as soon as captains are announced.',
         hint: canManage ? 'Tap to set captains' : 'Captains coming soon',
       }
   }
 }
 
-const SectionTitle = ({ children, meta }: { children: string; meta?: string }) => (
-  <XStack ai="center" jc="space-between" gap="$2">
+const SectionTitle = ({
+  children,
+  meta,
+  action,
+}: {
+  children: string
+  meta?: string
+  action?: ReactNode
+}) => (
+  <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
     <SizableText size="$5" fontWeight="600">
       {children}
     </SizableText>
-    {meta ? (
-      <Paragraph theme="alt2" size="$2">
-        {meta}
-      </Paragraph>
+    {meta || action ? (
+      <XStack ai="center" gap="$2">
+        {meta ? (
+          <Paragraph theme="alt2" size="$2">
+            {meta}
+          </Paragraph>
+        ) : null}
+        {action}
+      </XStack>
     ) : null}
   </XStack>
 )

@@ -1,8 +1,10 @@
-import { HomeLayout } from 'app/features/home/layout.web'
-import { GameDetailScreen } from 'app/features/games/detail-screen'
-import { getScreenLayout } from 'app/navigation/layouts'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
+
+import { GameDetailScreen } from 'app/features/games/detail-screen'
+import { HomeLayout } from 'app/features/home/layout.web'
+import { getScreenLayout } from 'app/navigation/layouts'
+
 import type { NextPageWithLayout } from '../_app'
 
 const gameDetailLayout = getScreenLayout('gameDetail')

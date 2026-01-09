@@ -16,21 +16,21 @@ import type { GameDetail, QueueEntry } from '../types'
 
 type CaptainSelectorProps = {
   gameId: string
-  confirmedPlayers: QueueEntry[]
+  rosteredPlayers: QueueEntry[]
   captains: GameDetail['captains']
 }
 
-export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainSelectorProps) => {
-  const confirmedCount = confirmedPlayers.length
+export const CaptainSelector = ({ gameId, rosteredPlayers, captains }: CaptainSelectorProps) => {
+  const rosteredCount = rosteredPlayers.length
   const availableCaptainCounts = useMemo(() => {
     const counts: number[] = []
-    for (let i = 2; i <= confirmedCount; i += 1) {
-      if (confirmedCount % i === 0) counts.push(i)
+    for (let i = 2; i <= rosteredCount; i += 1) {
+      if (rosteredCount % i === 0) counts.push(i)
     }
     return counts
-  }, [confirmedCount])
+  }, [rosteredCount])
   const initialCaptainCount =
-    captains.length >= 2 && confirmedCount % captains.length === 0
+    captains.length >= 2 && rosteredCount % captains.length === 0
       ? captains.length
       : availableCaptainCounts[0] ?? 2
   const [captainCount, setCaptainCount] = useState(initialCaptainCount)
@@ -98,17 +98,17 @@ export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainS
 
   const rows = useMemo(
     () =>
-      confirmedPlayers.map((player) => ({
+      rosteredPlayers.map((player) => ({
         id: player.profileId,
         name: player.player.name ?? 'Member',
       })),
-    [confirmedPlayers]
+    [rosteredPlayers]
   )
   const nameById = useMemo(() => new Map(rows.map((row) => [row.id, row.name])), [rows])
   const selectedIds = slots.filter(Boolean) as string[]
   const uniqueSelected = new Set(selectedIds).size === selectedIds.length
   const disabled = !slots.every(Boolean) || !uniqueSelected || mutation.isPending
-  const teamSize = captainCount > 0 ? Math.floor(confirmedCount / captainCount) : 0
+  const teamSize = captainCount > 0 ? Math.floor(rosteredCount / captainCount) : 0
 
   const handleCaptainCountChange = (count: number) => {
     setCaptainCount(count)
@@ -146,7 +146,7 @@ export const CaptainSelector = ({ gameId, confirmedPlayers, captains }: CaptainS
         Assign captains
       </SizableText>
       <Paragraph theme="alt2">
-        Choose confirmed players to lead the draft. Once confirmed, the draft starts immediately.
+        Choose rostered players to lead the draft. Once confirmed, the draft starts immediately.
       </Paragraph>
       {availableCaptainCounts.length ? (
         <XStack gap="$2" flexWrap="wrap">

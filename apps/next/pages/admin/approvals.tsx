@@ -1,7 +1,8 @@
-import { MemberApprovalsScreen } from 'app/features/admin/member-approvals-screen'
+import Head from 'next/head'
+
+import { MemberListScreen } from 'app/features/admin/member-list-screen'
 import { HomeLayout } from 'app/features/home/layout.web'
 import { getScreenLayout } from 'app/navigation/layouts'
-import Head from 'next/head'
 
 import { NextPageWithLayout } from '../_app'
 
@@ -13,7 +14,7 @@ const Page: NextPageWithLayout = () => {
       <Head>
         <title>{layout.title}</title>
       </Head>
-      <MemberApprovalsScreen />
+      <MemberListScreen />
     </>
   )
 }

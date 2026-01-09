@@ -12,6 +12,7 @@ type QuickJoinCardProps = {
   titleOverride?: string
   onJoin?: (gameId: string) => void
   onLeave?: (gameId: string) => void
+  onGrabOpenSpot?: (gameId: string) => void
   onConfirmAttendance?: (gameId: string) => void
   isPending?: boolean
   pendingGameId?: string | null
@@ -24,6 +25,7 @@ export const QuickJoinCard = ({
   titleOverride,
   onJoin,
   onLeave,
+  onGrabOpenSpot,
   onConfirmAttendance,
   isPending,
   pendingGameId,
@@ -51,6 +53,7 @@ export const QuickJoinCard = ({
         game={game}
         onJoin={onJoin ?? (() => {})}
         onLeave={onLeave ?? (() => {})}
+        onGrabOpenSpot={onGrabOpenSpot ?? (() => {})}
         onConfirmAttendance={onConfirmAttendance}
         isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
         isConfirming={isConfirming}

@@ -23,7 +23,7 @@ const useJoinQueueMutation = (
   api.queue.join.useMutation({
     onSuccess: async (result, variables) => {
       await onInvalidate(variables.gameId)
-      notify.show(result.status === 'confirmed' ? 'You joined the game' : 'Added to waitlist')
+      notify.show(result.status === 'rostered' ? 'Spot claimed' : 'Joined waitlist')
     },
     onError: (error) => notify.show('Unable to join game', { message: error.message }),
     onSettled,
@@ -37,9 +37,23 @@ const useLeaveQueueMutation = (
   api.queue.leave.useMutation({
     onSuccess: async (_result, variables) => {
       await onInvalidate(variables.gameId)
-      notify.show('You left the game')
+      notify.show('Dropped from game')
     },
     onError: (error) => notify.show('Unable to update queue', { message: error.message }),
+    onSettled,
+  })
+
+const useGrabOpenSpotMutation = (
+  onInvalidate: (gameId: string) => Promise<void>,
+  onSettled: () => void,
+  notify: ReturnType<typeof useToastController>
+) =>
+  api.queue.grabOpenSpot.useMutation({
+    onSuccess: async (_result, variables) => {
+      await onInvalidate(variables.gameId)
+      notify.show('Spot grabbed')
+    },
+    onError: (error) => notify.show('Unable to grab spot', { message: error.message }),
     onSettled,
   })
 
@@ -58,13 +72,13 @@ const useConfirmAttendanceMutation = (
 const confirmDrop = (): Promise<boolean> => {
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined') {
-      return Promise.resolve(window.confirm('Drop out? You could lose your spot.'))
+      return Promise.resolve(window.confirm('Drop? You could lose your spot.'))
     }
     return Promise.resolve(true)
   }
 
   return new Promise<boolean>((resolve) => {
-    Alert.alert('Drop out?', 'Your spot will immediately go to the waitlist.', [
+    Alert.alert('Drop?', 'Dropping frees your spot.', [
       {
         text: 'Keep spot',
         style: 'cancel',
@@ -87,6 +101,7 @@ export const useQueueActions = () => {
 
   const joinMutation = useJoinQueueMutation(invalidate, handleSettled, toast)
   const leaveMutation = useLeaveQueueMutation(invalidate, handleSettled, toast)
+  const grabMutation = useGrabOpenSpotMutation(invalidate, handleSettled, toast)
   const confirmMutation = useConfirmAttendanceMutation(invalidate, toast)
 
   const join = (gameId: string) => {
@@ -104,9 +119,13 @@ export const useQueueActions = () => {
   return {
     join,
     leave,
+    grabOpenSpot: (gameId: string) => {
+      setPendingGameId(gameId)
+      grabMutation.mutate({ gameId })
+    },
     confirmAttendance: (gameId: string) => confirmMutation.mutate({ gameId }),
     pendingGameId,
-    isPending: joinMutation.isPending || leaveMutation.isPending,
+    isPending: joinMutation.isPending || leaveMutation.isPending || grabMutation.isPending,
     isConfirming: confirmMutation.isPending,
   }
 }

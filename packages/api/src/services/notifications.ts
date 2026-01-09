@@ -41,17 +41,6 @@ export const formatProfileName = (profile: ProfileName | null) => {
   return 'Someone'
 }
 
-const fetchProfileName = async (supabaseAdmin: SupabaseClient<Database>, profileId: string) => {
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('name, first_name, last_name')
-    .eq('id', profileId)
-    .maybeSingle()
-
-  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-  return formatProfileName(data ?? null)
-}
-
 const fetchQueueProfileIds = async (
   supabaseAdmin: SupabaseClient<Database>,
   gameId: string,
@@ -68,8 +57,12 @@ const fetchQueueProfileIds = async (
   return Array.from(new Set((data ?? []).map((row) => row.profile_id)))
 }
 
-const fetchConfirmedProfileIds = async (supabaseAdmin: SupabaseClient<Database>, gameId: string) => {
-  return fetchQueueProfileIds(supabaseAdmin, gameId, ['confirmed'])
+const fetchRosteredProfileIds = async (supabaseAdmin: SupabaseClient<Database>, gameId: string) => {
+  return fetchQueueProfileIds(supabaseAdmin, gameId, ['rostered'])
+}
+
+const fetchWaitlistedProfileIds = async (supabaseAdmin: SupabaseClient<Database>, gameId: string) => {
+  return fetchQueueProfileIds(supabaseAdmin, gameId, ['waitlisted'])
 }
 
 const fetchActiveTokens = async (supabaseAdmin: SupabaseClient<Database>, userIds: string[]) => {
@@ -78,16 +71,6 @@ const fetchActiveTokens = async (supabaseAdmin: SupabaseClient<Database>, userId
     .from('user_devices')
     .select('expo_push_token')
     .in('user_id', userIds)
-    .is('disabled_at', null)
-
-  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-  return Array.from(new Set((data ?? []).map((row) => row.expo_push_token)))
-}
-
-const fetchAllActiveTokens = async (supabaseAdmin: SupabaseClient<Database>) => {
-  const { data, error } = await supabaseAdmin
-    .from('user_devices')
-    .select('expo_push_token')
     .is('disabled_at', null)
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
@@ -105,15 +88,7 @@ const sendPushToUserIds = async (
   return deliverPushMessages({ messages, supabaseAdmin })
 }
 
-const sendPushToAll = async (supabaseAdmin: SupabaseClient<Database>, payload: PushPayload) => {
-  const tokens = await fetchAllActiveTokens(supabaseAdmin)
-  if (!tokens.length) return { sent: 0, disabledTokens: [] as string[] }
-  const messages = buildPushMessages(tokens, payload)
-  return deliverPushMessages({ messages, supabaseAdmin })
-}
-
 const toGameUrl = (gameId: string) => `/games/${gameId}`
-const toDraftUrl = (gameId: string) => `/games/${gameId}/draft`
 
 export const buildGameCancelledPayload = (game: GameSummary): PushPayload => ({
   title: `Game cancelled: ${game.name}`,
@@ -135,12 +110,16 @@ export const notifyWaitlistPromoted = async ({
   })
 }
 
-export const notifyGameCreatedGlobal = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
+export const notifyWaitlistDemoted = async ({
+  supabaseAdmin,
+  gameId,
+  profileId,
+}: NotifyOptions & { profileId: string }) => {
   const game = await fetchGameSummary(supabaseAdmin, gameId)
   if (!game) return
-  await sendPushToAll(supabaseAdmin, {
-    title: `New game posted: ${game.name}`,
-    body: 'Claim a spot now.',
+  await sendPushToUserIds(supabaseAdmin, [profileId], {
+    title: `Roster update: ${game.name}`,
+    body: 'A roster change moved you to the waitlist.',
     data: { url: toGameUrl(gameId) },
   })
 }
@@ -148,102 +127,109 @@ export const notifyGameCreatedGlobal = async ({ supabaseAdmin, gameId }: NotifyO
 export const notifyGameCancelled = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
   const game = await fetchGameSummary(supabaseAdmin, gameId)
   if (!game) return
-  const roster = await fetchQueueProfileIds(supabaseAdmin, gameId, ['confirmed', 'waitlisted'])
+  const roster = await fetchQueueProfileIds(supabaseAdmin, gameId, ['rostered', 'waitlisted'])
   if (!roster.length) return
   await sendPushToUserIds(supabaseAdmin, roster, buildGameCancelledPayload(game))
 }
 
-export const notifyRosterJoinedGlobal = async ({
+export const notifyResultsConfirmed = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
+  const game = await fetchGameSummary(supabaseAdmin, gameId)
+  if (!game) return
+  const roster = await fetchRosteredProfileIds(supabaseAdmin, gameId)
+  if (!roster.length) return
+  await sendPushToUserIds(supabaseAdmin, roster, {
+    title: `Results are in for ${game.name}`,
+    body: 'Stats updated.',
+    data: { url: toGameUrl(gameId) },
+  })
+}
+
+export const notifyCrunchTimeStarted = async ({
+  supabaseAdmin,
+  gameId,
+  profileIds,
+}: NotifyOptions & { profileIds?: string[] }) => {
+  const game = await fetchGameSummary(supabaseAdmin, gameId)
+  if (!game) return
+  const waitlist = profileIds ?? (await fetchWaitlistedProfileIds(supabaseAdmin, gameId))
+  if (!waitlist.length) return
+  await sendPushToUserIds(supabaseAdmin, waitlist, {
+    title: `Crunch time: ${game.name}`,
+    body: 'Last-minute opening — grab open spot.',
+    data: { url: toGameUrl(gameId) },
+  })
+}
+
+export const notifyConfirmationReminder = async ({
+  supabaseAdmin,
+  gameId,
+  profileIds,
+}: NotifyOptions & { profileIds: string[] }) => {
+  const game = await fetchGameSummary(supabaseAdmin, gameId)
+  if (!game) return
+  if (!profileIds.length) return
+  await sendPushToUserIds(supabaseAdmin, profileIds, {
+    title: `Confirm attendance: ${game.name}`,
+    body: 'Confirm your spot to keep it.',
+    data: { url: toGameUrl(gameId) },
+  })
+}
+
+export const notifyGameNotification = async ({
+  supabaseAdmin,
+  gameId,
+  profileIds,
+}: NotifyOptions & { profileIds: string[] }) => {
+  const game = await fetchGameSummary(supabaseAdmin, gameId)
+  if (!game) return
+  if (!profileIds.length) return
+  await sendPushToUserIds(supabaseAdmin, profileIds, {
+    title: `Game reminder: ${game.name}`,
+    body: 'Check the game details.',
+    data: { url: toGameUrl(gameId) },
+  })
+}
+
+export const notifyCaptainsAssigned = async ({
+  supabaseAdmin,
+  gameId,
+  profileIds,
+}: NotifyOptions & { profileIds: string[] }) => {
+  const game = await fetchGameSummary(supabaseAdmin, gameId)
+  if (!game) return
+  const uniqueIds = Array.from(new Set(profileIds))
+  if (!uniqueIds.length) return
+  await sendPushToUserIds(supabaseAdmin, uniqueIds, {
+    title: `You're a captain for ${game.name}`,
+    body: 'Draft starts now.',
+    data: { url: toGameUrl(gameId) },
+  })
+}
+
+export const notifyCaptainTurn = async ({
   supabaseAdmin,
   gameId,
   profileId,
 }: NotifyOptions & { profileId: string }) => {
   const game = await fetchGameSummary(supabaseAdmin, gameId)
   if (!game) return
-  const playerName = await fetchProfileName(supabaseAdmin, profileId)
-  await sendPushToAll(supabaseAdmin, {
-    title: `Roster update: ${game.name}`,
-    body: `${playerName} has joined the game.`,
+  await sendPushToUserIds(supabaseAdmin, [profileId], {
+    title: `Your pick: ${game.name}`,
+    body: "It's your turn to pick.",
     data: { url: toGameUrl(gameId) },
   })
 }
 
-export const notifyRosterLocked = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
-  const game = await fetchGameSummary(supabaseAdmin, gameId)
-  if (!game) return
-  const roster = await fetchConfirmedProfileIds(supabaseAdmin, gameId)
-  if (!roster.length) return
-  await sendPushToUserIds(supabaseAdmin, roster, {
-    title: `Roster locked for ${game.name}`,
-    body: 'Teams are set. Check the lineup.',
-    data: { url: toGameUrl(gameId) },
-  })
-}
-
-export const notifyDraftStarted = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
-  const game = await fetchGameSummary(supabaseAdmin, gameId)
-  if (!game) return
-  const roster = await fetchConfirmedProfileIds(supabaseAdmin, gameId)
-  if (!roster.length) return
-  await sendPushToUserIds(supabaseAdmin, roster, {
-    title: `Draft is live for ${game.name}`,
-    body: 'Join the room to follow the picks.',
-    data: { url: toDraftUrl(gameId) },
-  })
-}
-
-export const notifyDraftReady = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
-  const game = await fetchGameSummary(supabaseAdmin, gameId)
-  if (!game) return
-  const roster = await fetchConfirmedProfileIds(supabaseAdmin, gameId)
-  if (!roster.length) return
-  await sendPushToUserIds(supabaseAdmin, roster, {
-    title: `Captains set for ${game.name}`,
-    body: 'Draft starting now.',
-    data: { url: toDraftUrl(gameId) },
-  })
-}
-
-const buildPickBody = (pickOrder: number | null) => {
-  if (!pickOrder) return 'Meet your squad in the draft room.'
-  return `Pick #${pickOrder}. Meet your squad.`
-}
-
-export const notifyDraftPick = async ({
+export const notifyPlayerDrafted = async ({
   supabaseAdmin,
   gameId,
   profileId,
-  pickOrder,
-}: NotifyOptions & { profileId: string; pickOrder: number | null }) => {
+}: NotifyOptions & { profileId: string }) => {
   const game = await fetchGameSummary(supabaseAdmin, gameId)
   if (!game) return
   await sendPushToUserIds(supabaseAdmin, [profileId], {
-    title: `You were drafted in ${game.name}`,
-    body: buildPickBody(pickOrder),
-    data: { url: toDraftUrl(gameId) },
-  })
-}
-
-export const notifyDraftCompleted = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
-  const game = await fetchGameSummary(supabaseAdmin, gameId)
-  if (!game) return
-  const roster = await fetchConfirmedProfileIds(supabaseAdmin, gameId)
-  if (!roster.length) return
-  await sendPushToUserIds(supabaseAdmin, roster, {
-    title: `Draft complete for ${game.name}`,
-    body: 'Teams are set. View the roster.',
-    data: { url: toGameUrl(gameId) },
-  })
-}
-
-export const notifyDraftReset = async ({ supabaseAdmin, gameId }: NotifyOptions) => {
-  const game = await fetchGameSummary(supabaseAdmin, gameId)
-  if (!game) return
-  const roster = await fetchConfirmedProfileIds(supabaseAdmin, gameId)
-  if (!roster.length) return
-  await sendPushToUserIds(supabaseAdmin, roster, {
-    title: `Draft reset for ${game.name}`,
-    body: 'Roster changed. We will re-run the draft once everyone confirms.',
+    title: `You were drafted for ${game.name}`,
+    body: 'Check your team details.',
     data: { url: toGameUrl(gameId) },
   })
 }

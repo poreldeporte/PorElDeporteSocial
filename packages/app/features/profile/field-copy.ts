@@ -8,6 +8,7 @@ export const profileFieldCopy = {
   birthDate: { label: 'Birth Date', placeholder: 'Select your birth date' },
   jerseyNumber: { label: 'Jersey Number', placeholder: '10' },
   position: { label: 'Preferred Position', placeholder: 'Midfield' },
+  nationality: { label: 'Nationality', placeholder: 'Select your country' },
 } as const
 
 type FieldKey = keyof typeof profileFieldCopy

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useMemo, useRef, type ReactNode } from 'react'
 import type { ScrollViewProps } from 'react-native'
 
 import {
@@ -42,6 +42,7 @@ export const CreateGameForm = ({
   const showFloatingCta = !isWeb
   const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
   const submitRef = useRef<(() => void) | null>(null)
+  const formDefaults = useMemo(() => buildGameFormDefaults(), [])
 
   const mutation = api.games.create.useMutation({
     onSuccess: async () => {
@@ -79,7 +80,7 @@ export const CreateGameForm = ({
         const payload = serializeGameFormValues(values)
         mutation.mutate(payload)
       }}
-      defaultValues={buildGameFormDefaults()}
+      defaultValues={formDefaults}
       renderAfter={renderAfter}
     >
       {(fields) => (
@@ -112,6 +113,21 @@ export const CreateGameForm = ({
               {fields.location_name}
               {fields.capacity}
             </YStack>
+            <YStack gap="$3">
+              <Paragraph theme="alt1">Set roster rules for confirmations, cutoffs, and draft flow.</Paragraph>
+              <FieldWithHint
+                field={fields.confirmation_enabled}
+                hint="Players must confirm to keep their spot. If off, everyone is treated as confirmed and there is no crunch time."
+              />
+              <FieldWithHint
+                field={fields.join_cutoff_offset_minutes_from_kickoff}
+                hint="After this time, players cannot claim spot, join waitlist, drop, or confirm. Set to 0 to keep it open until kickoff."
+              />
+              <FieldWithHint
+                field={fields.draft_mode_enabled}
+                hint="Turns on captains and the draft."
+              />
+            </YStack>
             {showFloatingCta ? <YStack h={dockSpacer} /> : null}
           </FormWrapper.Body>
           {showFloatingCta ? (
@@ -130,3 +146,12 @@ export const CreateGameForm = ({
     </SchemaForm>
   )
 }
+
+const FieldWithHint = ({ field, hint }: { field: ReactNode; hint: string }) => (
+  <YStack gap="$1">
+    {field}
+    <Paragraph theme="alt2" size="$2">
+      {hint}
+    </Paragraph>
+  </YStack>
+)

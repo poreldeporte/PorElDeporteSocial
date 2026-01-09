@@ -1,9 +1,9 @@
 import { ChevronLeft } from '@tamagui/lucide-icons'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { getScreenLayout } from '@my/app/navigation/layouts'
 import { GameDetailScreen } from 'app/features/games/detail-screen'
-import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'
 
