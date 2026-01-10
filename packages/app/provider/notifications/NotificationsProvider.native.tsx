@@ -64,7 +64,7 @@ const getExpoToken = async () => {
 export const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
   const { user, profile } = useUser()
   const supabase = useSupabase()
-  const registerDevice = api.notifications.registerDevice.useMutation()
+  const { mutateAsync: registerDevice } = api.notifications.registerDevice.useMutation()
   const isApproved = isProfileApproved(profile)
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
         disabled_at: null,
       }
       try {
-        await registerDevice.mutateAsync({ expoPushToken: token, platform, appVersion })
+        await registerDevice({ expoPushToken: token, platform, appVersion })
       } catch {
         const { error } = await supabase
           .from('user_devices')
