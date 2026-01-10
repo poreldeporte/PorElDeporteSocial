@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { Star } from '@tamagui/lucide-icons'
 
@@ -35,9 +35,11 @@ export const GameReviewsScreen = ({
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
     : screenContentContainerStyle
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   return (
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>

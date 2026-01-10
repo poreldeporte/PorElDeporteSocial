@@ -1,4 +1,4 @@
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { useMemo, type ReactNode } from 'react'
 
 import { Card, FullscreenSpinner, Paragraph, ScrollView, SizableText, View, YStack } from '@my/ui/public'
@@ -88,9 +88,11 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
     : screenContentContainerStyle
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   const draftCardGame = myDraftGame ?? liveDraftGame
 

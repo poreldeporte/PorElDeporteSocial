@@ -64,6 +64,12 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
   }, [activeIndex, activeWidth, dockWidth, pillWidth, translateX, visibleRoutes.length])
 
   const pillStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    left: 0,
+    top: dockPadding,
+    height: pillHeight,
+    backgroundColor: DOCK_CHROME.surfaceLight,
+    borderRadius: dockRadius,
     transform: [{ translateX: translateX.value }],
     width: pillWidth.value,
   }))
@@ -102,20 +108,7 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
         elevation={DOCK_CHROME.elevation}
         onLayout={handleLayout}
       >
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            {
-              position: 'absolute',
-              left: 0,
-              top: dockPadding,
-              height: pillHeight,
-              backgroundColor: DOCK_CHROME.surfaceLight,
-              borderRadius: dockRadius,
-            },
-            pillStyle,
-          ]}
-        />
+        <Animated.View pointerEvents="none" style={pillStyle} />
         {visibleRoutes.map((route) => {
           const isFocused = route.key === activeKey
           const navRoute = navRoutesBySegment[route.name]

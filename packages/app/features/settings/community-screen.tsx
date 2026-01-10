@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useRef } from 'react'
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { useFormContext } from 'react-hook-form'
 import { z } from 'zod'
@@ -98,9 +98,11 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
     const baseContentStyle = headerSpacer
       ? { ...screenContentContainerStyle, paddingTop: 0, flexGrow: 1 }
       : { ...screenContentContainerStyle, flexGrow: 1 }
-    const mergedContentStyle = Array.isArray(contentContainerStyle)
-      ? [baseContentStyle, ...contentContainerStyle]
-      : [baseContentStyle, contentContainerStyle]
+    const mergedContentStyle = StyleSheet.flatten(
+      Array.isArray(contentContainerStyle)
+        ? [baseContentStyle, ...contentContainerStyle]
+        : [baseContentStyle, contentContainerStyle]
+    )
     return (
       <ScrollView {...scrollViewOnly} contentContainerStyle={mergedContentStyle}>
         {headerSpacer}

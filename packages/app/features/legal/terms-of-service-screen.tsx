@@ -1,4 +1,4 @@
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { type ReactNode } from 'react'
 
 import { H1, Paragraph, ScrollView, SizableText, YStack, isWeb } from '@my/ui/public'
@@ -89,9 +89,11 @@ export const TermsOfServiceScreen = ({ scrollProps, headerSpacer }: ScrollHeader
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
     : screenContentContainerStyle
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
   return (
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
       {headerSpacer}

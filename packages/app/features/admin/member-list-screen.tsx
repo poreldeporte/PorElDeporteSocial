@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { Alert } from 'react-native'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -131,9 +131,11 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
     paddingTop: headerSpacer ? 0 : screenContentContainerStyle.paddingTop,
     flexGrow: 1,
   }
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   const handleRemove = (member: MemberProfile) => {
     const displayName = buildMemberName(member)

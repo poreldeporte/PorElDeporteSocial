@@ -1,4 +1,4 @@
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { useState, type ReactNode } from 'react'
 
 import {
@@ -310,9 +310,11 @@ export const GameDetailScreen = ({
     paddingTop: headerSpacer ? 0 : screenContentContainerStyle.paddingTop,
     paddingBottom: basePaddingBottom,
   }
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   return (
     <YStack f={1} bg="$background">

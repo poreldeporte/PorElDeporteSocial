@@ -1,4 +1,4 @@
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { useEffect, useState, type ReactNode } from 'react'
 
 import {
@@ -136,9 +136,11 @@ export const GameResultScreen = ({
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
     : screenContentContainerStyle
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   return (
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
