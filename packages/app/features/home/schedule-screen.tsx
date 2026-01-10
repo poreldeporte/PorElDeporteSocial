@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { ScrollView, View, XStack, YStack, Card, Paragraph, Spinner, Button, SizableText } from '@my/ui/public'
 import { BRAND_COLORS } from 'app/constants/colors'
@@ -47,9 +47,11 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
     flexGrow: 1,
     paddingBottom: basePaddingBottom,
   }
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   return (
     <View style={{ flex: 1 }}>

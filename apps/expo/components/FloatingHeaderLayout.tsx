@@ -93,6 +93,11 @@ export const FloatingHeaderLayout = ({
   }, [collapsedSpacer, expandedSpacer, headerHeight, spacerHeight, translateY])
 
   const headerStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     transform: [{ translateY: translateY.value }],
   }))
 
@@ -110,18 +115,7 @@ export const FloatingHeaderLayout = ({
 
   return (
     <YStack f={1} position="relative" bg="$background">
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10,
-          },
-          headerStyle,
-        ]}
-      >
+      <Animated.View style={headerStyle}>
         <AppTopBar
           title={title}
           leftIcon={leftIcon}

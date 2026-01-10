@@ -1,4 +1,4 @@
-import { Share, type ScrollViewProps } from 'react-native'
+import { Share, StyleSheet, type ScrollViewProps } from 'react-native'
 import { useMemo, type ReactNode } from 'react'
 import { Path, Svg } from 'react-native-svg'
 import { SolitoImage } from 'solito/image'
@@ -49,9 +49,11 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
     : screenContentContainerStyle
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   return (
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>

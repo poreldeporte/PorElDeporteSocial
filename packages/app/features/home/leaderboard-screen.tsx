@@ -1,4 +1,4 @@
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { useMemo, useState, type ReactNode } from 'react'
 
 import { Crown as CrownIcon } from '@tamagui/lucide-icons'
@@ -103,9 +103,11 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0, paddingBottom: basePaddingBottom }
     : { ...screenContentContainerStyle, paddingBottom: basePaddingBottom }
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   return (
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>

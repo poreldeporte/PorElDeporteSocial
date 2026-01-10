@@ -1,4 +1,4 @@
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 
 import {
@@ -147,9 +147,11 @@ export const MemberApprovalsScreen = ({
     paddingTop: headerSpacer ? 0 : screenContentContainerStyle.paddingTop,
     flexGrow: 1,
   }
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   return (
     <ScrollView

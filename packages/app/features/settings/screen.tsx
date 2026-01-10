@@ -1,4 +1,4 @@
-import type { ScrollViewProps } from 'react-native'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { type ReactNode } from 'react'
 
 import { Paragraph, ScrollView, Separator, Settings, YStack, isWeb, useMedia } from '@my/ui/public'
@@ -34,9 +34,11 @@ export const SettingsScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
         paddingHorizontal: SCREEN_CONTENT_PADDING.horizontal,
         paddingBottom: SCREEN_CONTENT_PADDING.bottom,
       }
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle].filter(Boolean)
-    : [baseContentStyle, contentContainerStyle].filter(Boolean)
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle].filter(Boolean)
+      : [baseContentStyle, contentContainerStyle].filter(Boolean)
+  )
 
   return (
     <YStack f={1}>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ScrollViewProps } from 'react-native'
-import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native'
 import { PlusCircle, Send, Trash } from '@tamagui/lucide-icons'
 import { LinearGradient } from '@tamagui/linear-gradient'
 import { Button, Input, Paragraph, Spinner, XStack, YStack, isWeb, useToastController } from '@my/ui/public'
@@ -361,9 +361,11 @@ export const WhatsAppStyleChat = ({
     justifyContent: renderedMessages.length ? 'flex-start' : 'center',
     paddingBottom: basePaddingBottom,
   }
-  const mergedContentStyle = Array.isArray(contentContainerStyle)
-    ? [baseContentStyle, ...contentContainerStyle]
-    : [baseContentStyle, contentContainerStyle]
+  const mergedContentStyle = StyleSheet.flatten(
+    Array.isArray(contentContainerStyle)
+      ? [baseContentStyle, ...contentContainerStyle]
+      : [baseContentStyle, contentContainerStyle]
+  )
 
   const chatShell = (
     <LinearGradient
