@@ -37,6 +37,8 @@ const baseGame: GameDetail = {
   description: null,
   startTime: '2025-01-10T10:00:00.000Z',
   endTime: null,
+  releaseAt: null,
+  releasedAt: null,
   locationName: null,
   locationNotes: null,
   costCents: 2500,
@@ -57,6 +59,8 @@ const baseGame: GameDetail = {
   confirmationEnabled: true,
   joinCutoffOffsetMinutesFromKickoff: 0,
   draftModeEnabled: true,
+  draftVisibility: 'public',
+  draftChatEnabled: true,
   crunchTimeStartTimeLocal: null,
   community: null,
 }
@@ -171,5 +175,27 @@ describe('computeGameDetailState', () => {
 
     expect(nonRosteredState.ctaLabel).toBe('Game completed')
     expect(nonRosteredState.ctaDisabled).toBe(true)
+  })
+
+  it('does not offer rating before completion', () => {
+    const rosteredEntry = buildQueueEntry({
+      profileId: 'profile-6',
+      player: { id: 'profile-6', name: 'Starter', avatarUrl: null },
+    })
+    const scheduledState = computeGameDetailState({
+      game: {
+        ...baseGame,
+        status: 'scheduled',
+        queue: [rosteredEntry],
+        rosteredCount: 1,
+        userStatus: 'rostered',
+      },
+      userId: 'profile-6',
+      queueState: { pendingGameId: null, isPending: false },
+      now: new Date('2025-01-10T11:30:00.000Z').getTime(),
+    })
+
+    expect(scheduledState.ctaLabel).toBe('Drop')
+    expect(scheduledState.ctaDisabled).toBe(true)
   })
 })

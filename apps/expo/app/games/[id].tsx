@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { getScreenLayout } from '@my/app/navigation/layouts'
 import { useUser } from '@my/app/utils/useUser'
 import { GameDetailScreen } from 'app/features/games/detail-screen'
+import { api } from 'app/utils/api'
 
 import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'
 
@@ -15,6 +16,11 @@ export default function Screen() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id
   const router = useRouter()
   const { isAdmin } = useUser()
+  const reviewsQuery = api.reviews.listByGame.useQuery(
+    { gameId: id ?? '' },
+    { enabled: isAdmin && Boolean(id) }
+  )
+  const hasReviews = (reviewsQuery.data?.summary.count ?? 0) > 0
 
   if (!id) {
     return null
@@ -23,7 +29,7 @@ export default function Screen() {
     isAdmin
       ? [
           { icon: PenSquare, onPress: () => router.push(`/games/${id}/edit`) },
-          { icon: Star, onPress: () => router.push(`/games/${id}/reviews`) },
+          ...(hasReviews ? [{ icon: Star, onPress: () => router.push(`/games/${id}/reviews`) }] : []),
         ]
       : undefined
 

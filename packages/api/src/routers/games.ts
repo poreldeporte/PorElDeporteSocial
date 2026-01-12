@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 
 import type { Database } from '@my/supabase/types'
@@ -110,6 +111,9 @@ const publicGameFields = `
   description,
   start_time,
   end_time,
+  release_at,
+  released_at,
+  audience_group_id,
   location_name,
   location_notes,
   status,
@@ -122,6 +126,8 @@ const publicGameFields = `
   confirmation_enabled,
   join_cutoff_offset_minutes_from_kickoff,
   draft_mode_enabled,
+  draft_visibility,
+  draft_chat_enabled,
   crunch_time_start_time_local
 `
 
@@ -175,11 +181,30 @@ const listInput = z.object({
   scope: z.enum(['upcoming', 'past']).default('upcoming'),
 })
 
-const createGameInput = z.object({
+const validateReleaseBeforeKickoff = (
+  values: { releaseAt?: string | null; startTime?: string | null },
+  ctx: z.RefinementCtx
+) => {
+  if (!values.releaseAt || !values.startTime) return
+  const releaseAt = new Date(values.releaseAt).getTime()
+  const startAt = new Date(values.startTime).getTime()
+  if (Number.isNaN(releaseAt) || Number.isNaN(startAt)) return
+  if (releaseAt > startAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Release time must be before kickoff.',
+      path: ['releaseAt'],
+    })
+  }
+}
+
+const createGameBase = z.object({
   name: z.string().min(3),
   description: z.string().nullable().optional(),
   startTime: z.string(),
   endTime: z.string().nullable().optional(),
+  releaseAt: z.string().nullable().optional(),
+  audienceGroupId: z.string().uuid().nullable().optional(),
   locationName: z.string().nullable().optional(),
   locationNotes: z.string().nullable().optional(),
   cost: z.number().min(0),
@@ -187,10 +212,14 @@ const createGameInput = z.object({
   confirmationEnabled: z.boolean().optional(),
   joinCutoffOffsetMinutesFromKickoff: z.number().int().min(0).optional(),
   draftModeEnabled: z.boolean().optional(),
+  draftVisibility: z.enum(['public', 'admin_only']).optional(),
+  draftChatEnabled: z.boolean().optional(),
   crunchTimeStartTimeLocal: z.string().nullable().optional(),
 })
 
-const updateGameInput = createGameInput
+const createGameInput = createGameBase.superRefine(validateReleaseBeforeKickoff)
+
+const updateGameInput = createGameBase
   .partial()
   .extend({
     id: z.string().uuid(),
@@ -198,11 +227,15 @@ const updateGameInput = createGameInput
     confirmationEnabled: z.boolean().optional(),
     joinCutoffOffsetMinutesFromKickoff: z.number().int().min(0).optional(),
     draftModeEnabled: z.boolean().optional(),
+    draftVisibility: z.enum(['public', 'admin_only']).optional(),
+    draftChatEnabled: z.boolean().optional(),
     crunchTimeStartTimeLocal: z.string().nullable().optional(),
   })
+  .superRefine(validateReleaseBeforeKickoff)
 
 export const gamesRouter = createTRPCRouter({
   list: protectedProcedure.input(listInput).query(async ({ ctx, input }) => {
+    const isAdmin = await isUserAdmin(ctx.supabase, ctx.user.id)
     const nowIso = new Date().toISOString()
     const query = ctx.supabase
       .from('games')
@@ -212,6 +245,15 @@ export const gamesRouter = createTRPCRouter({
       query.lte('start_time', nowIso).order('start_time', { ascending: false })
     } else {
       query.gte('start_time', nowIso).order('start_time', { ascending: true })
+    }
+    if (!isAdmin) {
+      query.or('release_at.is.null,released_at.not.is.null')
+      const groupIds = await fetchUserGroupIds(ctx.supabase, ctx.user.id)
+      if (groupIds.length === 0) {
+        query.is('audience_group_id', null)
+      } else {
+        query.or(`audience_group_id.is.null,audience_group_id.in.(${groupIds.join(',')})`)
+      }
     }
     const { data, error } = await query
 
@@ -262,6 +304,9 @@ export const gamesRouter = createTRPCRouter({
         description: game.description,
         startTime: game.start_time,
         endTime: game.end_time,
+        releaseAt: game.release_at,
+        releasedAt: game.released_at,
+        audienceGroupId: game.audience_group_id ?? null,
         locationName: game.location_name,
         locationNotes: game.location_notes,
         status: game.status,
@@ -288,6 +333,8 @@ export const gamesRouter = createTRPCRouter({
         confirmationEnabled: game.confirmation_enabled,
         joinCutoffOffsetMinutesFromKickoff: game.join_cutoff_offset_minutes_from_kickoff,
         draftModeEnabled: game.draft_mode_enabled,
+        draftVisibility: game.draft_visibility,
+        draftChatEnabled: game.draft_chat_enabled,
         crunchTimeStartTimeLocal: game.crunch_time_start_time_local,
         community: game.communities
           ? {
@@ -310,6 +357,7 @@ export const gamesRouter = createTRPCRouter({
   byId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const isAdmin = await isUserAdmin(ctx.supabase, ctx.user.id)
       const { data, error } = await ctx.supabase
         .from('games')
         .select(
@@ -405,6 +453,16 @@ export const gamesRouter = createTRPCRouter({
       }
 
       const game = data as GameDetailRow
+      if (!isAdmin && game.release_at && !game.released_at) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+      }
+      const audienceGroupId = game.audience_group_id ?? null
+      if (!isAdmin && audienceGroupId) {
+        const inGroup = await isProfileInGroup(ctx.supabase, audienceGroupId, ctx.user.id)
+        if (!inGroup) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+        }
+      }
       const baseQueue = (game.game_queue ?? []).map((entry) => {
         const isGuest = !entry.profile_id
         const playerId = entry.profile_id ?? entry.id
@@ -549,6 +607,9 @@ export const gamesRouter = createTRPCRouter({
         description: game.description,
         startTime: game.start_time,
         endTime: game.end_time,
+        releaseAt: game.release_at,
+        releasedAt: game.released_at,
+        audienceGroupId,
         locationName: game.location_name,
         locationNotes: game.location_notes,
         status: game.status,
@@ -579,6 +640,8 @@ export const gamesRouter = createTRPCRouter({
         confirmationEnabled: game.confirmation_enabled,
         joinCutoffOffsetMinutesFromKickoff: game.join_cutoff_offset_minutes_from_kickoff,
         draftModeEnabled: game.draft_mode_enabled,
+        draftVisibility: game.draft_visibility,
+        draftChatEnabled: game.draft_chat_enabled,
         crunchTimeStartTimeLocal: game.crunch_time_start_time_local,
         community: game.communities
           ? {
@@ -609,11 +672,17 @@ export const gamesRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Unable to load community defaults' })
     }
 
+    if (input.audienceGroupId) {
+      await ensureGroupInCommunity({ groupId: input.audienceGroupId, communityId: communityRow.id })
+    }
+
     const payload: Database['public']['Tables']['games']['Insert'] = {
       name: input.name,
       description: input.description ?? null,
       start_time: input.startTime,
       end_time: input.endTime ?? null,
+      release_at: input.releaseAt ?? null,
+      audience_group_id: input.audienceGroupId ?? null,
       location_name: input.locationName ?? null,
       location_notes: input.locationNotes ?? null,
       cost_cents: Math.round(input.cost * 100),
@@ -627,8 +696,13 @@ export const gamesRouter = createTRPCRouter({
       payload.join_cutoff_offset_minutes_from_kickoff = input.joinCutoffOffsetMinutesFromKickoff
     }
     if (input.draftModeEnabled !== undefined) payload.draft_mode_enabled = input.draftModeEnabled
+    if (input.draftVisibility !== undefined) payload.draft_visibility = input.draftVisibility
+    if (input.draftChatEnabled !== undefined) payload.draft_chat_enabled = input.draftChatEnabled
     if (input.crunchTimeStartTimeLocal !== undefined) {
       payload.crunch_time_start_time_local = input.crunchTimeStartTimeLocal
+    }
+    if (input.draftModeEnabled === false) {
+      payload.draft_chat_enabled = false
     }
 
     const { data, error } = await ctx.supabase
@@ -648,6 +722,7 @@ export const gamesRouter = createTRPCRouter({
     await ensureAdmin(ctx.supabase, ctx.user.id)
 
     let resetCrunchNotice = false
+    let shouldResetDraft = false
     if (input.crunchTimeStartTimeLocal !== undefined) {
       const { data: existing, error: existingError } = await ctx.supabase
         .from('games')
@@ -666,12 +741,59 @@ export const gamesRouter = createTRPCRouter({
       const nextValue = input.crunchTimeStartTimeLocal ?? null
       resetCrunchNotice = currentValue !== nextValue
     }
+    if (input.draftModeEnabled === false) {
+      const { data: existing, error: existingError } = await ctx.supabase
+        .from('games')
+        .select('draft_mode_enabled')
+        .eq('id', input.id)
+        .maybeSingle()
+
+      if (existingError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: existingError.message })
+      }
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+      }
+      shouldResetDraft = existing.draft_mode_enabled !== false
+    }
+    if (shouldResetDraft) {
+      await resetDraftForGame({
+        gameId: input.id,
+        supabaseAdmin,
+        actorId: ctx.user.id,
+        preserveCaptains: false,
+      })
+    }
+
+    if (input.audienceGroupId !== undefined) {
+      const { data: existing, error: existingError } = await ctx.supabase
+        .from('games')
+        .select('community_id')
+        .eq('id', input.id)
+        .maybeSingle()
+
+      if (existingError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: existingError.message })
+      }
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+      }
+
+      if (input.audienceGroupId) {
+        await ensureGroupInCommunity({
+          groupId: input.audienceGroupId,
+          communityId: existing.community_id,
+        })
+      }
+    }
 
     const payload: Database['public']['Tables']['games']['Update'] = {}
     if (input.name !== undefined) payload.name = input.name
     if (input.description !== undefined) payload.description = input.description
     if (input.startTime !== undefined) payload.start_time = input.startTime
     if (input.endTime !== undefined) payload.end_time = input.endTime
+    if (input.releaseAt !== undefined) payload.release_at = input.releaseAt
+    if (input.audienceGroupId !== undefined) payload.audience_group_id = input.audienceGroupId
     if (input.locationName !== undefined) payload.location_name = input.locationName
     if (input.locationNotes !== undefined) payload.location_notes = input.locationNotes
     if (input.cost !== undefined) payload.cost_cents = Math.round(input.cost * 100)
@@ -682,11 +804,16 @@ export const gamesRouter = createTRPCRouter({
       payload.join_cutoff_offset_minutes_from_kickoff = input.joinCutoffOffsetMinutesFromKickoff
     }
     if (input.draftModeEnabled !== undefined) payload.draft_mode_enabled = input.draftModeEnabled
+    if (input.draftVisibility !== undefined) payload.draft_visibility = input.draftVisibility
+    if (input.draftChatEnabled !== undefined) payload.draft_chat_enabled = input.draftChatEnabled
     if (input.crunchTimeStartTimeLocal !== undefined) {
       payload.crunch_time_start_time_local = input.crunchTimeStartTimeLocal
     }
     if (resetCrunchNotice) {
       payload.crunch_time_notice_sent_at = null
+    }
+    if (input.draftModeEnabled === false) {
+      payload.draft_chat_enabled = false
     }
 
     const { data, error } = await ctx.supabase
@@ -888,7 +1015,10 @@ export const gamesRouter = createTRPCRouter({
         actorId: ctx.user.id,
       })
 
-      const shouldNotifyDraft = snapshot.game.draft_mode_enabled && snapshot.game.confirmation_enabled
+      const shouldNotifyDraft =
+        snapshot.game.draft_mode_enabled &&
+        snapshot.game.confirmation_enabled &&
+        snapshot.game.draft_visibility !== 'admin_only'
       if (shouldNotifyDraft) {
         try {
           await notifyCaptainsAssigned({ supabaseAdmin, gameId: input.gameId, profileIds: captainIds })
@@ -916,3 +1046,67 @@ export const gamesRouter = createTRPCRouter({
       return { ok: true }
     }),
 })
+
+const isUserAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
+  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  return data?.role === 'admin' || data?.role === 'owner'
+}
+
+const fetchUserGroupIds = async (
+  supabase: SupabaseClient<Database>,
+  profileId: string
+) => {
+  const { data, error } = await supabase
+    .from('community_group_members')
+    .select('group_id')
+    .eq('profile_id', profileId)
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+
+  return (data ?? []).map((row) => row.group_id)
+}
+
+const isProfileInGroup = async (
+  supabase: SupabaseClient<Database>,
+  groupId: string,
+  profileId: string
+) => {
+  const { data, error } = await supabase
+    .from('community_group_members')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+
+  return Boolean(data)
+}
+
+const ensureGroupInCommunity = async ({
+  groupId,
+  communityId,
+}: {
+  groupId: string
+  communityId: string
+}) => {
+  const { data, error } = await supabaseAdmin
+    .from('community_groups')
+    .select('id')
+    .eq('id', groupId)
+    .eq('community_id', communityId)
+    .maybeSingle()
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+
+  if (!data) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Group not found' })
+  }
+}

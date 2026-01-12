@@ -1,11 +1,11 @@
-import { Avatar, Paragraph, Settings, XStack, YStack, getTokens, useWindowDimensions } from '@my/ui/public'
+import { Paragraph, Settings, XStack, YStack, useWindowDimensions } from '@my/ui/public'
 import { DrawerContentScrollView } from '@react-navigation/drawer'
 import { Box, Cog, Milestone, ShoppingCart, User, Users } from '@tamagui/lucide-icons'
+import { UserAvatar } from 'app/components/UserAvatar'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { formatProfileName } from 'app/utils/profileName'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
-import { SolitoImage } from 'solito/image'
 import { useLink } from 'solito/link'
 
 export function ProfileDrawerScreen(props) {
@@ -51,14 +51,7 @@ export function ProfileDrawerScreen(props) {
         </Settings>
 
         <XStack gap="$4" mb="$7" mt="auto" ai="center" px={SCREEN_CONTENT_PADDING.horizontal}>
-          <Avatar circular size="$3">
-            <SolitoImage
-              src={avatarUrl}
-              alt="your avatar"
-              width={getTokens().size['3'].val}
-              height={getTokens().size['3'].val}
-            />
-          </Avatar>
+          <UserAvatar size="$3" name={name} avatarUrl={avatarUrl} />
           <Paragraph ta="center" ml="$-1.5">
             {name ?? 'No Name'}
           </Paragraph>

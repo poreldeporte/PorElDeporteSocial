@@ -9,6 +9,7 @@ import {
   FormWrapper,
   H2,
   Input,
+  isWeb,
   Link,
   LoadingOverlay,
   Paragraph,
@@ -16,6 +17,7 @@ import {
   Text,
   XStack,
   YStack,
+  submitButtonBaseProps,
 } from '@my/ui/public'
 import { pedLogo } from 'app/assets'
 import { CountryPicker } from 'app/components/CountryPicker'
@@ -151,7 +153,9 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
       return
     }
     const nextRoute = await resolvePostAuthRoute(supabase, data.user.id)
-    router.replace(nextRoute)
+    if (isWeb) {
+      router.replace(nextRoute)
+    }
   }
 
   const handleSendCode = phoneForm.handleSubmit(({ phone: rawPhone }) => sendCode(rawPhone))
@@ -274,18 +278,9 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
         </FormWrapper.Body>
         <FormWrapper.Footer pb={SCREEN_CONTENT_PADDING.bottom} px={SCREEN_CONTENT_PADDING.horizontal}>
           <Button
-            backgroundColor="#fff"
-            borderColor="#fff"
-            borderWidth={1}
-            color="#000"
-            fontSize={17}
-            fontWeight="600"
-            height={54}
-            borderRadius={999}
-            w="100%"
+            {...submitButtonBaseProps}
             onPress={step === 'phone' ? handleSendCode : handleVerifyCode}
             disabled={submitDisabled}
-            pressStyle={{ opacity: 0.85 }}
           >
             {step === 'phone'
               ? status === 'sending'

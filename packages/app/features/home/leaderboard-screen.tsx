@@ -233,11 +233,11 @@ const InitialsBadge = ({ name }: { name: string }) => (
     ai="center"
     jc="center"
     br={36}
-    backgroundColor="#111827"
-    borderColor="#1f2937"
+    backgroundColor="$color2"
+    borderColor="$color4"
     borderWidth={1.5}
   >
-    <Paragraph color="#fff" fontWeight="700" size="$4">
+    <Paragraph color="$color12" fontWeight="700" size="$4">
       {initials(name)}
     </Paragraph>
   </YStack>
@@ -316,7 +316,7 @@ const GlowCircle = ({ name, glowColor, scale = 1, rank }: { name: string; glowCo
       ai="center"
       jc="center"
       br={size / 2}
-      backgroundColor="#0f172a"
+      backgroundColor="$color2"
       borderColor={glowColor}
       borderWidth={2}
       shadowColor={glowColor}
@@ -325,7 +325,7 @@ const GlowCircle = ({ name, glowColor, scale = 1, rank }: { name: string; glowCo
       overflow="hidden"
       position="relative"
     >
-      <Paragraph color="#fff" fontWeight="700" size={rank === 1 ? '$6' : '$4'}>
+      <Paragraph color="$color12" fontWeight="700" size={rank === 1 ? '$6' : '$4'}>
         {initials(name)}
       </Paragraph>
     </YStack>

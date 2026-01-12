@@ -1,16 +1,22 @@
-import { type ReactNode, useMemo, useRef } from 'react'
+import { Children, Fragment, type ReactNode, useMemo, useRef } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
-import { useFormContext } from 'react-hook-form'
+import { useController, useFormContext } from 'react-hook-form'
 import { z } from 'zod'
+import { useRouter } from 'solito/router'
 
 import {
+  FieldError,
   FormWrapper,
   FullscreenSpinner,
+  Button,
+  Input,
   Paragraph,
   ScrollView,
+  Separator,
   SizableText,
   SubmitButton,
+  Switch,
   Theme,
   XStack,
   YStack,
@@ -41,6 +47,7 @@ type ScrollHeaderProps = {
 }
 
 const DEFAULT_REMINDERS = '09:00, 12:00, 15:00'
+const SECTION_LETTER_SPACING = 1.6
 
 const CommunitySettingsSchema = z.object({
   community_timezone: formFields.text.describe('Community timezone // America/New_York'),
@@ -59,6 +66,7 @@ type CommunitySettingsValues = z.infer<typeof CommunitySettingsSchema>
 export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
   const { isAdmin } = useUser()
   const toast = useToastController()
+  const router = useRouter()
   const insets = useSafeAreaInsets()
   const showFloatingCta = !isWeb
   const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
@@ -158,65 +166,97 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
             )
       }
     >
-      {(fields) => {
+      {() => {
         const handleSubmit = () => submitRef.current?.()
         return (
           <>
             <FormWrapper.Body
               p={0}
-              px={SCREEN_CONTENT_PADDING.horizontal}
-              pt={headerSpacer ? 0 : SCREEN_CONTENT_PADDING.top}
+              px={SCREEN_CONTENT_PADDING.horizontal + 4}
+              pt={headerSpacer ? 0 : SCREEN_CONTENT_PADDING.top + 12}
               pb={SCREEN_CONTENT_PADDING.bottom}
-              gap="$4"
+              gap="$6"
               scrollProps={scrollProps}
             >
               {headerSpacer}
               <YStack gap="$2">
-                <SizableText size="$7" fontWeight="700">
+                <SizableText size="$8" fontWeight="700">
                   Community settings
                 </SizableText>
-                <Paragraph theme="alt2">
+                <Paragraph theme="alt2" size="$3">
                   Defaults apply to all new games unless overridden.
                 </Paragraph>
-                <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
               </YStack>
-              <YStack gap="$3">
-                <Paragraph theme="alt1">
-                  Set the community defaults for confirmations, reminders, and crunch time.
-                </Paragraph>
-                <FieldWithHint
-                  field={fields.community_timezone}
-                  hint="All game times and reminders use this timezone."
+              <SettingSection
+                title="General"
+                note="Set the community timezone and roster priority for guests."
+              >
+                <SettingRowText
+                  name="community_timezone"
+                  label="Timezone"
+                  placeholder="America/New_York"
                 />
-                <FieldWithHint
-                  field={fields.community_priority_enabled}
-                  hint="Members stay ahead of guests on the roster."
+                <SettingRowSwitch
+                  name="community_priority_enabled"
+                  label="Community priority"
                 />
-                <FieldWithHint
-                  field={fields.confirmation_window_hours_before_kickoff}
-                  hint="How many hours before kickoff players can start confirming."
+              </SettingSection>
+              <SettingSection
+                title="Confirmations"
+                note="Players can confirm within the window, and reminders send at the times below."
+              >
+                <SettingRowNumber
+                  name="confirmation_window_hours_before_kickoff"
+                  label="Confirmation window (hours)"
+                  placeholder="24"
+                  width={80}
                 />
-                <FieldWithHint
-                  field={fields.confirmation_reminders_local_times}
-                  hint="Times to remind rostered players who have not confirmed."
+                <SettingRowText
+                  name="confirmation_reminders_local_times"
+                  label="Confirmation reminder times"
+                  placeholder="HH:MM, HH:MM"
+                  width={160}
                 />
-                <FieldWithHint
-                  field={fields.crunch_time_enabled}
-                  hint="Lets waitlisted players grab open spot during crunch time."
+              </SettingSection>
+              <SettingSection
+                title="Crunch time"
+                note="Enable crunch time to let waitlisted players grab open spots at the start time."
+              >
+                <SettingRowSwitch name="crunch_time_enabled" label="Crunch time enabled" />
+                <CrunchTimeStartRow />
+              </SettingSection>
+              <SettingSection
+                title="Game notifications"
+                note="Set the default notification times for rostered players."
+              >
+                <SettingRowText
+                  name="game_notification_times_local"
+                  label="Game notification times"
+                  placeholder="HH:MM, HH:MM"
+                  width={160}
                 />
-                <CrunchTimeStartField
-                  field={fields.crunch_time_start_time_local}
-                  hint="Time of day when waitlisted players can grab open spot."
-                />
-                <FieldWithHint
-                  field={fields.game_notification_times_local}
-                  hint="Times to notify rostered players about the game."
-                />
-              </YStack>
+              </SettingSection>
+              <SettingSection
+                title="Groups"
+                note="Create private audiences for games."
+              >
+                <SettingRow label="Manage groups">
+                  <Button
+                    chromeless
+                    size="$2"
+                    px={0}
+                    py={0}
+                    pressStyle={{ opacity: 0.7 }}
+                    onPress={() => router.push('/settings/groups')}
+                  >
+                    Open
+                  </Button>
+                </SettingRow>
+              </SettingSection>
               {showFloatingCta ? <YStack h={dockSpacer} /> : null}
             </FormWrapper.Body>
             {showFloatingCta ? (
-              <FloatingCtaDock>
+              <FloatingCtaDock transparent>
                 <Theme inverse>
                   <XStack>
                     <SubmitButton flex={1} disabled={mutation.isPending} onPress={handleSubmit}>
@@ -233,17 +273,212 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
   )
 }
 
-const FieldWithHint = ({ field, hint }: { field: ReactNode; hint: string }) => (
-  <YStack gap="$1">
-    {field}
-    <Paragraph theme="alt2" size="$2">
-      {hint}
-    </Paragraph>
-  </YStack>
-)
+const SettingSection = ({
+  title,
+  note,
+  children,
+}: {
+  title: string
+  note?: string
+  children: ReactNode
+}) => {
+  return (
+    <YStack gap="$3">
+      <YStack gap="$1">
+        <SizableText
+          size="$2"
+          fontWeight="700"
+          color="$color10"
+          letterSpacing={SECTION_LETTER_SPACING}
+        >
+          {title.toUpperCase()}
+        </SizableText>
+        {note ? (
+          <Paragraph theme="alt2" size="$2">
+            {note}
+          </Paragraph>
+        ) : null}
+      </YStack>
+      <SettingRowGroup>{children}</SettingRowGroup>
+    </YStack>
+  )
+}
 
-const CrunchTimeStartField = ({ field, hint }: { field: ReactNode; hint: string }) => {
+const SettingRowGroup = ({ children }: { children: ReactNode }) => {
+  const rows = Children.toArray(children).filter(Boolean)
+  return (
+    <YStack>
+      {rows.map((row, index) => (
+        <Fragment key={`row-${index}`}>
+          {row}
+          {index < rows.length - 1 ? (
+            <Separator bw="$0.5" boc="$color4" />
+          ) : null}
+        </Fragment>
+      ))}
+    </YStack>
+  )
+}
+
+const SettingRow = ({
+  label,
+  children,
+  error,
+}: {
+  label: string
+  children: ReactNode
+  error?: string
+}) => {
+  return (
+    <YStack>
+      <XStack ai="center" jc="space-between" minHeight={60} py="$2" gap="$3">
+        <SizableText size="$4" fontWeight="600" color="$color" flex={1} numberOfLines={2}>
+          {label}
+        </SizableText>
+        {children}
+      </XStack>
+      <FieldError message={error} />
+    </YStack>
+  )
+}
+
+const SettingRowSwitch = ({
+  name,
+  label,
+}: {
+  name: keyof CommunitySettingsValues
+  label: string
+}) => {
+  const { control, formState } = useFormContext<CommunitySettingsValues>()
+  const { field, fieldState } = useController({ control, name })
+  const disabled = formState.isSubmitting
+  const checked = Boolean(field.value)
+
+  return (
+    <SettingRow label={label} error={fieldState.error?.message}>
+      <Switch
+        native
+        size="$2"
+        disabled={disabled}
+        checked={checked}
+        onCheckedChange={(next) => field.onChange(next)}
+        backgroundColor={checked ? BRAND_COLORS.primary : '$color5'}
+        borderColor={checked ? BRAND_COLORS.primary : '$color6'}
+        borderWidth={1}
+        opacity={disabled ? 0.5 : 1}
+      >
+        <Switch.Thumb animation="100ms" />
+      </Switch>
+    </SettingRow>
+  )
+}
+
+const SettingRowText = ({
+  name,
+  label,
+  placeholder,
+  width = 180,
+  disabled: disabledOverride = false,
+}: {
+  name: keyof CommunitySettingsValues
+  label: string
+  placeholder?: string
+  width?: number
+  disabled?: boolean
+}) => {
+  const { control, formState } = useFormContext<CommunitySettingsValues>()
+  const { field, fieldState } = useController({ control, name })
+  const disabled = formState.isSubmitting || disabledOverride
+  const value = typeof field.value === 'string' ? field.value : ''
+
+  return (
+    <SettingRow label={label} error={fieldState.error?.message}>
+      <Input
+        value={value}
+        onChangeText={(text) => field.onChange(text)}
+        onBlur={field.onBlur}
+        placeholder={placeholder}
+        placeholderTextColor="$color10"
+        autoCapitalize="none"
+        autoCorrect={false}
+        disabled={disabled}
+        textAlign="right"
+        width={width}
+        maxWidth="60%"
+        fontSize={15}
+        color="$color"
+        borderWidth={0}
+        backgroundColor="transparent"
+        px={0}
+        py={0}
+        opacity={disabled ? 0.6 : 1}
+      />
+    </SettingRow>
+  )
+}
+
+const SettingRowNumber = ({
+  name,
+  label,
+  placeholder,
+  width = 96,
+}: {
+  name: keyof CommunitySettingsValues
+  label: string
+  placeholder?: string
+  width?: number
+}) => {
+  const { control, formState } = useFormContext<CommunitySettingsValues>()
+  const { field, fieldState } = useController({ control, name })
+  const disabled = formState.isSubmitting
+  const value = typeof field.value === 'number' ? String(field.value) : ''
+
+  const handleChange = (text: string) => {
+    const cleaned = text.replace(/[^\d]/g, '')
+    if (!cleaned) {
+      field.onChange(undefined)
+      return
+    }
+    const next = Number(cleaned)
+    if (Number.isNaN(next)) return
+    field.onChange(next)
+  }
+
+  return (
+    <SettingRow label={label} error={fieldState.error?.message}>
+      <Input
+        value={value}
+        onChangeText={handleChange}
+        onBlur={field.onBlur}
+        placeholder={placeholder}
+        placeholderTextColor="$color10"
+        inputMode="numeric"
+        keyboardType="number-pad"
+        disabled={disabled}
+        textAlign="right"
+        width={width}
+        fontSize={15}
+        color="$color"
+        borderWidth={0}
+        backgroundColor="transparent"
+        px={0}
+        py={0}
+        opacity={disabled ? 0.6 : 1}
+      />
+    </SettingRow>
+  )
+}
+
+const CrunchTimeStartRow = () => {
   const { watch } = useFormContext<CommunitySettingsValues>()
-  const crunchEnabled = watch('crunch_time_enabled')
-  return crunchEnabled ? <FieldWithHint field={field} hint={hint} /> : null
+  const crunchEnabled = Boolean(watch('crunch_time_enabled'))
+  return (
+    <SettingRowText
+      name="crunch_time_start_time_local"
+      label="Crunch time start"
+      placeholder="17:00"
+      width={120}
+      disabled={!crunchEnabled}
+    />
+  )
 }

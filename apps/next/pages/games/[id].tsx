@@ -7,6 +7,7 @@ import { Button } from '@my/ui/public'
 import { GameDetailScreen } from 'app/features/games/detail-screen'
 import { HomeLayout } from 'app/features/home/layout.web'
 import { getScreenLayout } from 'app/navigation/layouts'
+import { api } from 'app/utils/api'
 import { useUser } from 'app/utils/useUser'
 
 import type { NextPageWithLayout } from '../_app'
@@ -17,6 +18,11 @@ const Page: NextPageWithLayout = () => {
   const { query } = useRouter()
   const id = Array.isArray(query.id) ? query.id[0] : query.id
   const { isAdmin } = useUser()
+  const reviewsQuery = api.reviews.listByGame.useQuery(
+    { gameId: id ?? '' },
+    { enabled: isAdmin && Boolean(id) }
+  )
+  const hasReviews = (reviewsQuery.data?.summary.count ?? 0) > 0
 
   if (!id) {
     return null
@@ -38,19 +44,21 @@ const Page: NextPageWithLayout = () => {
             <PenSquare size={22} />
           </Button>
         </Link>
-        <Link href={`/games/${id}/reviews`}>
-          <Button
-            chromeless
-            px={0}
-            py={0}
-            height="$4"
-            width="$4"
-            aria-label="View reviews"
-            pressStyle={{ opacity: 0.7 }}
-          >
-            <Star size={22} />
-          </Button>
-        </Link>
+        {hasReviews ? (
+          <Link href={`/games/${id}/reviews`}>
+            <Button
+              chromeless
+              px={0}
+              py={0}
+              height="$4"
+              width="$4"
+              aria-label="View reviews"
+              pressStyle={{ opacity: 0.7 }}
+            >
+              <Star size={22} />
+            </Button>
+          </Link>
+        ) : null}
       </>
     ) : null
 

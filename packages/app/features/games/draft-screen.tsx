@@ -16,20 +16,23 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
+import { UserAvatar } from 'app/components/UserAvatar'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
-import { formatPhoneDisplay } from 'app/utils/phone'
 import { formatProfileName } from 'app/utils/profileName'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useTeamsState } from 'app/utils/useTeamsState'
+import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
 import { Undo2 } from '@tamagui/lucide-icons'
 import { useRouter } from 'solito/router'
 import { AlertDialog } from 'tamagui'
 
-import { StatusBadge } from './components'
+import { DraftRoomLiveOverlay, StatusBadge, getDraftChatDockInset } from './components'
+import { RecentFormChips } from './components/RecentFormChips'
 import { deriveDraftViewModel } from './state/deriveDraftViewModel'
+import { canAdminAccessDraftRoom, canPlayerAccessDraftRoom, resolveDraftVisibility } from './draft-visibility'
 import type { GameDetail } from './types'
 import { formatGameKickoffLabel } from './time-utils'
 
@@ -62,6 +65,7 @@ export const GameDraftScreen = ({
   const toast = useToastController()
   const utils = api.useUtils()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [localResetConfirmOpen, setLocalResetConfirmOpen] = useState(false)
   const resetConfirmOpen = resetConfirmOpenProp ?? localResetConfirmOpen
   const setResetConfirmOpen = onResetConfirmOpenChange ?? setLocalResetConfirmOpen
@@ -138,10 +142,23 @@ export const GameDraftScreen = ({
     ]
   )
 
-  if (!gameLoading && gameDetail && gameDetail.draftModeEnabled === false && !isAdmin) {
+  const draftVisibility = gameDetail ? resolveDraftVisibility(gameDetail.draftVisibility) : 'public'
+  const canAccessDraftRoom = gameDetail
+    ? isAdmin
+      ? canAdminAccessDraftRoom(gameDetail)
+      : canPlayerAccessDraftRoom(gameDetail)
+    : false
+
+  if (!gameLoading && gameDetail && !canAccessDraftRoom) {
+    const message =
+      gameDetail.draftModeEnabled === false
+        ? 'Draft mode is off for this game.'
+        : !isAdmin && draftVisibility === 'admin_only'
+          ? 'Draft room is private for admins only.'
+          : 'Draft room opens once the roster is full and confirmed.'
     return (
       <YStack f={1} ai="center" jc="center" gap="$2" px="$4" pt={topInset ?? 0}>
-        <Paragraph theme="alt2">Draft room is hidden for this game.</Paragraph>
+        <Paragraph theme="alt2">{message}</Paragraph>
         <Button onPress={() => router.push(`/games/${gameId}`)}>Back to game</Button>
       </YStack>
     )
@@ -245,6 +262,16 @@ export const GameDraftScreen = ({
       ? [baseContentStyle, ...contentContainerStyle]
       : [baseContentStyle, contentContainerStyle]
   )
+  const draftChatEnabled = Boolean(
+    gameDetail && gameDetail.draftModeEnabled !== false && gameDetail.draftChatEnabled !== false
+  )
+  const chatDockInset = draftChatEnabled ? getDraftChatDockInset(insets.bottom ?? 0) : 0
+  const paddedContentStyle = chatDockInset
+    ? {
+        ...mergedContentStyle,
+        paddingBottom: Math.max(mergedContentStyle?.paddingBottom ?? 0, chatDockInset),
+      }
+    : mergedContentStyle
 
   if (!gameDetail) {
     return (
@@ -331,97 +358,104 @@ export const GameDraftScreen = ({
     })
   }
   return (
-    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
-      {headerSpacer}
-      <YStack gap="$4">
-        <DraftBanner
-          kickoffLabel={kickoffLabel}
-          statusLabel={bannerStatus}
-          isAdmin={isAdmin}
-          selectionSummary={selectionSummary}
-          onStartDraft={draftStatus === 'pending' && isAdmin ? handleStartDraft : undefined}
-          canStartDraft={canStartDraft}
-          startDraftPending={assignCaptainsMutation.isPending}
-          onUndo={isAdmin ? () => undoPickMutation.mutate({ gameId }) : undefined}
-          canUndo={hasUndoablePick && !undoPickMutation.isPending}
-          undoPending={undoPickMutation.isPending}
-        />
-
-        <TeamsSection
-          teams={teams}
-          captains={captains}
-          currentTurnTeamId={currentTurnTeam?.id ?? null}
-          draftStatus={draftStatus}
-          totalDrafted={totalDrafted}
-          totalPlayers={rosteredPlayers.length}
-          availableCount={availablePlayers.length}
-          recentPick={recentPick}
-        />
-
-        {roleAlertMessage ? <RoleAlert message={roleAlertMessage} /> : null}
-
-        <AvailablePlayersSection
-          availablePlayers={availablePlayers}
-          canPick={canPick}
-          onPick={handlePick}
-          isSyncing={isSyncing}
-          draftStatus={draftStatus}
-          pendingPlayerIds={optimisticPicks}
-          readOnly={showSpectatorNotice}
-          isAdmin={isAdmin}
-          selectedCaptainIds={selectedCaptainIds}
-          onSelectCaptain={toggleCaptain}
-        />
-
-        {showSpectatorNotice && draftStatus !== 'completed' ? (
-          <SpectatorNotice draftStatus={draftStatus} />
-        ) : null}
-      </YStack>
-
-      <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            key="overlay"
-            animation="medium"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-            o={0.5}
-            backgroundColor="$color5"
+    <YStack f={1} position="relative">
+      <ScrollView {...scrollViewProps} contentContainerStyle={paddedContentStyle}>
+        {headerSpacer}
+        <YStack gap="$4">
+          <DraftBanner
+            kickoffLabel={kickoffLabel}
+            statusLabel={bannerStatus}
+            isAdmin={isAdmin}
+            selectionSummary={selectionSummary}
+            onStartDraft={draftStatus === 'pending' && isAdmin ? handleStartDraft : undefined}
+            canStartDraft={canStartDraft}
+            startDraftPending={assignCaptainsMutation.isPending}
+            onUndo={isAdmin ? () => undoPickMutation.mutate({ gameId }) : undefined}
+            canUndo={hasUndoablePick && !undoPickMutation.isPending}
+            undoPending={undoPickMutation.isPending}
           />
-          <AlertDialog.Content
-            key="content"
-            elevate
-            animation="medium"
-            enterStyle={{ opacity: 0, scale: 0.95 }}
-            exitStyle={{ opacity: 0, scale: 0.95 }}
-            backgroundColor="$color2"
-            br="$4"
-            p="$4"
-            gap="$3"
-          >
-            <AlertDialog.Title fontWeight="700">Reset draft?</AlertDialog.Title>
-            <AlertDialog.Description>
-              This clears captains, teams, and picks so you can start over. Players will remain rostered in the game
-              queue.
-            </AlertDialog.Description>
-            <XStack gap="$3">
-              <Button flex={1} theme="alt1" onPress={() => setResetConfirmOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                flex={1}
-                theme="red"
-                onPress={() => resetDraftMutation.mutate({ gameId })}
-                disabled={resetDraftMutation.isPending}
-                iconAfter={resetDraftMutation.isPending ? <Spinner size="small" /> : undefined}
-              >
-                {resetDraftMutation.isPending ? 'Resetting…' : 'Reset draft'}
-              </Button>
-            </XStack>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog>
-    </ScrollView>
+
+          <TeamsSection
+            teams={teams}
+            captains={captains}
+            currentTurnTeamId={currentTurnTeam?.id ?? null}
+            draftStatus={draftStatus}
+            totalDrafted={totalDrafted}
+            totalPlayers={rosteredPlayers.length}
+            availableCount={availablePlayers.length}
+            recentPick={recentPick}
+          />
+
+          {roleAlertMessage ? <RoleAlert message={roleAlertMessage} /> : null}
+
+          <AvailablePlayersSection
+            availablePlayers={availablePlayers}
+            canPick={canPick}
+            onPick={handlePick}
+            isSyncing={isSyncing}
+            draftStatus={draftStatus}
+            pendingPlayerIds={optimisticPicks}
+            readOnly={showSpectatorNotice}
+            isAdmin={isAdmin}
+            selectedCaptainIds={selectedCaptainIds}
+            onSelectCaptain={toggleCaptain}
+          />
+
+          {showSpectatorNotice && draftStatus !== 'completed' ? (
+            <SpectatorNotice draftStatus={draftStatus} />
+          ) : null}
+        </YStack>
+
+        <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay
+              key="overlay"
+              animation="medium"
+              enterStyle={{ opacity: 0 }}
+              exitStyle={{ opacity: 0 }}
+              o={0.5}
+              backgroundColor="$color5"
+            />
+            <AlertDialog.Content
+              key="content"
+              elevate
+              animation="medium"
+              enterStyle={{ opacity: 0, scale: 0.95 }}
+              exitStyle={{ opacity: 0, scale: 0.95 }}
+              backgroundColor="$color2"
+              br="$4"
+              p="$4"
+              gap="$3"
+            >
+              <AlertDialog.Title fontWeight="700">Reset draft?</AlertDialog.Title>
+              <AlertDialog.Description>
+                This clears captains, teams, and picks so you can start over. Players will remain rostered in the game
+                queue.
+              </AlertDialog.Description>
+              <XStack gap="$3">
+                <Button flex={1} theme="alt1" onPress={() => setResetConfirmOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  flex={1}
+                  theme="red"
+                  onPress={() => resetDraftMutation.mutate({ gameId })}
+                  disabled={resetDraftMutation.isPending}
+                  iconAfter={resetDraftMutation.isPending ? <Spinner size="small" /> : undefined}
+                >
+                  {resetDraftMutation.isPending ? 'Resetting…' : 'Reset draft'}
+                </Button>
+              </XStack>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog>
+      </ScrollView>
+      <DraftRoomLiveOverlay
+        gameId={gameId}
+        enabled={draftChatEnabled}
+        collapsedMessageLimit={canPick ? 0 : undefined}
+      />
+    </YStack>
   )
 }
 
@@ -649,15 +683,19 @@ const TeamCard = ({
                       : undefined
                   }
                 >
-                  <Paragraph fontWeight="600">{name}</Paragraph>
+                  <XStack ai="center" jc="space-between" gap="$3">
+                    <Paragraph fontWeight="600" flex={1} minWidth={0} numberOfLines={1}>
+                      {name}
+                    </Paragraph>
+                    <Paragraph theme="alt2" size="$2" textAlign="right">
+                      {typeof member.pick_order === 'number' ? `Pick #${member.pick_order}` : 'Pending pick'}
+                    </Paragraph>
+                  </XStack>
                   {!member.profile_id ? (
                     <Paragraph theme="alt2" size="$2">
                       Guest
                     </Paragraph>
                   ) : null}
-                  <Paragraph theme="alt2" size="$2">
-                    {typeof member.pick_order === 'number' ? `Pick #${member.pick_order}` : 'Pending pick'}
-                  </Paragraph>
                   <Separator />
                 </YStack>
               )
@@ -695,10 +733,39 @@ const AvailablePlayersSection = ({
   onSelectCaptain?: (profileId: string) => void
 }) => {
   const isCaptainSelectionMode = isAdmin && draftStatus === 'pending'
+  const [pendingPick, setPendingPick] =
+    useState<DraftViewModel['availablePlayers'][number] | null>(null)
   const visiblePlayers = isCaptainSelectionMode
     ? availablePlayers.filter((entry) => Boolean(entry.profileId))
     : availablePlayers
   const hasAvailablePlayers = visiblePlayers.length > 0
+
+  useEffect(() => {
+    if (!pendingPick) return
+    const stillVisible = visiblePlayers.some((entry) => entry.player.id === pendingPick.player.id)
+    if (!stillVisible) {
+      setPendingPick(null)
+    }
+  }, [pendingPick, visiblePlayers])
+
+  useEffect(() => {
+    if (!canPick && !isCaptainSelectionMode) {
+      setPendingPick(null)
+    }
+  }, [canPick, isCaptainSelectionMode])
+
+  const confirmPickName = pendingPick?.player.name ?? (pendingPick?.isGuest ? 'Guest' : 'Player')
+  const dialogButtonProps = {
+    size: '$3',
+    br: '$10',
+    fontWeight: '600',
+    pressStyle: { opacity: 0.85 },
+  } as const
+  const confirmButtonStyle = {
+    backgroundColor: BRAND_COLORS.primary,
+    borderColor: BRAND_COLORS.primary,
+    color: '$background',
+  } as const
   if (!hasAvailablePlayers && !isSyncing) {
     return null
   }
@@ -707,10 +774,17 @@ const AvailablePlayersSection = ({
       <Paragraph theme="alt1" fontWeight="600">
         Available players
       </Paragraph>
-      <Card px="$4" py="$4" bordered $platform-native={{ borderWidth: 0 }}>
-        <YStack gap="$3">
+      <Card bordered borderColor="$black1" p={0} gap={0} overflow="visible">
+        <YStack gap={0}>
           {isSyncing ? (
-            <XStack ai="center" gap="$1">
+            <XStack
+              ai="center"
+              gap="$1"
+              px="$3"
+              py="$2"
+              borderBottomWidth={hasAvailablePlayers ? 1 : 0}
+              borderColor="$black1"
+            >
               <Spinner size="small" />
               <Paragraph theme="alt2" size="$2">
                 Syncing…
@@ -718,104 +792,145 @@ const AvailablePlayersSection = ({
             </XStack>
           ) : null}
           {hasAvailablePlayers ? (
-            <YStack gap="$2">
+            <YStack gap={0}>
               {visiblePlayers.map((entry, index) => {
                 const rowPending = pendingPlayerIds.includes(entry.player.id)
                 const record = entry.record ?? { wins: 0, losses: 0, recent: [] }
-                const recentLabel = formatRecentRecord(record.recent)
-                const overallRecord = `${record.wins}-${record.losses}`
-                const positionLabel = entry.player.position || 'No position set'
+                const recordLabel = entry.isGuest ? 'Guest' : `${record.wins}-${record.losses}`
+                const recentForm = entry.isGuest ? [] : record.recent ?? []
+                const name = entry.player.name ?? (entry.isGuest ? 'Guest' : 'Member')
+                const avatarUrl = entry.isGuest ? null : entry.player.avatarUrl ?? null
                 const captainIndex = entry.profileId
                   ? selectedCaptainIds.indexOf(entry.profileId)
                   : -1
                 const isCaptainSelected = captainIndex !== -1
-                const guestPhone = entry.isGuest ? formatPhoneDisplay(entry.guest?.phone) : null
-                const guestNotes = entry.isGuest ? entry.guest?.notes?.trim() : null
-                const selectionLabel = isCaptainSelected
-                  ? `Captain ${captainIndex + 1}`
-                  : 'Pick captain'
-                const shouldShowAction =
-                  isCaptainSelectionMode || (canPick && !readOnly) || (rowPending && !readOnly)
-                const actionLabel = isCaptainSelectionMode
-                  ? selectionLabel
-                  : rowPending
-                    ? 'Drafting…'
-                    : 'Draft'
+                const isSelected = isCaptainSelectionMode && isCaptainSelected
+                const rowBackgroundColor = rowPending
+                  ? '$color3'
+                  : isSelected
+                    ? '$background'
+                    : undefined
+                const rowBorderColor = isSelected ? '$borderColor' : '$black1'
+                const canSelectCaptain = isCaptainSelectionMode && Boolean(entry.profileId)
+                const canDraftPlayer = !isCaptainSelectionMode && canPick && !readOnly
+                const canInteract = !rowPending && (canSelectCaptain || canDraftPlayer)
                 return (
-                  <Card
+                  <YStack
                     key={`${entry.id || entry.profileId || 'player'}-${index}`}
                     px="$3"
                     py="$2"
-                    bordered
-                    $platform-native={{ borderWidth: 0 }}
-                    backgroundColor={rowPending ? '$color3' : '$color1'}
+                    borderTopWidth={index === 0 ? 0 : 1}
+                    borderColor={rowBorderColor}
+                    backgroundColor={rowBackgroundColor}
+                    themeInverse={isSelected}
+                    pressStyle={
+                      canInteract
+                        ? { backgroundColor: isSelected ? '$backgroundPress' : '$color2' }
+                        : undefined
+                    }
+                    onPress={() => {
+                      if (!canInteract) return
+                      if (canSelectCaptain && entry.profileId) {
+                        onSelectCaptain?.(entry.profileId)
+                        return
+                      }
+                      if (canDraftPlayer) {
+                        setPendingPick(entry)
+                      }
+                    }}
                   >
-                    <XStack ai="center" gap="$3" flexWrap="wrap">
-                      <YStack gap="$1" f={1}>
-                        <Paragraph fontWeight="600">
-                          {entry.player.name ?? 'Member'}
-                          {entry.player.jerseyNumber ? ` · #${entry.player.jerseyNumber}` : ''}
+                    <XStack ai="center" gap="$2">
+                      <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+                        <Paragraph theme="alt2" minWidth={24}>
+                          {index + 1}.
                         </Paragraph>
-                        {entry.isGuest ? (
-                          <>
-                            <Paragraph theme="alt2" size="$2">
-                              {guestPhone ? `Guest · ${guestPhone}` : 'Guest'}
+                        <UserAvatar size={40} name={name} avatarUrl={avatarUrl} />
+                        <YStack f={1} minWidth={0} gap="$0.5">
+                          <XStack ai="center" gap="$2">
+                            <SizableText fontWeight="600" numberOfLines={1} flex={1} minWidth={0}>
+                              {name}
+                            </SizableText>
+                            <Paragraph theme="alt2" size="$2" flexShrink={0}>
+                              ({recordLabel})
                             </Paragraph>
-                            {guestNotes ? (
-                              <Paragraph theme="alt2" size="$2">
-                                {guestNotes}
-                              </Paragraph>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            <Paragraph theme="alt2" size="$2">
-                              {positionLabel} · Record {overallRecord}
-                            </Paragraph>
-                            <Paragraph theme="alt2" size="$2">
-                              Last 5: {recentLabel || '—'}
-                            </Paragraph>
-                          </>
-                        )}
-                      </YStack>
-                      {/** Primary orange for live draft action */}
-                    {shouldShowAction ? (
-                      <Button
-                        size="$2"
-                        br="$10"
-                        theme={isCaptainSelectionMode && isCaptainSelected ? 'active' : undefined}
-                        disabled={isCaptainSelectionMode ? false : !canPick || rowPending || readOnly}
-                        onPress={() => {
-                          if (isCaptainSelectionMode) {
-                            if (entry.profileId) {
-                              onSelectCaptain?.(entry.profileId)
-                            }
-                          } else if (canPick && !readOnly) {
-                            onPick(entry)
-                          }
-                        }}
-                        iconAfter={rowPending ? <Spinner size="small" /> : undefined}
-                        style={
-                          canPick && !rowPending && !readOnly && !isCaptainSelectionMode
-                            ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
-                            : undefined
-                        }
-                      >
-                        {actionLabel}
-                      </Button>
-                    ) : null}
-                  </XStack>
-                </Card>
-              )
+                          </XStack>
+                          {!entry.isGuest ? <RecentFormChips recentForm={recentForm} /> : null}
+                        </YStack>
+                      </XStack>
+                      {rowPending ? <Spinner size="small" /> : null}
+                    </XStack>
+                  </YStack>
+                )
               })}
             </YStack>
           ) : (
-            <Paragraph theme="alt2" size="$2">
-              No available players.
-            </Paragraph>
+            <YStack px="$3" py="$2">
+              <Paragraph theme="alt2" size="$2">
+                No available players.
+              </Paragraph>
+            </YStack>
           )}
         </YStack>
       </Card>
+      <AlertDialog
+        open={Boolean(pendingPick)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingPick(null)
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            key="overlay"
+            animation="medium"
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+            o={0.5}
+            backgroundColor="$color5"
+          />
+          <AlertDialog.Content
+            key="content"
+            elevate
+            animation="medium"
+            enterStyle={{ opacity: 0, scale: 0.95 }}
+            exitStyle={{ opacity: 0, scale: 0.95 }}
+            backgroundColor="$color2"
+            br="$4"
+            p="$4"
+            gap="$3"
+          >
+            <AlertDialog.Title fontWeight="700">Confirm pick?</AlertDialog.Title>
+            <AlertDialog.Description>
+              {confirmPickName} will be drafted to your team.
+            </AlertDialog.Description>
+            <XStack gap="$3">
+              <Button
+                {...dialogButtonProps}
+                flex={1}
+                variant="outlined"
+                onPress={() => setPendingPick(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                {...dialogButtonProps}
+                flex={1}
+                onPress={() => {
+                  if (pendingPick) {
+                    onPick(pendingPick)
+                  }
+                  setPendingPick(null)
+                }}
+                disabled={!pendingPick}
+                {...confirmButtonStyle}
+              >
+                Draft player
+              </Button>
+            </XStack>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog>
     </YStack>
   )
 }
@@ -919,9 +1034,3 @@ const getRoleAlert = ({
   }
   return null
 }
-
-const formatRecentRecord = (recent: string[]) =>
-  recent
-    .slice(0, 5)
-    .map((val) => (val?.toUpperCase() === 'W' ? 'W' : 'L'))
-    .join(' ')

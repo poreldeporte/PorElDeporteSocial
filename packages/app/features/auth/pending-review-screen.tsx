@@ -1,4 +1,4 @@
-import { Button, H2, Paragraph, YStack } from '@my/ui/public'
+import { Button, H2, Paragraph, YStack, submitButtonBaseProps } from '@my/ui/public'
 import { pedLogo } from 'app/assets'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { useLogout } from 'app/utils/auth/logout'
@@ -44,10 +44,7 @@ export const PendingReviewScreen = ({ topInset }: ScrollHeaderProps) => {
       </YStack>
       <YStack gap="$2">
         <Button
-          backgroundColor="#fff"
-          borderColor="#fff"
-          borderWidth={1}
-          color="#000"
+          {...submitButtonBaseProps}
           {...pillButtonProps}
           onPress={() => router.push('/onboarding/profile')}
         >

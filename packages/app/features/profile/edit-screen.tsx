@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Button,
   Card,
   Checkbox,
@@ -13,27 +12,26 @@ import {
   SizableText,
   SubmitButton,
   Theme,
-  View,
   XStack,
   YStack,
   useToastController,
 } from '@my/ui/public'
 import { Alert, type ScrollViewProps } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { pedLogo } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { getDockSpacer } from 'app/constants/dock'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { CountryPicker } from 'app/components/CountryPicker'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
+import { UserAvatar } from 'app/components/UserAvatar'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { formatPhoneDisplay, getPhoneCountryOptions, parsePhoneToE164, type PhoneCountryOption } from 'app/utils/phone'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
 import { type ReactNode, useRef } from 'react'
 import { createParam } from 'solito'
-import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
 import { useController, useFormContext } from 'react-hook-form'
 import { Check as CheckIcon } from '@tamagui/lucide-icons'
@@ -94,6 +92,7 @@ export const ProfileFormScreen = ({
     <EditProfileForm
       userId={user.id}
       initial={buildProfileFormInitial(profile, user)}
+      avatarUrl={profile.avatar_url ?? null}
       submitLabel={submitLabel}
       approvalStatus={approvalStatus}
       showStatusBadge={showStatusBadge}
@@ -107,6 +106,7 @@ export const ProfileFormScreen = ({
 
 const EditProfileForm = ({
   initial,
+  avatarUrl,
   userId,
   submitLabel = 'Update Profile',
   approvalStatus,
@@ -119,6 +119,7 @@ const EditProfileForm = ({
   topSection,
 }: {
   initial: ProfileFormInitial
+  avatarUrl: string | null
   userId: string
   submitLabel?: string
   approvalStatus: 'draft' | 'pending' | 'approved'
@@ -188,6 +189,13 @@ const EditProfileForm = ({
       toast.show('Unable to update profile', { message: error.message })
     },
   })
+  const handleAvatarUpdated = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['members', 'approved'] }),
+    ])
+    await apiUtils.greeting.invalidate()
+  }
 
   const displayName = buildProfileDisplayName(initial)
   const statusLabel = buildProfileStatusLabel(approvalStatus)
@@ -250,9 +258,13 @@ const EditProfileForm = ({
             >
               {headerSpacer}
               <YStack ai="center" gap="$2" mb="$2">
-                <View>
-                  <UserAvatar />
-                </View>
+                <UploadAvatar
+                  profileId={userId}
+                  avatarUrl={avatarUrl}
+                  onComplete={handleAvatarUpdated}
+                >
+                  <UserAvatar size={128} name={displayName} avatarUrl={avatarUrl} />
+                </UploadAvatar>
                 <SizableText size="$7" fontWeight="700" textAlign="center">
                   {displayName}
                 </SizableText>
@@ -362,7 +374,7 @@ const FloatingSubmitBar = ({
   disabled: boolean
 }) => {
   return (
-    <FloatingCtaDock>
+    <FloatingCtaDock transparent>
       <Theme inverse>
         <XStack>
           <SubmitButton flex={1} onPress={onPress} disabled={disabled}>
@@ -472,7 +484,7 @@ export const AdminProfileEditScreen = ({
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, first_name, last_name, email, phone, address, nationality, birth_date, jersey_number, position, approval_status, role'
+          'id, avatar_url, first_name, last_name, email, phone, address, nationality, birth_date, jersey_number, position, approval_status, role'
         )
         .eq('id', profileId)
         .single()
@@ -617,6 +629,7 @@ export const AdminProfileEditScreen = ({
     <EditProfileForm
       userId={profileId}
       initial={initial}
+      avatarUrl={profileQuery.data.avatar_url ?? null}
       approvalStatus={approvalStatus}
       submitLabel="Save changes"
       floatingCta
@@ -716,13 +729,5 @@ const PositionCheckboxes = () => {
       </YStack>
       <FieldError message={errorMessage} />
     </YStack>
-  )
-}
-
-const UserAvatar = () => {
-  return (
-    <Avatar circular size={128}>
-      <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={128} height={128} />
-    </Avatar>
   )
 }

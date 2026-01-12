@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Button,
   type ButtonProps,
   Popover,
@@ -8,16 +7,15 @@ import {
   Theme,
   XStack,
   YStack,
-  getTokens,
 } from '@my/ui/public'
 import { ChevronLeft, Plus, ShoppingBag } from '@tamagui/lucide-icons'
+import { UserAvatar } from 'app/components/UserAvatar'
 import { getScreenLayout, type ScreenLayoutId } from 'app/navigation/layouts'
 import { getRoutesById, navRoutes, profileMenuRouteIds, webTabRouteIds } from 'app/navigation/routes'
 import { usePathname } from 'app/utils/usePathname'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { useUser } from 'app/utils/useUser'
 import { useState } from 'react'
-import { SolitoImage } from 'solito/image'
 import { Link } from 'solito/link'
 
 import { NavTabs } from './components/nav-tabs.web'
@@ -98,21 +96,6 @@ export const HomeLayout = ({
   )
 }
 
-const UserAvatar = () => {
-  const { avatarUrl } = useUser()
-
-  return (
-    <Avatar size="$2" circular>
-      <SolitoImage
-        src={avatarUrl}
-        alt="your avatar"
-        width={getTokens().size['2'].val}
-        height={getTokens().size['2'].val}
-      />
-    </Avatar>
-  )
-}
-
 const CtaButton = (props: ButtonProps) => {
   const { isAdmin } = useUser()
   const createRoute = navRoutes.create
@@ -130,13 +113,13 @@ const CtaButton = (props: ButtonProps) => {
 
 const ProfileMenu = () => {
   const [open, setOpen] = useState(false)
-  const { displayName, profile, user } = useUser()
+  const { avatarUrl, displayName, profile, user } = useUser()
   const profileRoutes = getRoutesById(profileMenuRouteIds)
   return (
     <Popover size="$3" stayInFrame={{ padding: 16 }} open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <Button chromeless p="$1">
-          <UserAvatar />
+          <UserAvatar size="$2" name={displayName} avatarUrl={avatarUrl} />
         </Button>
       </Popover.Trigger>
       <Popover.Content
@@ -194,6 +177,7 @@ const Header = ({
   const showBack = Boolean(backHref)
   const showCreate = layoutId === 'gamesList' && isAdmin
   const showProfile = layoutId === 'leaderboard'
+  const { avatarUrl, displayName } = useUser()
   const LeftContent = () => {
     if (showBack) {
       return (
@@ -232,7 +216,7 @@ const Header = ({
       return (
         <Link href="/profile">
           <Button chromeless px={0} py={0} aria-label="Profile" pressStyle={{ opacity: 0.7 }}>
-            <UserAvatar />
+            <UserAvatar size="$2" name={displayName} avatarUrl={avatarUrl} />
           </Button>
         </Link>
       )
@@ -310,22 +294,29 @@ const BottomNav = ({ reserveCtaSpace = false }: { reserveCtaSpace?: boolean }) =
         const Icon = route.icon
         const active =
           pathname === route.href || (route.href !== '/' && pathname.startsWith(`${route.href}/`))
+        const button = (
+          <Button
+            chromeless
+            size="$2"
+            br={active ? '$6' : 0}
+            px={active ? '$2' : undefined}
+            py={active ? '$1' : undefined}
+            bg={active ? '$color2' : 'transparent'}
+            jc="center"
+            ai="center"
+            gap="$1"
+            pressStyle={{ opacity: 0.7 }}
+            opacity={active ? 1 : 0.7}
+          >
+            <Icon size={20} color={active ? '$color' : '$color10'} />
+            <SizableText size="$2" color={active ? '$color' : '$color10'}>
+              {route.label}
+            </SizableText>
+          </Button>
+        )
         return (
           <Link key={route.id} href={route.href}>
-            <Button
-              chromeless
-              size="$2"
-              bw={0}
-              br={0}
-              jc="center"
-              ai="center"
-              gap="$1"
-              pressStyle={{ opacity: 0.7 }}
-              opacity={active ? 1 : 0.7}
-            >
-              <Icon size={20} color={active ? '$color12' : '$color10'} />
-              <SizableText size="$2">{route.label}</SizableText>
-            </Button>
+            {active ? <Theme inverse>{button}</Theme> : button}
           </Link>
         )
       })}

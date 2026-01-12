@@ -83,7 +83,6 @@ export const UsPhoneMaskInput = ({
         textContentType="telephoneNumber"
         keyboardType="number-pad"
         inputMode="numeric"
-        maxLength={10}
         disabled={disabled}
         caretHidden
         opacity={0}

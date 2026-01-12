@@ -12,6 +12,7 @@ import { notificationsRouter } from './notifications'
 import { communityRouter } from './community'
 import { membersRouter } from './members'
 import { reviewsRouter } from './reviews'
+import { groupsRouter } from './groups'
 export const appRouter = createTRPCRouter({
   greeting: greetingRouter,
   games: gamesRouter,
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   notifications: notificationsRouter,
   community: communityRouter,
   members: membersRouter,
+  groups: groupsRouter,
   reviews: reviewsRouter,
 })
 // export type definition of API

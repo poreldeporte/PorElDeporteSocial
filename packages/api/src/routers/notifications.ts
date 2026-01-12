@@ -78,6 +78,7 @@ export const notificationsRouter = createTRPCRouter({
         )
         .eq('status', 'scheduled')
         .not('start_time', 'is', null)
+        .or('release_at.is.null,released_at.not.is.null')
 
       if (error) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
@@ -252,6 +253,7 @@ export const notificationsRouter = createTRPCRouter({
         )
         .eq('status', 'scheduled')
         .not('start_time', 'is', null)
+        .or('release_at.is.null,released_at.not.is.null')
 
       if (error) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })

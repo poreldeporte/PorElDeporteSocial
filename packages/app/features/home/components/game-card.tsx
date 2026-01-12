@@ -58,7 +58,19 @@ export const GameCard = ({
   const startDate = useMemo(() => new Date(game.startTime), [game.startTime])
   const now = Date.now()
   const kickoffLabel = useMemo(() => formatGameKickoffLabel(startDate), [startDate])
+  const dateLabel = useMemo(
+    () =>
+      startDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    [startDate]
+  )
   const hasStarted = startDate ? now >= startDate.getTime() : false
+  const releaseDate = game.releaseAt ? new Date(game.releaseAt) : null
+  const releaseLabel = releaseDate ? formatGameKickoffLabel(releaseDate) : ''
+  const isUnreleased = Boolean(game.releaseAt && !game.releasedAt)
 
   const community = game.community
   const confirmationEnabled = game.confirmationEnabled ?? true
@@ -111,13 +123,17 @@ export const GameCard = ({
   const userAttendanceConfirmed =
     game.userStatus === 'rostered' && (!confirmationEnabled || Boolean(game.attendanceConfirmedAt))
   const isGrabOnly =
-    game.status === 'scheduled' && rosterFull && unconfirmedRosterCount > 0 && isCrunchTimeOpen
+    !isUnreleased &&
+    game.status === 'scheduled' &&
+    rosterFull &&
+    unconfirmedRosterCount > 0 &&
+    isCrunchTimeOpen
   const ctaState = deriveCtaState({
     userStatus: game.userStatus,
     rosterFull,
     isGrabOnly,
   })
-  const canJoin = game.status === 'scheduled' && !hasStarted && !isLocked
+  const canJoin = game.status === 'scheduled' && !isUnreleased && !hasStarted && !isLocked
   const router = useRouter()
   const detailHref = `/games/${game.id}`
   const detailLink = useLink({ href: detailHref })
@@ -143,10 +159,13 @@ export const GameCard = ({
     gameStatus: game.status,
     now,
   })
-  const displayStatus =
-    confirmCountdownLabel && combinedStatus
+  const releaseCopy = isUnreleased && releaseLabel ? `Releases ${releaseLabel}` : ''
+  const displayStatus = isUnreleased
+    ? { label: 'Scheduled', tone: 'neutral' as const }
+    : confirmCountdownLabel && combinedStatus
       ? { ...combinedStatus, label: confirmCountdownLabel }
       : combinedStatus
+  const showActions = !isUnreleased
   const showConfirmCta = canConfirmAttendance
   const spotsLeft = Math.max(game.capacity - rosteredCount, 0)
 
@@ -161,18 +180,32 @@ export const GameCard = ({
   const isRateCta = game.status === 'completed'
   const isJoinAction =
     ctaState === 'claim' || ctaState === 'join-waitlist' || ctaState === 'grab-open-spot'
+  const isClaimCta = ctaState === 'claim'
   const canLeave =
-    game.status === 'scheduled' && !hasStarted && !isLocked && game.draftStatus !== 'in_progress'
-  const ctaTheme = isRateCta ? 'alt2' : isJoinAction || showConfirmCta ? undefined : 'alt2'
+    game.status === 'scheduled' &&
+    !isUnreleased &&
+    !hasStarted &&
+    !isLocked &&
+    game.draftStatus !== 'in_progress'
+  const isDropCta = ctaState === 'drop'
+  const isInverseCta = isJoinAction || isDropCta
+  const ctaTheme = isRateCta ? 'alt2' : isInverseCta || showConfirmCta ? undefined : 'alt2'
   const primaryButtonStyle =
-    !isPending && !isRateCta && isJoinAction
+    !isPending && !isRateCta && showConfirmCta
+      ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+      : !isPending && !isRateCta && isInverseCta
+        ? {
+            backgroundColor: '$color',
+            borderColor: '$color',
+            color: '$background',
+          }
+        : {}
+  const claimButtonStyle =
+    !isPending && !isRateCta && isClaimCta
       ? {
-          backgroundColor: 'transparent',
           borderColor: BRAND_COLORS.primary,
           color: BRAND_COLORS.primary,
         }
-      : !isPending && !isRateCta && showConfirmCta
-        ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
       : {}
   const ctaLabel = isRateCta
     ? 'Rate the game'
@@ -180,6 +213,7 @@ export const GameCard = ({
       ? 'Confirm spot'
       : ctaCopy[ctaState]
   const ctaDisabled =
+    isUnreleased ||
     isRateCta ||
     isPending ||
     ((ctaState === 'claim' || ctaState === 'join-waitlist') && !canJoin) ||
@@ -205,10 +239,13 @@ export const GameCard = ({
 
   return (
     <Card
-      bordered $platform-native={{ borderWidth: 0 }}
+      bordered
+      bw={1}
+      boc="$black1"
       br="$5"
       p="$4"
       gap="$4"
+      opacity={isUnreleased ? 0.7 : 1}
       {...detailLink}
       onPress={handleCardPress}
       hoverStyle={{ backgroundColor: '$color2' }}
@@ -224,49 +261,71 @@ export const GameCard = ({
           <CombinedStatusBadge status={displayStatus} />
         </XStack>
         <YStack gap="$0.5">
-          <Paragraph theme="alt1" fontWeight="600">
-            {game.locationName ?? 'Venue TBD'}
-          </Paragraph>
+          <XStack ai="center" gap="$2" jc="space-between" w="100%">
+            <Paragraph fontWeight="600" flex={1} minWidth={0} numberOfLines={1}>
+              {game.locationName ?? 'Venue TBD'}
+            </Paragraph>
+            <XStack
+              ai="center"
+              px="$2"
+              py="$0.5"
+              br="$10"
+              bg="$color2"
+              borderWidth={1}
+              borderColor="$color3"
+            >
+              <SizableText size="$2" fontWeight="600">
+                {rosteredCount}/{game.capacity}
+              </SizableText>
+            </XStack>
+          </XStack>
           <Paragraph theme="alt2" size="$2">
-            {`${rosteredCount}/${game.capacity} players${waitlistedCount > 0 ? ` • ${waitlistedCount} on waitlist` : ''}`}
+            {dateLabel}
           </Paragraph>
         </YStack>
       </YStack>
 
-      <YStack gap="$2">
-        {game.status !== 'scheduled' ? <StatusNote status={game.status} /> : null}
+      {showActions ? (
+        <YStack gap="$2">
+          {game.status !== 'scheduled' ? <StatusNote status={game.status} /> : null}
 
-        <XStack gap="$2" ai="center">
-          <Button
-            flex={1}
-            size="$3"
-            br="$10"
+          <XStack gap="$2" ai="center">
+            <Button
+              flex={1}
+              size="$3"
+              br="$10"
             disabled={ctaDisabled}
             icon={primaryIcon}
             theme={ctaTheme}
             {...primaryButtonStyle}
+            {...claimButtonStyle}
             onPress={(event) => {
               event?.stopPropagation?.()
               handleCtaPress()
-            }}
-          >
-            {ctaLabel}
-          </Button>
-          <Button
-            flex={1}
-            size="$3"
-            br="$10"
-            theme="alt2"
-            {...detailLink}
-            onPress={(event: any) => {
-              event?.stopPropagation?.()
-              detailLink.onPress?.(event)
-            }}
-          >
-            Details
-          </Button>
-        </XStack>
-      </YStack>
+              }}
+            >
+              {ctaLabel}
+            </Button>
+            <Button
+              flex={1}
+              size="$3"
+              br="$10"
+              theme="alt2"
+              {...detailLink}
+              onPress={(event: any) => {
+                event?.stopPropagation?.()
+                detailLink.onPress?.(event)
+              }}
+            >
+              Details
+            </Button>
+          </XStack>
+        </YStack>
+      ) : releaseCopy ? (
+        <Paragraph theme="alt2" size="$2">
+          {releaseCopy}
+        </Paragraph>
+      ) : null}
     </Card>
   )
 }

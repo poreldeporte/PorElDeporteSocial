@@ -170,6 +170,9 @@ export const teamsRouter = createTRPCRouter({
 
     const game = await fetchGame(supabase, input.gameId)
     if (!game) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+    if (game.draft_mode_enabled === false) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
+    }
 
     const existing = await supabase.from('game_teams').select('id').eq('game_id', input.gameId)
     if (existing.error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: existing.error.message })
@@ -205,7 +208,8 @@ export const teamsRouter = createTRPCRouter({
       actorId: user.id,
     })
 
-    const shouldNotifyDraft = game.draft_mode_enabled && game.confirmation_enabled
+    const shouldNotifyDraft =
+      game.draft_mode_enabled && game.confirmation_enabled && game.draft_visibility !== 'admin_only'
     if (shouldNotifyDraft && firstCaptainProfileId) {
       try {
         await notifyCaptainTurn({ supabaseAdmin, gameId: input.gameId, profileId: firstCaptainProfileId })
@@ -233,17 +237,24 @@ export const teamsRouter = createTRPCRouter({
 
     const game = await fetchGame(supabase, input.gameId)
     if (!game) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+    if (game.draft_mode_enabled === false) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
+    }
     if (game.draft_status !== 'in_progress') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft is not in progress' })
     }
 
-    const shouldNotifyDraft = game.draft_mode_enabled && game.confirmation_enabled
+    const shouldNotifyDraft =
+      game.draft_mode_enabled && game.confirmation_enabled && game.draft_visibility !== 'admin_only'
 
     const teams = await fetchTeams(supabase, input.gameId)
     const team = teams.find((t) => t.id === input.teamId)
     if (!team) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid team' })
 
     const isAdmin = await isUserAdmin(supabase, user.id)
+    if (game.draft_visibility === 'admin_only' && !isAdmin) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Draft room is admin-only' })
+    }
     const isCaptain = await isUserCaptain(supabase, input.gameId, user.id)
 
     if (!isAdmin && !isCaptain) {
@@ -436,6 +447,9 @@ export const teamsRouter = createTRPCRouter({
 
     const game = await fetchGame(supabase, input.gameId)
     if (!game) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+    if (game.draft_mode_enabled === false) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
+    }
     if (game.status === 'cancelled') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cancelled games cannot report results' })
     }
@@ -444,6 +458,11 @@ export const teamsRouter = createTRPCRouter({
     }
     if (new Date() < new Date(game.start_time)) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Results can only be reported after kickoff' })
+    }
+
+    const isAdmin = await isUserAdmin(supabase, user.id)
+    if (game.draft_visibility === 'admin_only' && !isAdmin) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Draft room is admin-only' })
     }
 
     const { data: captains, error: captainsError } = await supabase
@@ -466,7 +485,6 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Losing team not part of this game' })
     }
 
-    const isAdmin = await isUserAdmin(supabase, user.id)
     const isCaptain = await isUserCaptain(supabase, input.gameId, user.id)
     if (!isAdmin && !isCaptain) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Only captains can report results' })
@@ -509,7 +527,17 @@ export const teamsRouter = createTRPCRouter({
 
   confirmResult: protectedProcedure.input(confirmResultInput).mutation(async ({ ctx, input }) => {
     const { supabase, user } = ctx
+    const game = await fetchGame(supabase, input.gameId)
+    if (!game) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+    if (game.draft_mode_enabled === false) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
+    }
+
     const isAdmin = await isUserAdmin(supabase, user.id)
+    if (game.draft_visibility === 'admin_only' && !isAdmin) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Draft room is admin-only' })
+    }
+
     const isCaptain = await isUserCaptain(supabase, input.gameId, user.id)
     if (!isAdmin && !isCaptain) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Only captains can confirm results' })
@@ -654,7 +682,9 @@ export const teamsRouter = createTRPCRouter({
 const fetchGame = async (supabase: SupabaseClient<Database>, gameId: string) => {
   const { data, error } = await supabase
     .from('games')
-    .select('id, draft_status, draft_turn, draft_direction, start_time, status, draft_mode_enabled, confirmation_enabled')
+    .select(
+      'id, draft_status, draft_turn, draft_direction, start_time, status, draft_mode_enabled, draft_visibility, confirmation_enabled'
+    )
     .eq('id', gameId)
     .maybeSingle()
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })

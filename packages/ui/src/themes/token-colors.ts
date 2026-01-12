@@ -78,7 +78,7 @@ export const color = {
   white025: 'rgba(255,255,255,0.25)',
   black0: 'rgba(10,10,10,0)',
   black075: 'rgba(10,10,10,0.75)',
-  black05: 'rgba(10,10,10,0.5)',
+  black05: 'rgba(10,10,10,0.8)',
   black025: 'rgba(10,10,10,0.25)',
   white1: '#fff',
   white2: '#f8f8f8',
