@@ -1,21 +1,44 @@
-import { Share, StyleSheet, type ScrollViewProps } from 'react-native'
-import { useMemo, type ReactNode } from 'react'
+import { Image, Share, StyleSheet, type ScrollViewProps } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Path, Svg } from 'react-native-svg'
 import { useLink } from 'solito/link'
+import { AlertDialog } from 'tamagui'
 
-import { Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack, useTheme } from '@my/ui/public'
-import { ArrowRight, Check, Moon, Settings, Shield, Star, Trophy, Users } from '@tamagui/lucide-icons'
+import {
+  Button,
+  Card,
+  Paragraph,
+  ScrollView,
+  SizableText,
+  Switch,
+  XStack,
+  YStack,
+  useTheme,
+  useToastController,
+} from '@my/ui/public'
+import { ArrowRight, Check, ChevronDown, Shield, Star, Trophy } from '@tamagui/lucide-icons'
+import { bannerMerch } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
+import { getDockSpacer } from 'app/constants/dock'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { UserAvatar } from 'app/components/UserAvatar'
+import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
 import type { GameListItem } from 'app/features/games/types'
+import { HistoryGameCard } from 'app/features/games/components/HistoryGameCard'
 import { useThemeSetting } from 'app/provider/theme'
 import { useLogout } from 'app/utils/auth/logout'
+import { emptyBirthDateParts, formatBirthDateParts, parseBirthDateParts } from 'app/utils/birthDate'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
+import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
+import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { api } from 'app/utils/api'
+import { formatPhoneDisplay, parsePhoneToE164 } from 'app/utils/phone'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { ProfileDetails } from './profile-details'
+import { ProfileDetails, type ProfileDraft, type ProfileEditSection } from './profile-details'
+import { profileUpdateFieldSchema } from './profile-field-schema'
 
 type StatSnapshot = {
   games: number
@@ -26,6 +49,18 @@ type StatSnapshot = {
   goalsAgainst: number
   goalDiff: number
   gamesAsCaptain: number
+}
+
+type ProfileRow = {
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  nationality: string | null
+  birth_date: string | null
+  jersey_number: number | null
+  position: string | null
 }
 
 type MetricCardProps = {
@@ -45,6 +80,14 @@ type PillTone = 'neutral' | 'active' | 'primary'
 
 export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const data = useProfileData()
+  const editor = useProfileEditor({
+    profile: data.profile,
+    user: data.user,
+    userId: data.userId,
+  })
+  const insets = useSafeAreaInsets()
+  const showDock = editor.isDirty
+  const dockSpacer = showDock ? getDockSpacer(insets.bottom) : 0
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
@@ -56,57 +99,71 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
   )
 
   return (
-    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
-      {headerSpacer}
-      <YStack maw={900} mx="auto" w="100%" space="$4">
-        <ProfileHero
-          name={data.displayName}
-          avatarUrl={data.avatarUrl}
-          userId={data.userId}
-          onReviewMembers={data.onReviewMembers}
-          onCommunitySettings={data.onCommunitySettings}
-          onLogout={data.onLogout}
+    <YStack f={1}>
+      <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+        {headerSpacer}
+        <YStack maw={900} mx="auto" w="100%" space="$4">
+          <ProfileHero
+            name={data.displayName}
+            avatarUrl={data.avatarUrl}
+            phone={data.profile?.phone}
+            stats={data.stats}
+            canEditAvatar
+          />
+          <BadgeSection
+            role={data.role}
+            stats={data.stats}
+            attendanceStreak={data.attendanceStreak}
+          />
+          <PerformanceSection
+            stats={data.stats}
+            performance={data.performance}
+            recentForm={data.recentForm}
+            isLoading={data.isStatsLoading}
+          />
+          <HistorySection
+            games={data.recentGames}
+            isLoading={data.isHistoryLoading}
+            isError={data.historyError}
+            onRetry={data.onHistoryRetry}
+            scheduleLink={data.historyLink}
+          />
+          <ProfileDetails
+            firstName={data.profile?.first_name}
+            lastName={data.profile?.last_name}
+            email={data.profileEmail}
+            phone={data.profile?.phone}
+            address={data.profile?.address}
+            nationality={data.profile?.nationality}
+            birthDate={data.profile?.birth_date}
+            jerseyNumber={data.profile?.jersey_number}
+            position={data.profile?.position}
+            editor={{
+              draft: editor.draft,
+              activeSection: editor.activeSection,
+              onSectionToggle: editor.toggleSection,
+              onDraftChange: editor.updateDraft,
+            }}
+          />
+          {data.onLogout ? <LogoutSection onLogout={data.onLogout} /> : null}
+          {showDock ? <YStack h={dockSpacer} /> : null}
+        </YStack>
+      </ScrollView>
+      {showDock ? (
+        <FloatingSaveDock
+          disabled={editor.isSaving}
+          onCancel={editor.discard}
+          onSave={editor.save}
         />
-        <BadgeSection
-          role={data.role}
-          stats={data.stats}
-          attendanceStreak={data.attendanceStreak}
-        />
-        <PerformanceSection
-          stats={data.stats}
-          performance={data.performance}
-          recentForm={data.recentForm}
-          isLoading={data.isStatsLoading}
-        />
-        <HistorySection
-          games={data.recentGames}
-          isLoading={data.isHistoryLoading}
-          isError={data.historyError}
-          onRetry={data.onHistoryRetry}
-          scheduleLink={data.historyLink}
-        />
-        <ProfileDetails
-          firstName={data.profile?.first_name}
-          lastName={data.profile?.last_name}
-          email={data.profileEmail}
-          phone={data.profile?.phone}
-          address={data.profile?.address}
-          nationality={data.profile?.nationality}
-          birthDate={data.profile?.birth_date}
-          jerseyNumber={data.profile?.jersey_number}
-          position={data.profile?.position}
-        />
-      </YStack>
-    </ScrollView>
+      ) : null}
+    </YStack>
   )
 }
 
 const useProfileData = () => {
-  const { profile, avatarUrl, user, displayName, role, isAdmin } = useUser()
+  const { profile, avatarUrl, user, displayName, role } = useUser()
   useStatsRealtime(Boolean(user))
   useGamesListRealtime(Boolean(user))
-  const approvalsLink = useLink({ href: '/admin/approvals' })
-  const communitySettingsLink = useLink({ href: '/settings/community' })
   const logout = useLogout()
   const historyLink = useLink({ href: '/games/history' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
@@ -135,12 +192,11 @@ const useProfileData = () => {
 
   return {
     profile,
+    user,
     avatarUrl,
     displayName: displayName || 'Member',
     role,
     userId: user?.id ?? '',
-    onReviewMembers: isAdmin ? approvalsLink.onPress : undefined,
-    onCommunitySettings: isAdmin ? communitySettingsLink.onPress : undefined,
     onLogout: () => logout({ userId: user?.id ?? null }),
     stats,
     performance,
@@ -156,55 +212,395 @@ const useProfileData = () => {
   }
 }
 
+const useProfileEditor = ({
+  profile,
+  user,
+  userId,
+}: {
+  profile: ProfileRow | null | undefined
+  user: { email?: string | null; phone?: string | null } | null | undefined
+  userId: string
+}) => {
+  const supabase = useSupabase()
+  const toast = useToastController()
+  const queryClient = useQueryClient()
+  const apiUtils = api.useUtils()
+  const baseDraft = useMemo(() => buildProfileDraft(profile, user), [profile, user])
+  const [draft, setDraft] = useState<ProfileDraft>(baseDraft)
+  const [baseline, setBaseline] = useState<ProfileDraft>(baseDraft)
+  const [activeSection, setActiveSection] = useState<ProfileEditSection | null>(null)
+  const isDirty = useMemo(() => !isProfileDraftEqual(draft, baseline), [draft, baseline])
+  const dirtyRef = useRef(isDirty)
+
+  useEffect(() => {
+    dirtyRef.current = isDirty
+  }, [isDirty])
+
+  useEffect(() => {
+    setBaseline(baseDraft)
+    if (!dirtyRef.current) {
+      setDraft(baseDraft)
+    }
+  }, [baseDraft])
+
+  const updateDraft = useCallback((update: Partial<ProfileDraft>) => {
+    setDraft((prev) => ({ ...prev, ...update }))
+  }, [])
+
+  const toggleSection = useCallback((section: ProfileEditSection) => {
+    setActiveSection((current) => (current === section ? null : section))
+  }, [])
+
+  const mutation = useMutation({
+    mutationFn: async (values: ProfileDraft) => {
+      const payload = {
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        address: values.address.trim() || undefined,
+        nationality: values.nationality.trim(),
+        birthDate: values.birthDate,
+        jerseyNumber: Number(values.jerseyNumber),
+        position: values.position,
+      }
+      const result = profileUpdateFieldSchema.safeParse(payload)
+      if (!result.success) {
+        const message = result.error.issues[0]?.message ?? 'Check your profile details.'
+        throw new Error(message)
+      }
+      const birthDate = formatBirthDateParts(result.data.birthDate)
+      if (!birthDate) {
+        throw new Error('Enter a valid birth date.')
+      }
+      const normalizedPhone = parsePhoneToE164(result.data.phone, 'US')
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: result.data.firstName,
+          last_name: result.data.lastName,
+          email: result.data.email,
+          phone: normalizedPhone ?? result.data.phone,
+          address: result.data.address?.trim() || null,
+          nationality: result.data.nationality?.trim() || null,
+          name: `${result.data.firstName} ${result.data.lastName}`.trim(),
+          birth_date: birthDate,
+          jersey_number: result.data.jerseyNumber,
+          position: result.data.position.join(','),
+        })
+        .eq('id', userId)
+      if (error) {
+        throw new Error(error.message)
+      }
+    },
+    onSuccess: async (_, values) => {
+      setBaseline(values)
+      setDraft(values)
+      setActiveSection(null)
+      await queryClient.invalidateQueries({ queryKey: ['profile', userId] })
+      await apiUtils.greeting.invalidate()
+      toast.show('Successfully updated!')
+    },
+    onError: (error: Error) => {
+      toast.show('Unable to update profile', { message: error.message })
+    },
+  })
+
+  const save = useCallback(() => {
+    if (!userId) return
+    mutation.mutate(draft)
+  }, [draft, mutation, userId])
+
+  const discard = useCallback(() => {
+    setDraft(baseline)
+    setActiveSection(null)
+  }, [baseline])
+
+  return {
+    draft,
+    activeSection,
+    updateDraft,
+    toggleSection,
+    isDirty,
+    isSaving: mutation.isPending,
+    save,
+    discard,
+  }
+}
+
+const buildProfileDraft = (
+  profile: ProfileRow | null | undefined,
+  user?: { email?: string | null; phone?: string | null } | null
+): ProfileDraft => {
+  const rawPhone = profile?.phone ?? user?.phone ?? ''
+  const phone = formatPhoneDisplay(rawPhone) || rawPhone
+  return {
+    firstName: profile?.first_name ?? '',
+    lastName: profile?.last_name ?? '',
+    email: profile?.email ?? user?.email ?? '',
+    phone,
+    address: profile?.address ?? '',
+    nationality: profile?.nationality ?? '',
+    birthDate: parseBirthDateParts(profile?.birth_date) ?? emptyBirthDateParts(),
+    jerseyNumber: profile?.jersey_number ? String(profile.jersey_number) : '',
+    position: parsePositionList(profile?.position),
+  }
+}
+
+const parsePositionList = (value?: string | null) => {
+  if (!value) return []
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+const isProfileDraftEqual = (next: ProfileDraft, prev: ProfileDraft) => {
+  if (next.firstName !== prev.firstName) return false
+  if (next.lastName !== prev.lastName) return false
+  if (next.email !== prev.email) return false
+  if (next.phone !== prev.phone) return false
+  if (next.address !== prev.address) return false
+  if (next.nationality !== prev.nationality) return false
+  if (next.jerseyNumber !== prev.jerseyNumber) return false
+  if (next.birthDate.month !== prev.birthDate.month) return false
+  if (next.birthDate.day !== prev.birthDate.day) return false
+  if (next.birthDate.year !== prev.birthDate.year) return false
+  if (next.position.length !== prev.position.length) return false
+  for (let i = 0; i < next.position.length; i += 1) {
+    if (next.position[i] !== prev.position[i]) return false
+  }
+  return true
+}
+
 const ProfileHero = ({
   name,
   avatarUrl,
-  userId,
-  onReviewMembers,
-  onCommunitySettings,
-  onLogout,
+  phone,
+  stats,
+  coverImageUrl,
+  canEditAvatar,
 }: {
   name: string
   avatarUrl: string | null
-  userId: string
-  onReviewMembers?: () => void
-  onCommunitySettings?: () => void
-  onLogout?: () => void
+  phone?: string | null
+  stats: StatSnapshot
+  coverImageUrl?: string
+  canEditAvatar?: boolean
 }) => {
   const { set, resolvedTheme } = useThemeSetting()
-  const theme = resolvedTheme === 'dark' ? 'dark' : 'light'
-  const themeLabel = `Theme: ${theme}`
-  const handleThemeToggle = () => {
-    set(theme === 'dark' ? 'light' : 'dark')
-  }
+  const isDark = resolvedTheme === 'dark'
+  const themeLabel = isDark ? 'Dark' : 'Light'
+  const phoneLabel = formatPhoneDisplay(phone) || 'Add phone'
+  const coverSource = coverImageUrl ? { uri: coverImageUrl } : bannerMerch
+
+  const bannerHeight = 180
+  const avatarSize = 112
+  const avatarInset = 16
+  const contentTopPadding = avatarSize / 2 + 16
+  const avatarNode = canEditAvatar ? (
+    <UploadAvatar avatarUrl={avatarUrl}>
+      <UserAvatar size={avatarSize} name={name} avatarUrl={avatarUrl} />
+    </UploadAvatar>
+  ) : (
+    <UserAvatar size={avatarSize} name={name} avatarUrl={avatarUrl} />
+  )
 
   return (
-    <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3" borderStyle="solid" borderColor="$color5">
-      <XStack gap="$3" ai="center">
-        <UserAvatar size={72} name={name} avatarUrl={avatarUrl} />
-        <YStack gap="$1" flex={1}>
-          <XStack gap="$2" ai="center" jc="space-between">
-            <SizableText size="$6" fontWeight="700">
-              {name}
-            </SizableText>
-            {onLogout ? (
-              <Button chromeless size="$2" onPress={onLogout}>
+    <Card
+      bordered
+      bw={1}
+      boc="$black1"
+      br="$5"
+      borderStyle="solid"
+      overflow="hidden"
+    >
+      <YStack position="relative">
+        <YStack h={bannerHeight} w="100%" bg="$color3" position="relative" overflow="hidden">
+          <Image source={coverSource} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+        </YStack>
+        <YStack
+          position="absolute"
+          top={bannerHeight - avatarSize / 2}
+          left={avatarInset}
+          zIndex={2}
+          elevation={2}
+          bg="$background"
+          p="$1"
+          br={999}
+        >
+          {avatarNode}
+        </YStack>
+      </YStack>
+      <YStack px="$4" pt={contentTopPadding} pb="$4" gap="$3" bg="$background">
+        <XStack ai="flex-start" jc="space-between" gap="$3">
+          <YStack gap="$1">
+            <XStack ai="center" gap="$1.5">
+              <SizableText size="$6" fontWeight="700">
+                {name}
+              </SizableText>
+              <ChevronDown size={16} color="$color10" />
+            </XStack>
+            <Paragraph theme="alt2" size="$2">
+              {phoneLabel}
+            </Paragraph>
+          </YStack>
+          <XStack ai="center" gap="$2">
+            <Paragraph theme="alt2" size="$2">
+              {themeLabel}
+            </Paragraph>
+            <Switch
+              native
+              size="$2"
+              checked={isDark}
+              onCheckedChange={(next) => set(next ? 'dark' : 'light')}
+              backgroundColor={isDark ? BRAND_COLORS.primary : '$color5'}
+              borderColor={isDark ? BRAND_COLORS.primary : '$color6'}
+              borderWidth={1}
+            >
+              <Switch.Thumb animation="100ms" />
+            </Switch>
+          </XStack>
+        </XStack>
+        <XStack ai="center" gap="$4">
+          <StatBlock label="Games" value={stats.games} />
+          <YStack w={1} h={28} bg="$color4" />
+          <StatBlock label="Wins" value={stats.wins} />
+          <YStack w={1} h={28} bg="$color4" />
+          <StatBlock label="Losses" value={stats.losses} />
+        </XStack>
+      </YStack>
+    </Card>
+  )
+}
+
+const StatBlock = ({ label, value }: { label: string; value: number }) => {
+  return (
+    <YStack gap="$1">
+      <SizableText size="$4" fontWeight="700">
+        {value}
+      </SizableText>
+      <Paragraph theme="alt2" size="$2">
+        {label}
+      </Paragraph>
+    </YStack>
+  )
+}
+
+const LogoutSection = ({ onLogout }: { onLogout: () => void }) => {
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  return (
+    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
+      <Paragraph
+        size="$2"
+        color="$color10"
+        textDecorationLine="underline"
+        alignSelf="center"
+        accessibilityRole="button"
+        onPress={() => setConfirmOpen(true)}
+        pressStyle={{ opacity: 0.6 }}
+      >
+        Log out
+      </Paragraph>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            key="overlay"
+            animation="medium"
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+            o={0.5}
+            backgroundColor="$color5"
+          />
+          <AlertDialog.Content
+            key="content"
+            elevate
+            animation="medium"
+            enterStyle={{ opacity: 0, scale: 0.95 }}
+            exitStyle={{ opacity: 0, scale: 0.95 }}
+            backgroundColor="$color2"
+            br="$4"
+            p="$4"
+            gap="$3"
+          >
+            <AlertDialog.Title fontWeight="700">Log out?</AlertDialog.Title>
+            <AlertDialog.Description>
+              You will need to sign in again to access your account.
+            </AlertDialog.Description>
+            <XStack gap="$3">
+              <Button
+                size="$3"
+                br="$10"
+                flex={1}
+                variant="outlined"
+                onPress={() => setConfirmOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="$3"
+                br="$10"
+                flex={1}
+                theme="red"
+                onPress={() => {
+                  setConfirmOpen(false)
+                  onLogout()
+                }}
+                pressStyle={{ opacity: 0.85 }}
+              >
                 Log out
               </Button>
-            ) : null}
-          </XStack>
-        </YStack>
-      </XStack>
-      <XStack mt="$1" gap="$2" flexWrap="wrap">
-        {onReviewMembers ? (
-          <ActionButton icon={Users} label="Review members" onPress={onReviewMembers} />
-        ) : null}
-        {onCommunitySettings ? (
-          <ActionButton icon={Settings} label="Community settings" onPress={onCommunitySettings} />
-        ) : null}
-        <ActionButton icon={Moon} label={themeLabel} onPress={handleThemeToggle} />
-      </XStack>
+            </XStack>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog>
     </Card>
+  )
+}
+
+const FloatingSaveDock = ({
+  onSave,
+  onCancel,
+  disabled,
+}: {
+  onSave: () => void
+  onCancel: () => void
+  disabled: boolean
+}) => {
+  return (
+    <FloatingCtaDock transparent>
+      <XStack gap="$2">
+        <Button
+          size="$3"
+          br="$10"
+          flex={1}
+          onPress={onCancel}
+          disabled={disabled}
+          backgroundColor="$color1"
+          borderColor="$color12"
+          borderWidth={1}
+          color="$color12"
+          pressStyle={{ opacity: 0.85 }}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="$3"
+          br="$10"
+          flex={1}
+          onPress={onSave}
+          disabled={disabled}
+          backgroundColor="$color12"
+          borderColor="$color12"
+          borderWidth={1}
+          color="$color1"
+          pressStyle={{ opacity: 0.85 }}
+        >
+          Save changes
+        </Button>
+      </XStack>
+    </FloatingCtaDock>
   )
 }
 
@@ -235,7 +631,7 @@ const PerformanceSection = ({
     : 'You have not played yet — join your first run.'
 
   return (
-    <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3">
+    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
       <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
         <YStack gap="$1" flex={1}>
           <SizableText size="$5" fontWeight="600">
@@ -272,13 +668,21 @@ const HistorySection = ({
   scheduleLink: ReturnType<typeof useLink>
 }) => {
   return (
-    <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3">
+    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
       <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
         <SizableText size="$5" fontWeight="600">
           Recent games
         </SizableText>
-        <Button size="$3" br="$9" theme="alt1" {...scheduleLink}>
-          View all games
+        <Button
+          chromeless
+          size="$2"
+          px={0}
+          py={0}
+          color="$color10"
+          pressStyle={{ opacity: 0.6 }}
+          {...scheduleLink}
+        >
+          View all
         </Button>
       </XStack>
       {isLoading ? (
@@ -293,56 +697,13 @@ const HistorySection = ({
       ) : games.length === 0 ? (
         <Paragraph theme="alt2">No games yet — claim your first run.</Paragraph>
       ) : (
-        <YStack gap="$2">
-          {games.map((game, index) => (
-            <HistoryRow key={game.id} game={game} index={index} />
+        <YStack gap="$3">
+          {games.map((game) => (
+            <HistoryGameCard key={game.id} game={game} />
           ))}
         </YStack>
       )}
     </Card>
-  )
-}
-
-const HistoryRow = ({ game, index }: { game: GameListItem; index: number }) => {
-  const link = useLink({ href: `/games/${game.id}` })
-  const kickoff = new Date(game.startTime)
-  const timeLabel = kickoff.toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
-
-  return (
-    <XStack
-      ai="center"
-      jc="space-between"
-      py="$2"
-      borderBottomWidth={1}
-      borderColor="$color4"
-      animation="medium"
-      enterStyle={{ opacity: 0, x: -20 }}
-      delay={index * 40}
-      {...link}
-      pressStyle={{ opacity: 0.8 }}
-    >
-      <YStack gap="$0.5" flex={1}>
-        <XStack ai="center" jc="space-between" gap="$2">
-          <SizableText fontWeight="600">{timeLabel}</SizableText>
-          <ArrowRight size={20} />
-        </XStack>
-        <XStack ai="center" jc="space-between" gap="$2">
-          <Paragraph theme="alt2">{game.locationName ? game.locationName : 'Venue TBD'}</Paragraph>
-          <XStack ai="center" gap="$1">
-            <Paragraph theme="alt2" size="$2">
-              View recap
-            </Paragraph>
-          </XStack>
-        </XStack>
-      </YStack>
-    </XStack>
   )
 }
 
@@ -380,7 +741,7 @@ const BadgeSection = ({
     },
   ]
   return (
-    <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3" backgroundColor="$color2">
+    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3" backgroundColor="$color2">
       <SizableText size="$5" fontWeight="600">
         Badges
       </SizableText>
@@ -418,30 +779,6 @@ const BadgeProgressList = ({
     </YStack>
   )
 }
-
-const ActionButton = ({
-  icon: Icon,
-  label,
-  onPress,
-  theme,
-}: {
-  icon: typeof Shield
-  label: string
-  onPress?: () => void
-  theme?: 'alt1' | 'alt2'
-}) => (
-  <Button
-    size="$3"
-    br="$8"
-    px="$4"
-    theme={theme}
-    icon={Icon}
-    onPress={onPress}
-    justifyContent="flex-start"
-  >
-    {label}
-  </Button>
-)
 
 const BadgeStatusPill = ({
   label,
@@ -543,25 +880,38 @@ const MetricCard = ({
 }: MetricCardProps & { highlight?: boolean }) => (
   <YStack
     flex={1}
-    gap="$0.5"
+    gap="$1"
     ai="center"
-    p={highlight ? '$2.5' : undefined}
-    br={highlight ? '$6' : undefined}
-    borderWidth={highlight ? 1 : undefined}
-    borderColor={highlight ? '$color4' : undefined}
-    backgroundColor={highlight ? '$color1' : undefined}
+    p="$2.5"
+    br="$5"
+    borderWidth={1}
+    borderColor="$black1"
+    backgroundColor={highlight ? '$color1' : 'transparent'}
   >
     <SizableText size="$6" fontWeight="700">
       {isLoading ? '—' : value}
     </SizableText>
-    <Paragraph theme="alt2" size="$2" textAlign="center">
-      {label}
-    </Paragraph>
-    {rankLabel ? (
-      <Paragraph size="$1" theme="alt2" textAlign="center">
-        {rankLabel}
-      </Paragraph>
-    ) : null}
+    <YStack gap="$0.75" ai="center">
+      <SizableText size="$3" fontWeight="500" textAlign="center">
+        {label}
+      </SizableText>
+      {rankLabel ? (
+        <XStack
+          ai="center"
+          jc="center"
+          px="$1.5"
+          py="$0.5"
+          br="$10"
+          borderWidth={1}
+          borderColor="$color4"
+          backgroundColor="$color2"
+        >
+          <Paragraph size="$1" color="$color11" fontWeight="600" textAlign="center">
+            {rankLabel}
+          </Paragraph>
+        </XStack>
+      ) : null}
+    </YStack>
   </YStack>
 )
 
@@ -662,19 +1012,18 @@ const buildPerformanceMetrics = (
   const communitySize = leaderboard?.length ?? 0
   const rankLabel = (rank?: number | null) => {
     if (!rank || communitySize === 0) return undefined
-    const percentile = Math.max(1, Math.round(((communitySize - rank + 1) / communitySize) * 100))
-    return `Rank #${rank} · Top ${percentile}%`
+    return `Rank #${rank}`
   }
 
   return [
     { label: 'Win rate', value: formatPercent(stats.winRate), rankLabel: rankLabel(entry?.overallRank) },
     { label: 'As captain', value: `${stats.gamesAsCaptain}`, rankLabel: rankLabel(entry?.captainRank) },
-    { label: 'Games played', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
+    { label: 'Games', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
     { label: 'Wins', value: `${stats.wins}`, rankLabel: rankLabel(entry?.winsRank) },
     { label: 'Losses', value: `${stats.losses}` },
-    { label: 'Goal diff', value: `${stats.goalDiff}`, rankLabel: rankLabel(entry?.goalDiffRank) },
-    { label: 'Goals for', value: `${stats.goalsFor}` },
-    { label: 'Goals against', value: `${stats.goalsAgainst}` },
+    { label: 'GD', value: `${stats.goalDiff}`, rankLabel: rankLabel(entry?.goalDiffRank) },
+    { label: 'GF', value: `${stats.goalsFor}` },
+    { label: 'GA', value: `${stats.goalsAgainst}` },
   ].filter(Boolean) as MetricCardProps[]
 }
 

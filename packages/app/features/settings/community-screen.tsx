@@ -236,6 +236,20 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
                   width={160}
                 />
               </SettingSection>
+              <SettingSection title="Members" note="Review approvals and member access.">
+                <SettingRow label="Review members">
+                  <Button
+                    chromeless
+                    size="$2"
+                    px={0}
+                    py={0}
+                    pressStyle={{ opacity: 0.7 }}
+                    onPress={() => router.push('/admin/approvals')}
+                  >
+                    Open
+                  </Button>
+                </SettingRow>
+              </SettingSection>
               <SettingSection
                 title="Groups"
                 note="Create private audiences for games."

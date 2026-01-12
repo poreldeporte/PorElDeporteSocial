@@ -27,6 +27,9 @@ const StatsCardBody = ({ stats, isLoading }: StatsCardProps) => {
       px="$4"
       py="$4"
       bordered
+      bw={1}
+      boc="$black1"
+      br="$5"
       onPress={() => router.push('/profile')}
       pressStyle={{ opacity: 0.9 }}
     >

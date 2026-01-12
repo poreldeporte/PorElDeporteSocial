@@ -2,8 +2,6 @@ import { YStack } from '@my/ui/public'
 import { Upload } from '@tamagui/lucide-icons'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
-import { decode } from 'base64-arraybuffer'
-import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
 import type React from 'react'
 import { Alert } from 'react-native'
@@ -50,6 +48,39 @@ export const UploadAvatar = ({
     await uploadImage(result)
   }
 
+  const loadImage = (uri: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = () => reject(new Error('Unable to load image.'))
+      image.src = uri
+    })
+
+  const resizeImage = async (uri: string) => {
+    if (typeof document === 'undefined') {
+      throw new Error('Image processing unavailable.')
+    }
+    const image = await loadImage(uri)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      throw new Error('Image processing unavailable.')
+    }
+    const size = Math.min(image.width, image.height)
+    const sx = Math.max(0, (image.width - size) / 2)
+    const sy = Math.max(0, (image.height - size) / 2)
+    canvas.width = AVATAR_SIZE
+    canvas.height = AVATAR_SIZE
+    ctx.drawImage(image, sx, sy, size, size, 0, 0, AVATAR_SIZE, AVATAR_SIZE)
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', AVATAR_QUALITY)
+    )
+    if (!blob) {
+      throw new Error('No image provided.')
+    }
+    return blob
+  }
+
   const uploadImage = async (pickerResult: ImagePicker.ImagePickerResult) => {
     if (!targetId) return
     if (pickerResult.canceled) return
@@ -60,32 +91,10 @@ export const UploadAvatar = ({
         throw new Error('No image provided.')
       }
 
-      const resized = await ImageManipulator.manipulateAsync(
-        image.uri,
-        [{ resize: { width: AVATAR_SIZE, height: AVATAR_SIZE } }],
-        {
-          compress: AVATAR_QUALITY,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        }
-      )
-
-      const base64Image = resized.base64
-      if (!base64Image) {
-        throw new Error('No image provided.')
-      }
-
-      const base64Str = base64Image.includes('base64,')
-        ? base64Image.substring(base64Image.indexOf('base64,') + 'base64,'.length)
-        : base64Image
-      const res = decode(base64Str)
-
-      if (!(res.byteLength > 0)) {
-        throw new Error('No image provided.')
-      }
+      const blob = await resizeImage(image.uri)
 
       const avatarPath = `${targetId}/avatar.jpg`
-      const result = await supabase.storage.from('avatars').upload(avatarPath, res, {
+      const result = await supabase.storage.from('avatars').upload(avatarPath, blob, {
         contentType: 'image/jpeg',
         cacheControl: '31536000',
         upsert: true,
