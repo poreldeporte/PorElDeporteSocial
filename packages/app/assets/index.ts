@@ -1,3 +1,5 @@
 export { default as pedLogo } from './ped-logo-official.png'
 export { default as welcomeHero } from './guido-thumbs-up.jpeg'
 export { default as maxGringoLanding } from './max-gringo-landing.jpg'
+export { default as profileBannerCommunity } from './profile-banner-community.jpeg'
+export { default as bannerMerch } from './banner-merch.jpeg'

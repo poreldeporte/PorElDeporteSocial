@@ -44,6 +44,7 @@ import {
   GameActionBar,
   RateGameSheet,
   RosterSection,
+  SectionTitle,
 } from './components'
 import { getGameCtaIcon, type GameCtaState } from './cta-icons'
 import { deriveCombinedStatus, deriveUserStateMessage, getConfirmCountdownLabel } from './status-helpers'
@@ -755,32 +756,6 @@ const getResultActionLabel = (game: GameDetail) => {
   }
   return game.result.status !== 'confirmed' ? 'Confirm result' : 'Update result'
 }
-
-const SectionTitle = ({
-  children,
-  meta,
-  action,
-}: {
-  children: string
-  meta?: string
-  action?: ReactNode
-}) => (
-  <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-    <SizableText size="$5" fontWeight="600">
-      {children}
-    </SizableText>
-    {meta || action ? (
-      <XStack ai="center" gap="$2">
-        {meta ? (
-          <Paragraph theme="alt2" size="$2">
-            {meta}
-          </Paragraph>
-        ) : null}
-        {action}
-      </XStack>
-    ) : null}
-  </XStack>
-)
 
 const shouldShowMatchSummary = ({
   draftEnabled,

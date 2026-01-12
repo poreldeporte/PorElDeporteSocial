@@ -7,28 +7,29 @@ import type {
 } from '@tamagui/next-theme'
 import { StatusBar } from 'expo-status-bar'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { Appearance, useColorScheme } from 'react-native'
+import { Appearance } from 'react-native'
 
 type ThemeContextValue = (ThemeProviderProps & { current?: string | null }) | null
 export const ThemeContext = createContext<ThemeContextValue>(null)
 
-type ThemeName = 'light' | 'dark' | 'system'
+type ThemeName = 'light' | 'dark'
 
 // start early
 let persistedTheme: ThemeName | null = null
 export const loadThemePromise = AsyncStorage.getItem('@preferred_theme')
 loadThemePromise.then((val) => {
-  persistedTheme = val as ThemeName
+  persistedTheme = val === 'light' || val === 'dark' ? (val as ThemeName) : null
 })
 
 export const UniversalThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [current, setCurrent] = useState<ThemeName | null>(persistedTheme ?? 'system')
-  const systemTheme = useColorScheme() || 'system'
+  const [current, setCurrent] = useState<ThemeName>(() => {
+    return persistedTheme ?? Appearance.getColorScheme() ?? 'light'
+  })
 
   useIsomorphicLayoutEffect(() => {
     async function main() {
       await loadThemePromise
-      setCurrent(persistedTheme ?? 'system') // Set theme after loading
+      setCurrent((prev) => persistedTheme ?? prev) // Set theme after loading
     }
     main()
   }, [])
@@ -45,10 +46,10 @@ export const UniversalThemeProvider = ({ children }: { children: React.ReactNode
       onChangeTheme: (next: string) => {
         setCurrent(next as ThemeName)
       },
-      current: current ?? 'system', // Default to 'system' if current is null
-      systemTheme,
+      current,
+      systemTheme: current,
     } satisfies ThemeContextValue
-  }, [current, systemTheme])
+  }, [current])
 
   return (
     <ThemeContext.Provider value={themeContext}>
@@ -75,25 +76,21 @@ export const useThemeSetting: typeof next_useThemeSetting = () => {
     throw new Error('useThemeSetting should be used within the context provider.')
   }
 
-  const resolvedTheme =
-    context.current === 'system' ? context.systemTheme : context.current ?? 'system'
+  const resolvedTheme = context.current ?? 'light'
 
   const outputContext: ReturnType<typeof next_useThemeSetting> = {
     ...context,
     systemTheme: context.systemTheme as 'light' | 'dark',
     themes: context.themes!,
-    current: context.current ?? 'system',
+    current: context.current ?? 'light',
     resolvedTheme,
     set: (value) => {
-      context.onChangeTheme?.(value)
+      const next = value === 'dark' || value === 'light' ? value : 'light'
+      context.onChangeTheme?.(next)
     },
     toggle: () => {
-      const map = {
-        light: 'dark',
-        dark: 'system',
-        system: 'light',
-      }
-      context.onChangeTheme?.(map[(context.current as ThemeName) ?? 'system'])
+      const next = (context.current as ThemeName) === 'dark' ? 'light' : 'dark'
+      context.onChangeTheme?.(next)
     },
   }
 
@@ -102,5 +99,5 @@ export const useThemeSetting: typeof next_useThemeSetting = () => {
 
 export const useRootTheme = () => {
   const context = useThemeSetting()
-  return [context.current === 'system' ? context.systemTheme : context.current, context.set]
+  return [context.current ?? 'light', context.set]
 }

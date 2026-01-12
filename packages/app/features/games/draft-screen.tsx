@@ -14,6 +14,7 @@ import {
   Spinner,
   XStack,
   YStack,
+  submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
 import { UserAvatar } from 'app/components/UserAvatar'
@@ -29,7 +30,7 @@ import { Undo2 } from '@tamagui/lucide-icons'
 import { useRouter } from 'solito/router'
 import { AlertDialog } from 'tamagui'
 
-import { DraftRoomLiveOverlay, StatusBadge, getDraftChatDockInset } from './components'
+import { DraftRoomLiveOverlay, SectionTitle, StatusBadge, getDraftChatDockInset } from './components'
 import { RecentFormChips } from './components/RecentFormChips'
 import { deriveDraftViewModel } from './state/deriveDraftViewModel'
 import { canAdminAccessDraftRoom, canPlayerAccessDraftRoom, resolveDraftVisibility } from './draft-visibility'
@@ -338,6 +339,10 @@ export const GameDraftScreen = ({
           ? `Selected ${selectedCaptainCount} captains · Teams of ${captainTeamSize}`
           : `Selected ${selectedCaptainCount} captains · Must divide ${rosteredCount} roster`
       : null
+  const startDraftDisabled = !canStartDraft
+  const startDraftStyle = startDraftDisabled
+    ? { backgroundColor: '$color4', borderColor: '$color4', color: '$color11' }
+    : { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary, color: '$background' }
 
   const toggleCaptain = (profileId: string) => {
     if (draftStatus !== 'pending' || !isAdmin) return
@@ -365,15 +370,25 @@ export const GameDraftScreen = ({
           <DraftBanner
             kickoffLabel={kickoffLabel}
             statusLabel={bannerStatus}
-            isAdmin={isAdmin}
             selectionSummary={selectionSummary}
-            onStartDraft={draftStatus === 'pending' && isAdmin ? handleStartDraft : undefined}
-            canStartDraft={canStartDraft}
-            startDraftPending={assignCaptainsMutation.isPending}
             onUndo={isAdmin ? () => undoPickMutation.mutate({ gameId }) : undefined}
             canUndo={hasUndoablePick && !undoPickMutation.isPending}
             undoPending={undoPickMutation.isPending}
           />
+          {draftStatus === 'pending' && isAdmin ? (
+            <Button
+              {...submitButtonBaseProps}
+              disabled={startDraftDisabled}
+              {...startDraftStyle}
+              onPress={handleStartDraft}
+              iconAfter={
+                assignCaptainsMutation.isPending ? <Spinner size="small" color="$background" /> : undefined
+              }
+              o={startDraftDisabled ? 0.7 : 1}
+            >
+              {assignCaptainsMutation.isPending ? 'Starting…' : 'Start draft'}
+            </Button>
+          ) : null}
 
           <TeamsSection
             teams={teams}
@@ -473,10 +488,6 @@ const DraftBanner = ({
 }: {
   kickoffLabel: string
   statusLabel: string
-  isAdmin: boolean
-  onStartDraft?: () => void
-  canStartDraft?: boolean
-  startDraftPending?: boolean
   selectionSummary?: string | null
   onUndo?: () => void
   canUndo?: boolean
@@ -492,15 +503,6 @@ const DraftBanner = ({
     hoverStyle: { backgroundColor: '$color3' },
     br: '$10',
   } as const
-  const primaryAction = onStartDraft
-    ? {
-        label: startDraftPending ? 'Starting…' : 'Start draft',
-        disabled: !canStartDraft,
-        onPress: onStartDraft,
-        pending: startDraftPending,
-        theme: undefined,
-      }
-    : null
   return (
     <YStack
       px="$4"
@@ -516,32 +518,17 @@ const DraftBanner = ({
         <SizableText size="$6" fontWeight="700">
           {kickoffLabel}
         </SizableText>
-        {isAdmin && (primaryAction || showUndo) ? (
-          <XStack gap="$2" flexWrap="wrap" ai="center" jc="flex-end">
-            {primaryAction ? (
-              <Button
-                size="$2"
-                theme={primaryAction.theme}
-                disabled={primaryAction.disabled}
-                onPress={primaryAction.onPress}
-                iconAfter={primaryAction.pending ? <Spinner size="small" /> : undefined}
-              >
-                {primaryAction.label}
-              </Button>
-            ) : null}
-            {showUndo ? (
-              <Button
-                {...actionButtonProps}
-                icon={Undo2}
-                aria-label="Undo last pick"
-                disabled={!canUndo || undoPending}
-                onPress={onUndo}
-                iconAfter={undoPending ? <Spinner size="small" /> : undefined}
-              >
-                {undoPending ? 'Undoing…' : 'Undo last pick'}
-              </Button>
-            ) : null}
-          </XStack>
+        {showUndo ? (
+          <Button
+            {...actionButtonProps}
+            icon={Undo2}
+            aria-label="Undo last pick"
+            disabled={!canUndo || undoPending}
+            onPress={onUndo}
+            iconAfter={undoPending ? <Spinner size="small" /> : undefined}
+          >
+            {undoPending ? 'Undoing…' : 'Undo last pick'}
+          </Button>
         ) : null}
       </XStack>
       <Paragraph theme="alt1">{statusLabel}</Paragraph>
@@ -575,14 +562,9 @@ const TeamsSection = ({
 }) => {
   return (
     <YStack gap="$2">
-      <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
-        <Paragraph theme="alt1" fontWeight="600">
-          Teams
-        </Paragraph>
-        <Paragraph theme="alt2" size="$2">
-          {totalDrafted}/{totalPlayers} drafted · {availableCount} available
-        </Paragraph>
-      </XStack>
+      <SectionTitle meta={`${totalDrafted}/${totalPlayers} drafted · ${availableCount} available`}>
+        Teams
+      </SectionTitle>
       <XStack gap="$3" flexWrap="wrap">
         {teams.map((team, index) => (
           <TeamCard
@@ -771,9 +753,7 @@ const AvailablePlayersSection = ({
   }
   return (
     <YStack gap="$3">
-      <Paragraph theme="alt1" fontWeight="600">
-        Available players
-      </Paragraph>
+      <SectionTitle>Available players</SectionTitle>
       <Card bordered borderColor="$black1" p={0} gap={0} overflow="visible">
         <YStack gap={0}>
           {isSyncing ? (
