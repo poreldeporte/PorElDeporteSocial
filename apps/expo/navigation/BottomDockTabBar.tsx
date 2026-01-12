@@ -3,12 +3,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { LayoutChangeEvent } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 
-import { SizableText, XStack, YStack } from '@my/ui/public'
+import { SizableText, XStack, YStack, useTheme } from '@my/ui/public'
+import { BRAND_COLORS } from '@my/app/constants/colors'
 import { navRoutes } from '@my/app/navigation/routes'
 import { DOCK, DOCK_CHROME, getDockBottomOffset } from '@my/app/constants/dock'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
-
-import { chromeTokens } from '../components/chromeTokens'
 
 const dockHeight = DOCK.height
 const iconSize = 20
@@ -29,10 +28,13 @@ const navRoutesBySegment = Object.values(navRoutes).reduce(
 
 export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets()
+  const theme = useTheme()
   const [dockWidth, setDockWidth] = useState(0)
   const [itemWidths, setItemWidths] = useState<Record<string, number>>({})
   const translateX = useSharedValue(0)
   const pillWidth = useSharedValue(0)
+  const activeColor = theme.color1?.val ?? '#fff'
+  const pillBackground = toRgba(BRAND_COLORS.primary, 0.12)
 
   const visibleRoutes = useMemo(
     () => state.routes.filter((route) => navRoutesBySegment[route.name]),
@@ -68,7 +70,7 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
     left: 0,
     top: dockPadding,
     height: pillHeight,
-    backgroundColor: DOCK_CHROME.surfaceLight,
+    backgroundColor: pillBackground,
     borderRadius: dockRadius,
     transform: [{ translateX: translateX.value }],
     width: pillWidth.value,
@@ -115,8 +117,8 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
           const label =
             navRoute?.label ?? descriptors[route.key]?.options?.title ?? route.name
           const Icon = navRoute?.icon
-          const iconColor = isFocused ? chromeTokens.iconDark : chromeTokens.textSecondary
-          const labelColor = chromeTokens.iconDark
+          const iconColor = activeColor
+          const labelColor = activeColor
 
           const onPress = () => {
             const event = navigation.emit({
@@ -155,6 +157,7 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
                 jc="center"
                 gap="$2"
                 px={activeItemPaddingX}
+                opacity={isFocused ? 1 : 0.7}
                 onLayout={handleItemLayout(route.key)}
               >
                 {Icon ? <Icon size={iconSize} color={iconColor} /> : null}
@@ -170,4 +173,13 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
       </XStack>
     </YStack>
   )
+}
+
+function toRgba(hex: string, alpha: number) {
+  const normalized = hex.replace('#', '')
+  if (normalized.length !== 6) return hex
+  const r = parseInt(normalized.slice(0, 2), 16)
+  const g = parseInt(normalized.slice(2, 4), 16)
+  const b = parseInt(normalized.slice(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
 }

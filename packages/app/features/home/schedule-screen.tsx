@@ -11,6 +11,7 @@ import { useQueueActions } from 'app/utils/useQueueActions'
 import type { GameListItem } from 'app/features/games/types'
 import { WatermarkLogo } from 'app/components/WatermarkLogo'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
+import { useUser } from 'app/utils/useUser'
 
 import { GameCard } from './components/game-card'
 
@@ -29,12 +30,20 @@ const TIMELINE = {
 
 export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const insets = useSafeAreaInsets()
+  const { isAdmin } = useUser()
   const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'upcoming' })
   useGamesListRealtime(true)
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
-  const games = ((data ?? []).filter((game) => game.status !== 'completed') as GameListItem[])
-  const openCount = games.filter((game) => game.status === 'scheduled' && game.rosteredCount < game.capacity).length
+  const games = ((data ?? []).filter((game) => {
+    if (game.status === 'completed') return false
+    if (isAdmin) return true
+    return !(game.releaseAt && !game.releasedAt)
+  }) as GameListItem[])
+  const openCount = games.filter((game) => {
+    const isUnreleased = Boolean(game.releaseAt && !game.releasedAt)
+    return game.status === 'scheduled' && !isUnreleased && game.rosteredCount < game.capacity
+  }).length
   const openLabel = `${openCount} open`
   const subtitle = games.length ? 'Claim your spot. Tap to join.' : 'No runs yet. Next drop soon.'
 

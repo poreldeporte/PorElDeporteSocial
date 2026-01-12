@@ -196,6 +196,9 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               description: next.description,
               startTime: next.start_time,
               endTime: next.end_time,
+              releaseAt: next.release_at,
+              releasedAt: next.released_at,
+              audienceGroupId: next.audience_group_id,
               locationName: next.location_name,
               locationNotes: next.location_notes,
               status: next.status,
@@ -207,6 +210,8 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               confirmationEnabled: next.confirmation_enabled,
               joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
               draftModeEnabled: next.draft_mode_enabled,
+              draftVisibility: next.draft_visibility,
+              draftChatEnabled: next.draft_chat_enabled,
               crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
             }))
             patchGameDetail(utils, id, (detail) => ({
@@ -215,6 +220,9 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               description: next.description,
               startTime: next.start_time,
               endTime: next.end_time,
+              releaseAt: next.release_at,
+              releasedAt: next.released_at,
+              audienceGroupId: next.audience_group_id,
               locationName: next.location_name,
               locationNotes: next.location_notes,
               status: next.status,
@@ -226,6 +234,8 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               confirmationEnabled: next.confirmation_enabled,
               joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
               draftModeEnabled: next.draft_mode_enabled,
+              draftVisibility: next.draft_visibility,
+              draftChatEnabled: next.draft_chat_enabled,
               crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
             }))
           }
@@ -334,6 +344,10 @@ export const useGamesListRealtime = (enabled: boolean) => {
             const next = payload.new as Database['public']['Tables']['games']['Row'] | null
             if (!next) return
             const previous = payload.old as Database['public']['Tables']['games']['Row'] | null
+            const releaseChanged =
+              Boolean(previous) &&
+              (previous.release_at !== next.release_at ||
+                previous.released_at !== next.released_at)
             patchGameListItem(utils, next.id, (game) => ({
               ...game,
               name: next.name,
@@ -342,6 +356,9 @@ export const useGamesListRealtime = (enabled: boolean) => {
               draftStatus: next.draft_status,
               startTime: next.start_time,
               endTime: next.end_time,
+              releaseAt: next.release_at,
+              releasedAt: next.released_at,
+              audienceGroupId: next.audience_group_id,
               locationName: next.location_name,
               locationNotes: next.location_notes,
               costCents: next.cost_cents,
@@ -351,9 +368,14 @@ export const useGamesListRealtime = (enabled: boolean) => {
               confirmationEnabled: next.confirmation_enabled,
               joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
               draftModeEnabled: next.draft_mode_enabled,
+              draftVisibility: next.draft_visibility,
+              draftChatEnabled: next.draft_chat_enabled,
               crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
             }))
             if (previous && previous.start_time !== next.start_time) {
+              scheduleInvalidate()
+            }
+            if (releaseChanged) {
               scheduleInvalidate()
             }
           }

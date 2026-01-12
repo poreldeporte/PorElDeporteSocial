@@ -1,4 +1,4 @@
-import { Button, H2, Spinner, YStack } from '@my/ui/public'
+import { Button, H2, Spinner, YStack, submitButtonBaseProps } from '@my/ui/public'
 import { maxGringoLanding } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
@@ -103,19 +103,11 @@ export const OnboardingScreen = () => {
             style={{ paddingHorizontal: sidePadding }}
           >
             <Button
-              backgroundColor="#fff"
-              borderColor="#fff"
-              borderWidth={1}
-              color="#000"
-              fontSize={17}
-              fontWeight="600"
+              {...submitButtonBaseProps}
               height={buttonHeight}
-              borderRadius={999}
-              w="100%"
               disabled={isNavigating}
-              iconAfter={isNavigating ? <Spinner size="small" color="#000" /> : undefined}
+              iconAfter={isNavigating ? <Spinner size="small" color="$color12" /> : undefined}
               onPress={handleGetStarted}
-              pressStyle={{ opacity: 0.85 }}
             >
               Get started
             </Button>

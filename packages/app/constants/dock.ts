@@ -8,9 +8,8 @@ export const DOCK = {
 } as const
 
 export const DOCK_CHROME = {
-  surface: '#1b202a',
-  surfaceLight: '#f4f5f7',
-  shadowColor: '#000',
+  surface: '$color12',
+  shadowColor: '$shadowColor',
   shadowOpacity: 0.28,
   shadowRadius: 18,
   shadowOffset: { width: 0, height: 10 },

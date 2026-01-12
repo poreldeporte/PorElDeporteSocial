@@ -11,6 +11,7 @@
 - claim spot: player action to take a roster spot.
 - join waitlist: player action to enter the waitlist.
 - grab open spot: waitlisted player action to take an open roster spot during crunch time.
+- draft visibility: per-game setting that controls who can see the draft room (public | admin_only).
 - community scope:
   - each game belongs to exactly one community.
   - players must be members of that community to join its games.
@@ -25,6 +26,9 @@
   - game_queue.dropped_at
   - games.status: scheduled | completed | cancelled
   - games.cancelled_at
+  - games.draft_status: pending | ready | in_progress | completed
+  - games.draft_mode_enabled
+  - games.draft_visibility: public | admin_only
 - Ordering + invariants:
   - roster and waitlist order are by join time ascending.
   - capacity is a hard boundary; roster count never exceeds capacity.
@@ -64,6 +68,10 @@
 - grab tie-breaker: first successful request wins.
    - failed grabs remain waitlisted with no extra confirmation prompts.
 4. Draft phase (when draft_mode_enabled=true): admin assigns captains; draft auto-starts.
+   - draft room visibility:
+     - admins: always.
+     - players: only when draft_visibility=public and (draft_status != pending or roster is full and, if confirmation_enabled=true, all rostered are attendance-confirmed).
+   - when the room is visible but captains are unset, show "Captains coming soon."
 5. Teams set: any roster change after captains are set (including admin removals during draft and drops after teams are set) resets to the pre-captains state; attendance confirmations persist.
 6. Results: submissions require teams; captain submissions are pending until confirmed; admin submissions confirm immediately. Confirmation sets games.status=completed.
 7. Cancellation: admin cancellation sets games.status=cancelled and ends the flow.
@@ -86,6 +94,7 @@ Admins:
 - Add / remove / mark attendance-confirmed rostered players: allowed anytime.
 - Add respects capacity: if roster is full, new adds go to the waitlist unless capacity is increased first.
 - Assign captains: allowed when the roster is full, captains are rostered, captain count >= 2, captain count divides evenly into the roster, and team count equals captain count. If confirmation_enabled=true, all rostered players must be attendance-confirmed and the confirmation window must be open.
+- Reset draft: allowed anytime while draft_mode_enabled=true.
 - Report results: allowed after kickoff.
 - Confirm results: allowed for captain-submitted results.
 - Cancel game: admin only.
@@ -103,6 +112,7 @@ Per-game overrides:
 - confirmation_enabled (default true)
 - join_cutoff_offset_minutes_from_kickoff (default 0)
 - draft_mode_enabled (default true)
+- draft_visibility (default public)
 
 Settings precedence: per-game override > community default > built-in default.
 
@@ -111,16 +121,15 @@ Time settings: all time-of-day settings use community_timezone.
 Visibility + dependencies:
 - confirmation_enabled=false: hide confirmation_window_hours_before_kickoff, confirmation_reminders_local_times, crunch_time_enabled, crunch_time_start_time_local, and confirmation UI.
 - crunch_time_enabled=false: hide crunch_time_start_time_local and crunch-time UI.
-- draft_mode_enabled=false: hide draft-related settings (if any) and draft-room access for players.
+- draft_mode_enabled=false: hide draft room, teams, and match summary; draft_visibility is ignored.
 - only show dependent settings when their parent toggle is enabled.
 
-Draft disabled behavior:
-- admins can still use the draft room privately to create captains/teams.
-- if admins create teams, captains/teams are shown on game details after admin submits.
+Draft mode disable behavior:
+- if draft_mode_enabled is turned off after teams or results exist, delete teams and results, clear captains, and reset draft_status.
 
 ## Notifications
 - Confirmation reminders: follow confirmation_reminders_local_times; sent to rostered players who are not attendance-confirmed; only while the confirmation window is open.
-- Draft reminders: not sent when confirmation_enabled=false.
+- Draft notifications: sent only when confirmation_enabled=true and draft_visibility=public.
 - Crunch time notice: sent to the full waitlist when crunch time starts.
 - Promotion notice: sent to waitlisted players when they are promoted to the roster.
 - Demotion notice: sent to rostered players moved to the waitlist due to capacity decreases.
@@ -136,4 +145,5 @@ Draft disabled behavior:
 - Waitlist UI: show "X on waitlist".
 - Drop behavior: dropping returns the player to the pre-join state (they can claim spot if open or re-join waitlist).
 - Drop stats: drops are tracked once per player per game for stats (includes user drops, admin removals, and auto-drops).
+- Game stats: completed games always count as played; W/L/GD only apply when results exist.
 - Kickoff changes: if only kickoff time changes, captains/teams remain intact.

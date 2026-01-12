@@ -73,6 +73,7 @@ export const AdminPanel = ({ game }: { game: GameDetail }) => {
 
 const getPrimaryAction = (game: GameDetail) => {
   if (game.status === 'cancelled') return null
+  if (game.draftModeEnabled === false) return null
   if (game.draftModeEnabled !== false && game.status === 'scheduled' && game.draftStatus !== 'completed') {
     if (game.draftStatus === 'pending') return { kind: 'draft' as const, label: 'Set captains' }
     if (game.draftStatus === 'ready') return { kind: 'draft' as const, label: 'Start draft' }

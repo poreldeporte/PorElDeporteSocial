@@ -1,5 +1,6 @@
 import { Paragraph, XStack, YStack } from '@my/ui/public'
 import { CheckCircle2, Circle } from '@tamagui/lucide-icons'
+import { BRAND_COLORS } from 'app/constants/colors'
 
 const REQUIREMENTS = [
   {
@@ -35,7 +36,7 @@ export const PasswordChecklist = ({ value }: PasswordChecklistProps) => {
         const Icon = met ? CheckCircle2 : Circle
         return (
           <XStack key={rule.id} ai="center" gap="$2" role="listitem">
-            <Icon size={16} color={met ? '#1db954' : '#999'} strokeWidth={2} />
+            <Icon size={16} color={met ? BRAND_COLORS.primary : '$color8'} strokeWidth={2} />
             <Paragraph size="$2" theme={met ? 'alt1' : 'alt2'}>
               {rule.label}
             </Paragraph>

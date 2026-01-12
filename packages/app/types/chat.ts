@@ -5,6 +5,7 @@ export type ChatMessage = {
   user: {
     id: string
     name: string
+    avatarUrl?: string | null
   }
 }
 

@@ -42,7 +42,7 @@ export const GameResultScreen = ({
 }: Props & ScrollHeaderProps) => {
   const router = useRouter()
   const utils = api.useUtils()
-  const { teams, query } = useTeamsState({ gameId })
+  const { teams, query, isAdmin } = useTeamsState({ gameId })
   const { data: gameDetail } = api.games.byId.useQuery({ id: gameId }, { enabled: !!gameId })
   const toast = useToastController()
   const [scoreByTeamId, setScoreByTeamId] = useState<Record<string, string>>({})
@@ -121,6 +121,24 @@ export const GameResultScreen = ({
     return (
       <YStack f={1} ai="center" jc="center" pt={topInset ?? 0}>
         <FullscreenSpinner />
+      </YStack>
+    )
+  }
+
+  if (gameDetail?.draftModeEnabled === false) {
+    return (
+      <YStack f={1} ai="center" jc="center" gap="$2" px="$4" pt={topInset ?? 0}>
+        <Paragraph theme="alt2">Draft mode is off for this game.</Paragraph>
+        <Button onPress={() => router.push(`/games/${gameId}`)}>Back to game</Button>
+      </YStack>
+    )
+  }
+
+  if (gameDetail?.draftVisibility === 'admin_only' && !isAdmin) {
+    return (
+      <YStack f={1} ai="center" jc="center" gap="$2" px="$4" pt={topInset ?? 0}>
+        <Paragraph theme="alt2">Draft room is private for admins only.</Paragraph>
+        <Button onPress={() => router.push(`/games/${gameId}`)}>Back to game</Button>
       </YStack>
     )
   }

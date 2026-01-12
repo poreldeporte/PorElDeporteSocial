@@ -12,6 +12,8 @@ const baseGameDetail = (): GameDetail =>
     description: null,
     startTime: '2025-01-01T10:00:00.000Z',
     endTime: null,
+    releaseAt: null,
+    releasedAt: null,
     locationName: null,
     locationNotes: null,
     costCents: 0,
@@ -32,6 +34,8 @@ const baseGameDetail = (): GameDetail =>
     confirmationEnabled: true,
     joinCutoffOffsetMinutesFromKickoff: 0,
     draftModeEnabled: true,
+    draftVisibility: 'public',
+    draftChatEnabled: true,
     crunchTimeStartTimeLocal: null,
     community: null,
   }) as unknown as GameDetail

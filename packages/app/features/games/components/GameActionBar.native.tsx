@@ -15,22 +15,33 @@ export const GameActionBar = ({
 }: GameActionBarProps) => {
   const isRateCta = view.ctaLabel === 'Rate the game'
   const isCompletedCta = view.ctaLabel === 'Game completed'
+  const isDropCta = view.ctaState === 'drop'
+  const isClaimCta = view.ctaState === 'claim'
   const isJoinCta =
     view.ctaState === 'claim' || view.ctaState === 'join-waitlist' || view.ctaState === 'grab-open-spot'
   const primaryButtonStyle =
-    !view.isGamePending && !isRateCta && isJoinCta
+    !view.isGamePending && !isRateCta && (isJoinCta || isCompletedCta || isDropCta)
       ? {
-          backgroundColor: 'transparent',
-          borderColor: BRAND_COLORS.primary,
-          color: BRAND_COLORS.primary,
+          backgroundColor: '$color',
+          borderColor: '$color',
+          color: '$background',
         }
       : {}
   const rateButtonStyle = isRateCta
     ? { backgroundColor: '$color', borderColor: '$color', color: '$background' }
     : {}
   const buttonTheme =
-    isRateCta || isJoinCta ? undefined : (view.ctaTheme as ThemeName | undefined)
+    isRateCta || isJoinCta || isDropCta || isCompletedCta
+      ? undefined
+      : (view.ctaTheme as ThemeName | undefined)
   const confirmStyle = { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+  const claimButtonStyle =
+    !view.isGamePending && !isRateCta && isClaimCta
+      ? {
+          borderColor: BRAND_COLORS.primary,
+          color: BRAND_COLORS.primary,
+        }
+      : {}
   const showConfirmOnly = view.canConfirmAttendance
   const primaryIcon = getGameCtaIcon({
     isPending: view.isGamePending,
@@ -47,10 +58,10 @@ export const GameActionBar = ({
   const theme = showConfirmOnly ? undefined : buttonTheme
   const buttonStyle = showConfirmOnly
     ? confirmStyle
-    : { ...primaryButtonStyle, ...rateButtonStyle }
+    : { ...primaryButtonStyle, ...rateButtonStyle, ...claimButtonStyle }
 
   return (
-    <FloatingCtaDock>
+    <FloatingCtaDock transparent>
       <XStack>
         <Button
           {...submitButtonBaseProps}

@@ -46,7 +46,8 @@ export const chatRouter = createTRPCRouter({
             id,
             name,
             first_name,
-            last_name
+            last_name,
+            avatar_url
           )
         `
         )
@@ -85,6 +86,7 @@ export const chatRouter = createTRPCRouter({
         user: {
           id: row.profile_id,
           name: resolveDisplayName(row.profiles as any),
+          avatarUrl: (row.profiles as any)?.avatar_url ?? null,
         },
       }))
 
@@ -148,7 +150,8 @@ export const chatRouter = createTRPCRouter({
             id,
             name,
             first_name,
-            last_name
+            last_name,
+            avatar_url
           )
         `
         )
@@ -165,6 +168,7 @@ export const chatRouter = createTRPCRouter({
         user: {
           id: data.profile_id,
           name: resolveDisplayName(data.profiles as any),
+          avatarUrl: (data.profiles as any)?.avatar_url ?? null,
         },
       }
     }),

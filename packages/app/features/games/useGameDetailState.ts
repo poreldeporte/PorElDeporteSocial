@@ -78,6 +78,9 @@ export const computeGameDetailState = ({
     ? startDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
     : ''
   const kickoffLabel = formatGameKickoffLabel(startDate)
+  const releaseAt = game?.releaseAt ? new Date(game.releaseAt) : null
+  const releaseLabel = formatGameKickoffLabel(releaseAt)
+  const isUnreleased = Boolean(game?.releaseAt && !game?.releasedAt)
   const hasStarted = startDate ? now >= startDate.getTime() : false
 
   const community = game?.community ?? null
@@ -144,30 +147,43 @@ export const computeGameDetailState = ({
 
   const userStatus = game ? userEntry?.status ?? game.userStatus : 'none'
   const hasReview = Boolean(game?.hasReview)
-  const ratingWindow = Boolean(
-    game && game.status !== 'cancelled' && (game.status === 'completed' || hasStarted)
-  )
+  const ratingWindow = Boolean(game && game.status === 'completed')
   const canRate = Boolean(game && userStatus === 'rostered' && ratingWindow && !hasReview)
   const isGrabOnly =
-    Boolean(game && game.status === 'scheduled' && rosterFull && unconfirmedRosterCount > 0 && isCrunchTimeOpen)
+    Boolean(
+      game &&
+        !isUnreleased &&
+        game.status === 'scheduled' &&
+        rosterFull &&
+        unconfirmedRosterCount > 0 &&
+        isCrunchTimeOpen
+    )
   const ctaState = deriveCtaState({ userStatus, rosterFull, isGrabOnly })
   const isGamePending = queueState.isPending && game ? queueState.pendingGameId === game.id : false
-  const canJoin = !!game && !hasStarted && game.status === 'scheduled' && !isLocked
+  const canJoin = !!game && !isUnreleased && !hasStarted && game.status === 'scheduled' && !isLocked
   const canLeave =
-    !!game && !hasStarted && game.status === 'scheduled' && !isLocked && game.draftStatus !== 'in_progress'
+    !!game &&
+    !isUnreleased &&
+    !hasStarted &&
+    game.status === 'scheduled' &&
+    !isLocked &&
+    game.draftStatus !== 'in_progress'
   const baseCtaDisabled =
     !game ||
     isGamePending ||
     ((ctaState === 'claim' || ctaState === 'join-waitlist') && !canJoin) ||
     (ctaState === 'grab-open-spot' && !isGrabOnly) ||
     (ctaState === 'drop' && !canLeave)
-  const ctaDisabled = ratingWindow ? isGamePending || !canRate : baseCtaDisabled
+  const ctaDisabled = ratingWindow ? isGamePending || !canRate : isUnreleased || baseCtaDisabled
   const ctaTheme = ratingWindow ? undefined : ctaState === 'drop' ? 'alt2' : undefined
   const statusMeta = game ? statusCopy[game.status] : null
-  const userStatusMessage = userStatusCopy[userStatus]
+  const userStatusMessage = isUnreleased && releaseLabel
+    ? `Releases ${releaseLabel}.`
+    : userStatusCopy[userStatus]
 
   const canConfirmAttendance =
     confirmationEnabled &&
+    !isUnreleased &&
     userEntry?.status === 'rostered' &&
     !userEntry.attendanceConfirmedAt &&
     isConfirmationOpen
@@ -176,6 +192,8 @@ export const computeGameDetailState = ({
     startDate,
     formattedStart,
     kickoffLabel,
+    releaseLabel,
+    isUnreleased,
     rosteredPlayers,
     waitlistedPlayers,
     rosteredCount,
@@ -187,6 +205,7 @@ export const computeGameDetailState = ({
     ctaState,
     ctaLabel: (() => {
       if (!game) return ctaCopy[ctaState]
+      if (isUnreleased && releaseLabel) return `Releases ${releaseLabel}`
       if (game.status === 'cancelled') return 'Game cancelled'
       if (ratingWindow) return canRate ? 'Rate the game' : 'Game completed'
       return ctaCopy[ctaState]

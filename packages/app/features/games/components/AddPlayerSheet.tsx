@@ -34,19 +34,31 @@ type AddPlayerSheetProps = {
   onOpenChange: (open: boolean) => void
   gameId: string
   queue: GameDetail['queue']
+  audienceGroupId?: string | null
 }
 
 const buildMemberName = (profile: MemberProfile) => {
   return formatProfileName(profile, 'Member') ?? 'Member'
 }
 
-export const AddPlayerSheet = ({ open, onOpenChange, gameId, queue }: AddPlayerSheetProps) => {
+export const AddPlayerSheet = ({
+  open,
+  onOpenChange,
+  gameId,
+  queue,
+  audienceGroupId,
+}: AddPlayerSheetProps) => {
   const { isAdmin, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
   const utils = api.useUtils()
   const [query, setQuery] = useState('')
   const [addingId, setAddingId] = useState<string | null>(null)
+
+  const groupQuery = api.groups.byId.useQuery(
+    { id: audienceGroupId ?? '' },
+    { enabled: open && isAdmin && Boolean(audienceGroupId) }
+  )
 
   const membersQuery = useQuery({
     queryKey: ['members', 'approved', gameId],
@@ -87,8 +99,17 @@ export const AddPlayerSheet = ({ open, onOpenChange, gameId, queue }: AddPlayerS
   const normalizedQuery = query.trim().toLowerCase()
   const queryDigits = normalizedQuery.replace(/\D/g, '')
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data])
+  const allowedIds = useMemo(() => {
+    if (!audienceGroupId) return null
+    const ids = groupQuery.data?.memberIds ?? []
+    return new Set(ids)
+  }, [audienceGroupId, groupQuery.data?.memberIds])
   const visibleMembers = useMemo(() => {
-    const base = members.filter((member) => queueStatus.get(member.id) !== 'rostered')
+    const base = members.filter((member) => {
+      if (queueStatus.get(member.id) === 'rostered') return false
+      if (allowedIds && !allowedIds.has(member.id)) return false
+      return true
+    })
     if (!normalizedQuery) return base
     return base.filter((member) => {
       const name = buildMemberName(member).toLowerCase()

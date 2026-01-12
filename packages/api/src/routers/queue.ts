@@ -45,6 +45,8 @@ type RpcResult = {
 type ConfirmationRules = {
   status: Database['public']['Enums']['game_status']
   start_time: string | null
+  release_at: string | null
+  released_at: string | null
   confirmation_enabled: boolean
   join_cutoff_offset_minutes_from_kickoff: number
   communities: { confirmation_window_hours_before_kickoff: number } | null
@@ -56,10 +58,14 @@ const mapRpcError = (error: PostgrestError) => {
       return new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
     case 'game_not_open':
       return new TRPCError({ code: 'BAD_REQUEST', message: 'Game is not open for signups' })
+    case 'game_not_released':
+      return new TRPCError({ code: 'BAD_REQUEST', message: 'Game has not been released yet' })
     case 'join_cutoff_passed':
       return new TRPCError({ code: 'BAD_REQUEST', message: 'Join cutoff has passed' })
     case 'not_member':
       return new TRPCError({ code: 'FORBIDDEN', message: 'Membership required to join this game' })
+    case 'not_in_group':
+      return new TRPCError({ code: 'FORBIDDEN', message: 'You are not in this game group' })
     case 'draft_in_progress':
       return new TRPCError({ code: 'BAD_REQUEST', message: 'Draft is in progress' })
     case 'confirmation_disabled':
@@ -165,6 +171,8 @@ const fetchConfirmationRules = async (supabase: SupabaseClient<Database>, gameId
     .select(
       `status,
        start_time,
+       release_at,
+       released_at,
        confirmation_enabled,
        join_cutoff_offset_minutes_from_kickoff,
        communities!games_community_id_fkey (
@@ -176,6 +184,9 @@ const fetchConfirmationRules = async (supabase: SupabaseClient<Database>, gameId
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   if (!data) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+  if (data.release_at && !data.released_at) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game has not been released yet' })
+  }
 
   return data as ConfirmationRules
 }
@@ -372,6 +383,7 @@ export const queueRouter = createTRPCRouter({
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Guest is not rostered' })
       }
 
+      const rules = await fetchConfirmationRules(ctx.supabase, queueRow.game_id)
       const admin = await isUserAdmin(ctx.supabase, ctx.user.id)
       if (!admin && queueRow.added_by_profile_id !== ctx.user.id) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the adder can confirm this guest' })
@@ -379,7 +391,6 @@ export const queueRouter = createTRPCRouter({
 
       if (!queueRow.attendance_confirmed_at) {
         if (!admin) {
-          const rules = await fetchConfirmationRules(ctx.supabase, queueRow.game_id)
           ensureConfirmationWindowOpen(rules)
         }
 

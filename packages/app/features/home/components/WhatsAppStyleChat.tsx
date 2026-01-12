@@ -9,6 +9,7 @@ import { SolitoImage } from 'solito/image'
 import { CHAT_MESSAGE_MAX_LENGTH, CHAT_REACTION_EMOJIS, formatChatTimestamp } from 'app/constants/chat'
 import { pedLogo } from 'app/assets'
 import { WatermarkLogo } from 'app/components/WatermarkLogo'
+import { useThemeSetting } from 'app/provider/theme'
 import type { ChatMessage } from 'app/types/chat'
 import { useChatScroll } from 'app/utils/useChatScroll'
 import { useRealtimeChatRoom } from 'app/utils/useRealtimeChatRoom'
@@ -43,6 +44,35 @@ export const WhatsAppStyleChat = ({
 }: WhatsAppStyleChatProps) => {
   const chatEnabled = Boolean(roomId && currentUserId && currentUserName)
   const toast = useToastController()
+  const { resolvedTheme } = useThemeSetting()
+  const isDark = resolvedTheme === 'dark'
+  const chatColors = {
+    bubbleOwnBg: '#1fb955',
+    bubbleOwnText: '#062c17',
+    bubbleOtherBg: isDark ? 'rgba(18,24,32,0.85)' : '$color2',
+    bubbleOtherBorder: isDark ? 'rgba(255,255,255,0.2)' : '$color4',
+    bubbleOtherText: '$color12',
+    bubbleShadow: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.08)',
+    deleteOwn: 'rgba(0,0,0,0.45)',
+    deleteOther: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)',
+    timeOwn: 'rgba(0,0,0,0.45)',
+    timeOther: isDark ? 'rgba(255,255,255,0.65)' : '$color10',
+    reactionBg: isDark ? 'rgba(0,0,0,0.35)' : '$color3',
+    reactionActiveBg: isDark ? 'rgba(255,255,255,0.4)' : '$color4',
+    reactionOwnText: '#062c17',
+    reactionOtherText: '$color12',
+    reactionCountOwn: 'rgba(0,0,0,0.5)',
+    reactionCountOther: isDark ? 'rgba(255,255,255,0.8)' : '$color10',
+    shellGradient: isDark
+      ? ['rgba(5,8,13,0.25)', 'rgba(5,8,13,0.65)']
+      : ['rgba(255,255,255,0.6)', 'rgba(240,242,245,0.95)'],
+    shellOverlay: isDark ? 'rgba(0,0,0,0.38)' : 'rgba(255,255,255,0.7)',
+    inputBorder: isDark ? 'rgba(255,255,255,0.15)' : '$color4',
+    inputShellBg: isDark ? 'rgba(0,0,0,0.6)' : '$color2',
+    inputPlaceholder: isDark ? 'rgba(255,255,255,0.5)' : '$color10',
+    inputText: '$color12',
+    backgroundSolid: isDark ? '#05080d' : '#f6f7f9',
+  }
   const { scrollRef, scrollToBottom } = useChatScroll()
   const historyQuery = api.chat.history.useInfiniteQuery(
     { roomId: roomId ?? '', limit: 40 },
@@ -222,7 +252,7 @@ export const WhatsAppStyleChat = ({
       const isOwn = message.user.id === currentUserId
       const showHeader = !previous || previous.user.id !== message.user.id
       const reactions = reactionSummaries[message.id] ?? []
-      const deleteIconColor = isOwn ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.7)'
+      const deleteIconColor = isOwn ? chatColors.deleteOwn : chatColors.deleteOther
 
       return (
         <YStack key={message.id} alignItems={isOwn ? 'flex-end' : 'flex-start'} gap="$1">
@@ -236,19 +266,21 @@ export const WhatsAppStyleChat = ({
             px="$3"
             py="$2"
             br="$8"
-            shadowColor="rgba(0,0,0,0.2)"
+            shadowColor={chatColors.bubbleShadow}
             shadowRadius={4}
-            bg={isOwn ? '#1fb955' : 'rgba(18,24,32,0.85)'}
+            bg={isOwn ? chatColors.bubbleOwnBg : chatColors.bubbleOtherBg}
             borderWidth={isOwn ? 0 : 1}
-            borderColor={isOwn ? 'transparent' : 'rgba(255,255,255,0.2)'}
+            borderColor={isOwn ? 'transparent' : chatColors.bubbleOtherBorder}
           >
-            <Paragraph color={isOwn ? '#062c17' : '#f2f2f2'}>{message.content}</Paragraph>
+            <Paragraph color={isOwn ? chatColors.bubbleOwnText : chatColors.bubbleOtherText}>
+              {message.content}
+            </Paragraph>
             <XStack jc="flex-end" ai="center" gap="$1" mt="$1">
               <Paragraph
                 size="$1"
                 fontSize={10}
                 letterSpacing={0.3}
-                color={isOwn ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.65)'}
+                color={isOwn ? chatColors.timeOwn : chatColors.timeOther}
               >
                 {formatChatTimestamp(message.createdAt)}
               </Paragraph>
@@ -266,14 +298,14 @@ export const WhatsAppStyleChat = ({
                 br="$8"
                 gap={2}
                 ai="center"
-                bg={reaction.reactedByCurrentUser ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)'}
-                color={isOwn ? '#062c17' : '#f5f5f5'}
+                bg={reaction.reactedByCurrentUser ? chatColors.reactionActiveBg : chatColors.reactionBg}
+                color={isOwn ? chatColors.reactionOwnText : chatColors.reactionOtherText}
               >
                 <Paragraph size="$2">{reaction.emoji}</Paragraph>
                 <Paragraph
                   size="$1"
                   fontSize={10}
-                  color={isOwn ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.8)'}
+                  color={isOwn ? chatColors.reactionCountOwn : chatColors.reactionCountOther}
                 >
                   {reaction.count}
                 </Paragraph>
@@ -369,11 +401,11 @@ export const WhatsAppStyleChat = ({
 
   const chatShell = (
     <LinearGradient
-      colors={['rgba(5,8,13,0.25)', 'rgba(5,8,13,0.65)']}
+      colors={chatColors.shellGradient}
       style={{ flex: 1, width: '100%', height: '100%' }}
     >
       <YStack f={1} bg="transparent">
-        <YStack f={1} bg="rgba(0,0,0,0.38)" overflow="hidden">
+        <YStack f={1} bg={chatColors.shellOverlay} overflow="hidden">
           <YStack f={1}>
             <ScrollView
               ref={scrollRef}
@@ -419,7 +451,7 @@ export const WhatsAppStyleChat = ({
             pb="$2"
             gap="$2"
             borderTopWidth={1}
-            borderColor="rgba(255,255,255,0.15)"
+            borderColor={chatColors.inputBorder}
           >
             {status !== 'connected' ? (
               <Paragraph size="$2" theme="alt2">
@@ -440,13 +472,13 @@ export const WhatsAppStyleChat = ({
                 {lastError}
               </Paragraph>
             ) : null}
-            <XStack ai="center" gap="$2" bg="rgba(0,0,0,0.6)" br="$9" px="$1.5" py="$2">
+            <XStack ai="center" gap="$2" bg={chatColors.inputShellBg} br="$9" px="$1.5" py="$2">
               <Input
                 flex={1}
                 bg="transparent"
-                color="$color12"
+                color={chatColors.inputText}
                 placeholder="Type a message"
-                placeholderTextColor="rgba(255,255,255,0.5)"
+                placeholderTextColor={chatColors.inputPlaceholder}
                 value={draft}
                 onChangeText={setDraft}
                 editable={chatEnabled && isConnected && !sendMutation.isPending}
@@ -459,7 +491,7 @@ export const WhatsAppStyleChat = ({
                 disabled={!chatEnabled || !isConnected || !draft.trim()}
                 circular
               >
-                <Send size={18} color="#fff" />
+                <Send size={18} />
               </Button>
             </XStack>
           </YStack>
@@ -481,7 +513,7 @@ export const WhatsAppStyleChat = ({
           backgroundSize: `${wallpaperTileSize}px ${wallpaperTileSize}px`,
           backgroundPosition: 'left top',
           backgroundRepeat: 'repeat',
-          backgroundColor: '#05080d',
+          backgroundColor: chatColors.backgroundSolid,
         }}
       >
         {chatShell}
@@ -495,7 +527,7 @@ export const WhatsAppStyleChat = ({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
-      <YStack f={1} bg="#05080d" position="relative">
+      <YStack f={1} bg={chatColors.backgroundSolid} position="relative">
         <WatermarkLogo style={{ bottom: 24, right: 16 }} />
         {chatShell}
       </YStack>

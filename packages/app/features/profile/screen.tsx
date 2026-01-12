@@ -1,15 +1,15 @@
 import { Share, StyleSheet, type ScrollViewProps } from 'react-native'
 import { useMemo, type ReactNode } from 'react'
 import { Path, Svg } from 'react-native-svg'
-import { SolitoImage } from 'solito/image'
 import { useLink } from 'solito/link'
 
-import { Avatar, Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack, useTheme } from '@my/ui/public'
-import { ArrowRight, Check, Settings, Shield, Star, Trophy, Users } from '@tamagui/lucide-icons'
-import { pedLogo } from 'app/assets'
+import { Button, Card, Paragraph, ScrollView, SizableText, XStack, YStack, useTheme } from '@my/ui/public'
+import { ArrowRight, Check, Moon, Settings, Shield, Star, Trophy, Users } from '@tamagui/lucide-icons'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { UserAvatar } from 'app/components/UserAvatar'
 import type { GameListItem } from 'app/features/games/types'
+import { useThemeSetting } from 'app/provider/theme'
 import { useLogout } from 'app/utils/auth/logout'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
@@ -165,16 +165,23 @@ const ProfileHero = ({
   onLogout,
 }: {
   name: string
-  avatarUrl: string
+  avatarUrl: string | null
   userId: string
   onReviewMembers?: () => void
   onCommunitySettings?: () => void
   onLogout?: () => void
 }) => {
+  const { set, resolvedTheme } = useThemeSetting()
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light'
+  const themeLabel = `Theme: ${theme}`
+  const handleThemeToggle = () => {
+    set(theme === 'dark' ? 'light' : 'dark')
+  }
+
   return (
     <Card bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3" borderStyle="solid" borderColor="$color5">
       <XStack gap="$3" ai="center">
-        <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={72} height={72} />
+        <UserAvatar size={72} name={name} avatarUrl={avatarUrl} />
         <YStack gap="$1" flex={1}>
           <XStack gap="$2" ai="center" jc="space-between">
             <SizableText size="$6" fontWeight="700">
@@ -195,6 +202,7 @@ const ProfileHero = ({
         {onCommunitySettings ? (
           <ActionButton icon={Settings} label="Community settings" onPress={onCommunitySettings} />
         ) : null}
+        <ActionButton icon={Moon} label={themeLabel} onPress={handleThemeToggle} />
       </XStack>
     </Card>
   )
@@ -483,6 +491,8 @@ const BadgeTile = ({
   const borderColor = completed ? BRAND_COLORS.primary : theme.color4?.val
   const labelColor = completed ? '$color12' : '$color10'
   const iconColor = completed ? BRAND_COLORS.primary : '$color10'
+  const shieldFill = backgroundColor ?? theme.background?.val ?? 'transparent'
+  const shieldStroke = borderColor ?? theme.borderColor?.val ?? 'transparent'
   return (
     <YStack
       w={96}
@@ -495,8 +505,8 @@ const BadgeTile = ({
       <Svg width="100%" height="100%" viewBox="0 0 72 88" style={{ position: 'absolute' }}>
         <Path
           d={BADGE_SHIELD_PATH}
-          fill={backgroundColor ?? '#fff'}
-          stroke={borderColor ?? '#ddd'}
+          fill={shieldFill}
+          stroke={shieldStroke}
           strokeWidth={2}
         />
       </Svg>

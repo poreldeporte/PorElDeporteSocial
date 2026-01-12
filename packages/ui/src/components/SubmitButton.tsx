@@ -11,10 +11,10 @@ const useIsSubmitting = () => {
   }
 }
 export const submitButtonBaseProps: ButtonProps = {
-  backgroundColor: '#fff',
-  borderColor: '#fff',
+  backgroundColor: '$color2',
+  borderColor: '$color4',
   borderWidth: 1,
-  color: '#000',
+  color: '$color12',
   fontSize: 17,
   fontWeight: '600',
   height: 54,

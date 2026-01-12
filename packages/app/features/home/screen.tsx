@@ -30,8 +30,8 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
     useQueueActions()
 
   const canShowDraft = useMemo(
-    () => (game: { draftModeEnabled?: boolean | null }) =>
-      isAdmin || game.draftModeEnabled !== false,
+    () => (game: { draftModeEnabled?: boolean | null; draftVisibility?: string | null }) =>
+      isAdmin || (game.draftModeEnabled !== false && game.draftVisibility !== 'admin_only'),
     [isAdmin]
   )
 
@@ -66,6 +66,7 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
     const nextAvailable =
       upcoming.find(
         (game) =>
+          (!game.releaseAt || game.releasedAt) &&
           game.status === 'scheduled' &&
           game.rosteredCount < game.capacity &&
           (game.userStatus === 'none' || game.userStatus === 'dropped')

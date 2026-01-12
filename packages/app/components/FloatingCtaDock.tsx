@@ -6,10 +6,12 @@ import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
 type FloatingCtaDockProps = {
   children: ReactNode
+  transparent?: boolean
 }
 
-export const FloatingCtaDock = ({ children }: FloatingCtaDockProps) => {
+export const FloatingCtaDock = ({ children, transparent = false }: FloatingCtaDockProps) => {
   const insets = useSafeAreaInsets()
+  const backgroundColor = transparent ? 'transparent' : DOCK_CHROME.surface
 
   return (
     <YStack
@@ -26,7 +28,7 @@ export const FloatingCtaDock = ({ children }: FloatingCtaDockProps) => {
         maw={DOCK.maxWidth}
         h={DOCK.height}
         br={DOCK.radius}
-        bg={DOCK_CHROME.surface}
+        bg={backgroundColor}
         px={DOCK.padding}
         py={DOCK.padding}
         gap="$1"

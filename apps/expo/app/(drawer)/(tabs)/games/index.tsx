@@ -1,4 +1,4 @@
-import { History, Plus, ShoppingBag } from '@tamagui/lucide-icons'
+import { History, Plus } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
 
 import { getScreenLayout } from '@my/app/navigation/layouts'
@@ -14,20 +14,14 @@ export default function Screen() {
   const layout = getScreenLayout('gamesList')
   const createSegment = navRoutes.create.nativeSegment ?? navRoutes.create.href
   const historyHref = '/games/history'
-  const shopHref = '/shop'
-  const rightActions = isAdmin
-    ? [
-        { icon: Plus, onPress: () => router.navigate(createSegment) },
-        { icon: ShoppingBag, onPress: () => router.navigate(shopHref) },
-      ]
-    : undefined
+  const rightActions = isAdmin ? [{ icon: Plus, onPress: () => router.navigate(createSegment) }] : undefined
   return (
     <FloatingHeaderLayout
       title={layout.title}
       leftIcon={History}
       onPressLeft={() => router.navigate(historyHref)}
-      rightIcon={isAdmin ? undefined : ShoppingBag}
-      onPressRight={isAdmin ? undefined : () => router.navigate(shopHref)}
+      rightIcon={undefined}
+      onPressRight={undefined}
       rightActions={rightActions}
     >
       {({ scrollProps, HeaderSpacer, topInset }) => (

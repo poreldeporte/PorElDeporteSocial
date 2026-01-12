@@ -61,7 +61,7 @@ export const startDraftForGame = async ({
 }: StartDraftOptions) => {
   const { data: game, error: gameError } = await supabaseAuthed
     .from('games')
-    .select('id, draft_status')
+    .select('id, draft_status, draft_mode_enabled')
     .eq('id', gameId)
     .maybeSingle()
 
@@ -73,6 +73,9 @@ export const startDraftForGame = async ({
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
   }
 
+  if (game.draft_mode_enabled === false) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
+  }
   if (game.draft_status && game.draft_status !== 'pending' && game.draft_status !== 'ready') {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft already started' })
   }
@@ -255,6 +258,7 @@ type DraftStartSnapshot = {
     capacity: number | null
     start_time: string | null
     draft_mode_enabled: boolean
+    draft_visibility: Database['public']['Enums']['draft_visibility'] | null
     confirmation_enabled: boolean
     join_cutoff_offset_minutes_from_kickoff: number
   }
@@ -277,6 +281,7 @@ export const fetchDraftStartSnapshot = async (
        capacity,
        start_time,
        draft_mode_enabled,
+       draft_visibility,
        confirmation_enabled,
        join_cutoff_offset_minutes_from_kickoff,
        communities!games_community_id_fkey (
@@ -329,6 +334,7 @@ export const fetchDraftStartSnapshot = async (
       capacity: game.capacity,
       start_time: game.start_time,
       draft_mode_enabled: game.draft_mode_enabled,
+      draft_visibility: game.draft_visibility,
       confirmation_enabled: game.confirmation_enabled,
       join_cutoff_offset_minutes_from_kickoff: game.join_cutoff_offset_minutes_from_kickoff,
     },
@@ -346,6 +352,9 @@ export const getDraftStartBlocker = ({
   captainCount: number
 }) => {
   const { game, community, rosteredCount, attendanceConfirmedCount } = snapshot
+  if (game.draft_mode_enabled === false) {
+    return 'Draft mode is off for this game'
+  }
   if (game.draft_status && game.draft_status !== 'pending') {
     return 'Draft already started'
   }

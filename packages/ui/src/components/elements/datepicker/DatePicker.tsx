@@ -201,6 +201,19 @@ export const DatePickerExample = forwardRef(
       setOpen(false)
     }, [selectedDates])
 
+    useEffect(() => {
+      if (!value) {
+        if (selectedDates.length > 0) onDatesChange([])
+        return
+      }
+      const next = new Date(value)
+      if (Number.isNaN(next.getTime())) return
+      const current = selectedDates[0]
+      if (!current || current.toISOString() !== next.toISOString()) {
+        onDatesChange([next])
+      }
+    }, [value, selectedDates, onDatesChange])
+
     const datePickerConfig: {
       selectedDates: Date[]
       onDatesChange: (dates: Date[]) => void
@@ -224,7 +237,10 @@ export const DatePickerExample = forwardRef(
           <DatePickerInput
             placeholder="Select Date"
             value={selectedDates[0]?.toDateString() || ''}
-            onReset={() => onDatesChange([])}
+            onReset={() => {
+              onDatesChange([])
+              onChangeText('')
+            }}
             onButtonPress={() => setOpen(true)}
           />
         </DatePicker.Trigger>

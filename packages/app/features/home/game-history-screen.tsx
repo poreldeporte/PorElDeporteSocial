@@ -212,12 +212,15 @@ const ScoreLine = ({
 }
 
 const buildMetaLabel = (game: GameListItem) => {
+  const draftEnabled = game.draftModeEnabled === true
   const statusLabel =
     game.status === 'cancelled'
       ? 'Cancelled'
-      : game.result?.status === 'confirmed'
-        ? 'Final'
-        : 'Result pending'
+      : !draftEnabled
+        ? 'Completed'
+        : game.result?.status === 'confirmed'
+          ? 'Final'
+          : 'Result pending'
   const location = game.locationName ?? 'Venue TBD'
   return `${statusLabel} - ${location}`
 }
