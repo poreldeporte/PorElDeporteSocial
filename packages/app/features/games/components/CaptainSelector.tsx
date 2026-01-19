@@ -1,16 +1,15 @@
 import {
   Button,
   Card,
+  ConfirmDialog,
   Paragraph,
   SizableText,
-  Spinner,
   XStack,
   YStack,
   useToastController,
 } from '@my/ui/public'
 import { api } from 'app/utils/api'
 import { useEffect, useMemo, useState } from 'react'
-import { AlertDialog } from 'tamagui'
 
 import type { GameDetail, QueueEntry } from '../types'
 
@@ -64,13 +63,13 @@ export const CaptainSelector = ({ gameId, rosteredPlayers, captains }: CaptainSe
   const mutation = api.games.assignCaptains.useMutation({
     onSuccess: async () => {
       setConfirmOpen(false)
-      toast.show('Draft started')
+      toast.show('Captains set')
       await Promise.all([
         utils.games.byId.invalidate({ id: gameId }),
         utils.teams.state.invalidate({ gameId }),
       ])
     },
-    onError: (error) => toast.show('Unable to start draft', { message: error.message }),
+    onError: (error) => toast.show('Unable to set captains', { message: error.message }),
   })
   const clearCaptainsMutation = api.games.clearCaptains.useMutation({
     onSuccess: async () => {
@@ -148,7 +147,7 @@ export const CaptainSelector = ({ gameId, rosteredPlayers, captains }: CaptainSe
         Assign captains
       </SizableText>
       <Paragraph theme="alt2">
-        Choose rostered players to lead the draft. Once confirmed, the draft starts immediately.
+        Choose rostered players to lead the draft. After confirming, pick a draft mode to begin.
       </Paragraph>
       {availableCaptainCounts.length ? (
         <XStack gap="$2" flexWrap="wrap">
@@ -217,48 +216,15 @@ export const CaptainSelector = ({ gameId, rosteredPlayers, captains }: CaptainSe
         ) : null}
       </XStack>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            key="overlay"
-            animation="medium"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-            o={0.5}
-            backgroundColor="$color5"
-          />
-          <AlertDialog.Content
-            key="content"
-            elevate
-            animation="medium"
-            enterStyle={{ opacity: 0, scale: 0.95 }}
-            exitStyle={{ opacity: 0, scale: 0.95 }}
-            backgroundColor="$color2"
-            br="$4"
-            p="$4"
-            gap="$3"
-          >
-            <AlertDialog.Title fontWeight="700">Start draft?</AlertDialog.Title>
-            <AlertDialog.Description>
-              Confirming these captains will remove them from the pool and kick off the draft immediately.
-              All remaining picks must be made by the captains.
-            </AlertDialog.Description>
-            <XStack gap="$3">
-              <Button theme="alt1" flex={1} onPress={() => setConfirmOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                flex={1}
-                onPress={handleConfirmStart}
-                disabled={mutation.isPending}
-                iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
-              >
-                {mutation.isPending ? 'Starting…' : 'Start draft'}
-              </Button>
-            </XStack>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Start draft?"
+        description="Confirming these captains will remove them from the pool and kick off the draft immediately. All remaining picks must be made by the captains."
+        confirmLabel="Start draft"
+        confirmPending={mutation.isPending}
+        onConfirm={handleConfirmStart}
+      />
     </Card>
   )
 }

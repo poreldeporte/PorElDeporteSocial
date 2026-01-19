@@ -2,6 +2,7 @@ import { Button, H2, Paragraph, YStack, submitButtonBaseProps } from '@my/ui/pub
 import { pedLogo } from 'app/assets'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { useLogout } from 'app/utils/auth/logout'
+import { useUser } from 'app/utils/useUser'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
 
@@ -12,6 +13,13 @@ type ScrollHeaderProps = {
 export const PendingReviewScreen = ({ topInset }: ScrollHeaderProps) => {
   const router = useRouter()
   const logout = useLogout()
+  const { profile } = useUser()
+  const isRejected = profile?.approval_status === 'rejected'
+  const title = isRejected ? 'Application not approved' : 'Review in progress'
+  const subtitle = isRejected
+    ? 'Update your profile to reapply. We review each application carefully.'
+    : 'We review every new member once. We will confirm access after a quick check.'
+  const primaryLabel = isRejected ? 'Update application' : 'Edit application'
   const contentPaddingTop = topInset ?? SCREEN_CONTENT_PADDING.top
   const pillButtonProps = {
     height: 54,
@@ -35,10 +43,10 @@ export const PendingReviewScreen = ({ topInset }: ScrollHeaderProps) => {
         <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={72} height={72} />
         <YStack gap="$2" maw={320}>
           <H2 ta="center" fontWeight="700">
-            Review in progress
+            {title}
           </H2>
           <Paragraph fontSize={16} textAlign="center" color="$color">
-            We review every new member once. We will confirm access after a quick check.
+            {subtitle}
           </Paragraph>
         </YStack>
       </YStack>
@@ -48,7 +56,7 @@ export const PendingReviewScreen = ({ topInset }: ScrollHeaderProps) => {
           {...pillButtonProps}
           onPress={() => router.push('/onboarding/profile')}
         >
-          Edit application
+          {primaryLabel}
         </Button>
         <Button
           variant="outlined"

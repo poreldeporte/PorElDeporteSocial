@@ -5,9 +5,8 @@ import { z } from 'zod'
 import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
-import { fetchDraftStartSnapshot, getDraftStartBlocker, resetDraftForGame, startDraftForGame } from '../services/draft'
+import { fetchDraftStartSnapshot, getDraftStartBlocker, resetDraftForGame } from '../services/draft'
 import {
-  notifyCaptainTurn,
   notifyCaptainsAssigned,
   notifyGameCancelled,
   notifyGuestNeedsConfirmation,
@@ -126,6 +125,7 @@ const publicGameFields = `
   confirmation_enabled,
   join_cutoff_offset_minutes_from_kickoff,
   draft_mode_enabled,
+  draft_style,
   draft_visibility,
   draft_chat_enabled,
   crunch_time_start_time_local
@@ -180,6 +180,9 @@ const listHistorySelect = `
 const listInput = z.object({
   scope: z.enum(['upcoming', 'past']).default('upcoming'),
 })
+
+const draftStyleEnum = z.enum(['snake', 'original', 'auction'])
+const MAX_CAPTAIN_VOTES = 2
 
 const validateReleaseBeforeKickoff = (
   values: { releaseAt?: string | null; startTime?: string | null },
@@ -333,6 +336,7 @@ export const gamesRouter = createTRPCRouter({
         confirmationEnabled: game.confirmation_enabled,
         joinCutoffOffsetMinutesFromKickoff: game.join_cutoff_offset_minutes_from_kickoff,
         draftModeEnabled: game.draft_mode_enabled,
+        draftStyle: game.draft_style,
         draftVisibility: game.draft_visibility,
         draftChatEnabled: game.draft_chat_enabled,
         crunchTimeStartTimeLocal: game.crunch_time_start_time_local,
@@ -372,6 +376,10 @@ export const gamesRouter = createTRPCRouter({
             promoted_at,
             dropped_at,
             attendance_confirmed_at,
+            no_show_at,
+            no_show_by,
+            tardy_at,
+            tardy_by,
             guest_name,
             guest_phone,
             guest_notes,
@@ -484,6 +492,10 @@ export const gamesRouter = createTRPCRouter({
           promotedAt: entry.promoted_at,
           droppedAt: entry.dropped_at,
           profileId: entry.profile_id,
+          noShowAt: entry.no_show_at,
+          noShowBy: entry.no_show_by,
+          tardyAt: entry.tardy_at,
+          tardyBy: entry.tardy_by,
           playerId,
           isGuest,
           guest,
@@ -640,6 +652,7 @@ export const gamesRouter = createTRPCRouter({
         confirmationEnabled: game.confirmation_enabled,
         joinCutoffOffsetMinutesFromKickoff: game.join_cutoff_offset_minutes_from_kickoff,
         draftModeEnabled: game.draft_mode_enabled,
+        draftStyle: game.draft_style,
         draftVisibility: game.draft_visibility,
         draftChatEnabled: game.draft_chat_enabled,
         crunchTimeStartTimeLocal: game.crunch_time_start_time_local,
@@ -657,6 +670,122 @@ export const gamesRouter = createTRPCRouter({
             }
           : null,
       }
+    }),
+
+  captainVotes: protectedProcedure
+    .input(z.object({ gameId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const rosteredProfileIds = await fetchRosteredProfileIds(ctx.supabase, input.gameId)
+      if (rosteredProfileIds.length === 0) {
+        return { counts: {}, myVotes: [], limit: MAX_CAPTAIN_VOTES }
+      }
+
+      const { data, error } = await ctx.supabase
+        .from('game_captain_votes')
+        .select('nominee_profile_id, voter_profile_id')
+        .eq('game_id', input.gameId)
+
+      if (error) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+      }
+
+      const rosteredSet = new Set(rosteredProfileIds)
+      const counts: Record<string, number> = {}
+      const myVotes: string[] = []
+
+      ;(data ?? []).forEach((row) => {
+        const nomineeId = row.nominee_profile_id
+        if (!nomineeId || !rosteredSet.has(nomineeId)) return
+        counts[nomineeId] = (counts[nomineeId] ?? 0) + 1
+        if (row.voter_profile_id === ctx.user.id) {
+          myVotes.push(nomineeId)
+        }
+      })
+
+      return { counts, myVotes, limit: MAX_CAPTAIN_VOTES }
+    }),
+
+  toggleCaptainVote: protectedProcedure
+    .input(z.object({ gameId: z.string().uuid(), nomineeProfileId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { data: game, error: gameError } = await ctx.supabase
+        .from('games')
+        .select('id, draft_status, draft_mode_enabled')
+        .eq('id', input.gameId)
+        .maybeSingle()
+
+      if (gameError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
+      }
+      if (!game) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+      }
+      if (game.draft_mode_enabled === false) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
+      }
+      if (game.draft_status !== 'pending') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captain voting is closed' })
+      }
+      if (input.nomineeProfileId === ctx.user.id) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'You cannot vote for yourself' })
+      }
+
+      const rosteredProfileIds = await fetchRosteredProfileIds(ctx.supabase, input.gameId)
+      const rosteredSet = new Set(rosteredProfileIds)
+      if (!rosteredSet.has(input.nomineeProfileId)) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Nominee must be rostered' })
+      }
+
+      const { data: existing, error: existingError } = await ctx.supabase
+        .from('game_captain_votes')
+        .select('id')
+        .eq('game_id', input.gameId)
+        .eq('voter_profile_id', ctx.user.id)
+        .eq('nominee_profile_id', input.nomineeProfileId)
+        .maybeSingle()
+
+      if (existingError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: existingError.message })
+      }
+
+      if (existing?.id) {
+        const { error: deleteError } = await ctx.supabase
+          .from('game_captain_votes')
+          .delete()
+          .eq('id', existing.id)
+
+        if (deleteError) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: deleteError.message })
+        }
+
+        return { action: 'removed' as const }
+      }
+
+      const { count, error: countError } = await ctx.supabase
+        .from('game_captain_votes')
+        .select('id', { count: 'exact', head: true })
+        .eq('game_id', input.gameId)
+        .eq('voter_profile_id', ctx.user.id)
+
+      if (countError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: countError.message })
+      }
+
+      if ((count ?? 0) >= MAX_CAPTAIN_VOTES) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'You can only vote for two captains' })
+      }
+
+      const { error: insertError } = await ctx.supabase.from('game_captain_votes').insert({
+        game_id: input.gameId,
+        voter_profile_id: ctx.user.id,
+        nominee_profile_id: input.nomineeProfileId,
+      })
+
+      if (insertError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: insertError.message })
+      }
+
+      return { action: 'added' as const }
     }),
 
   create: protectedProcedure.input(createGameInput).mutation(async ({ ctx, input }) => {
@@ -998,22 +1127,13 @@ export const gamesRouter = createTRPCRouter({
 
       const { error: readyError } = await supabaseAdmin
         .from('games')
-        .update({ draft_status: 'ready' })
+        .update({ draft_status: 'ready', draft_style: null })
         .eq('id', input.gameId)
         .eq('draft_status', 'pending')
 
       if (readyError) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: readyError.message })
       }
-
-      const { firstCaptainProfileId } = await startDraftForGame({
-        gameId: input.gameId,
-        teamNames: input.teamNames,
-        captainProfileIds: captainIds,
-        supabaseAuthed: ctx.supabase,
-        supabaseAdmin,
-        actorId: ctx.user.id,
-      })
 
       const shouldNotifyDraft =
         snapshot.game.draft_mode_enabled &&
@@ -1022,13 +1142,70 @@ export const gamesRouter = createTRPCRouter({
       if (shouldNotifyDraft) {
         try {
           await notifyCaptainsAssigned({ supabaseAdmin, gameId: input.gameId, profileIds: captainIds })
-          if (firstCaptainProfileId) {
-            await notifyCaptainTurn({ supabaseAdmin, gameId: input.gameId, profileId: firstCaptainProfileId })
-          }
         } catch {}
       }
 
-      return { ok: true, draftStatus: 'in_progress' as const }
+      return { ok: true, draftStatus: 'ready' as const }
+    }),
+
+  setDraftStyle: protectedProcedure
+    .input(
+      z.object({
+        gameId: z.string().uuid(),
+        draftStyle: draftStyleEnum,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ensureAdmin(ctx.supabase, ctx.user.id)
+
+      const { data: game, error: gameError } = await ctx.supabase
+        .from('games')
+        .select('id, draft_status, draft_mode_enabled, capacity')
+        .eq('id', input.gameId)
+        .maybeSingle()
+
+      if (gameError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: gameError.message })
+      }
+      if (!game) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+      }
+      if (game.draft_mode_enabled === false) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
+      }
+      if (game.draft_status !== 'ready') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode can only be set after captains' })
+      }
+      if (input.draftStyle === 'auction') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Auction draft is not available yet' })
+      }
+      if (input.draftStyle === 'original') {
+        if (game.capacity !== 12) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Original draft requires capacity of 12' })
+        }
+        const { data: captainRows, error: captainError } = await ctx.supabase
+          .from('game_captains')
+          .select('id')
+          .eq('game_id', input.gameId)
+
+        if (captainError) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: captainError.message })
+        }
+        if ((captainRows ?? []).length !== 2) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Original draft requires exactly two captains' })
+        }
+      }
+
+      const { error } = await ctx.supabase
+        .from('games')
+        .update({ draft_style: input.draftStyle })
+        .eq('id', input.gameId)
+
+      if (error) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+      }
+
+      return { ok: true }
     }),
 
   clearCaptains: protectedProcedure
@@ -1051,6 +1228,26 @@ const isUserAdmin = async (supabase: SupabaseClient<Database>, userId: string) =
   const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return data?.role === 'admin' || data?.role === 'owner'
+}
+
+const fetchRosteredProfileIds = async (
+  supabase: SupabaseClient<Database>,
+  gameId: string
+) => {
+  const { data, error } = await supabase
+    .from('game_queue')
+    .select('profile_id')
+    .eq('game_id', gameId)
+    .eq('status', 'rostered')
+    .not('profile_id', 'is', null)
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+
+  return (data ?? [])
+    .map((row) => row.profile_id)
+    .filter((profileId): profileId is string => Boolean(profileId))
 }
 
 const fetchUserGroupIds = async (

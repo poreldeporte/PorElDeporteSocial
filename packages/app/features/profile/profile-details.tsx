@@ -17,6 +17,8 @@ import { POSITION_OPTIONS } from './profile-field-schema'
 
 export type ProfileEditSection = 'essentials' | 'background'
 
+const EDITING_SECTION_BORDER = '$color6'
+
 export type ProfileDraft = {
   firstName: string
   lastName: string
@@ -92,21 +94,44 @@ const formatNationality = (value?: string | null) => {
   return `${option.flag} ${option.name}`
 }
 
-const DetailRow = ({ label, value, isFirst }: { label: string; value: string; isFirst?: boolean }) => (
+const DetailRow = ({
+  label,
+  value,
+  isFirst,
+  rightSlot,
+  helper,
+  alignTop,
+}: {
+  label: string
+  value?: string
+  isFirst?: boolean
+  rightSlot?: ReactNode
+  helper?: string
+  alignTop?: boolean
+}) => (
   <XStack
     px="$2"
     py="$2.5"
     gap="$3"
-    ai="center"
+    ai={alignTop ? 'flex-start' : 'center'}
     borderTopWidth={isFirst ? 0 : 1}
     borderColor="$color4"
   >
     <Paragraph theme="alt2" size="$2" minWidth={120}>
       {label}
     </Paragraph>
-    <Paragraph fontWeight="600" flex={1}>
-      {value}
-    </Paragraph>
+    <YStack f={1} minWidth={0} gap={helper ? '$1' : 0}>
+      {rightSlot ?? (
+        <Paragraph fontWeight="600" flex={1}>
+          {value}
+        </Paragraph>
+      )}
+      {helper ? (
+        <Paragraph theme="alt2" size="$2">
+          {helper}
+        </Paragraph>
+      ) : null}
+    </YStack>
   </XStack>
 )
 
@@ -130,7 +155,7 @@ const DetailsSection = ({
   isEditing?: boolean
 }) => {
   const cardBackground = isEditing ? '$color2' : '$background'
-  const cardBorder = isEditing ? '$color6' : '$black1'
+  const cardBorder = isEditing ? EDITING_SECTION_BORDER : '$black1'
 
   return (
     <Card
@@ -149,7 +174,11 @@ const DetailsSection = ({
         <SizableText size="$5" fontWeight="600">
           {title}
         </SizableText>
-        {onEdit ? (
+        {isEditing ? (
+          <Paragraph theme="alt2" size="$2">
+            Editing
+          </Paragraph>
+        ) : onEdit ? (
           <Button
             chromeless
             size="$2"
@@ -255,47 +284,73 @@ const EssentialsEditor = ({
   onDraftChange: (update: Partial<ProfileDraft>) => void
 }) => {
   return (
-    <YStack gap="$4">
-      <XStack gap="$3" $sm={{ fd: 'column' }}>
-        <InputField
-          label={profileFieldCopy.firstName.label}
-          placeholder={profileFieldCopy.firstName.placeholder}
-          value={draft.firstName}
-          onChangeText={(text) => onDraftChange({ firstName: text })}
-          autoCapitalize="words"
-        />
-        <InputField
-          label={profileFieldCopy.lastName.label}
-          placeholder={profileFieldCopy.lastName.placeholder}
-          value={draft.lastName}
-          onChangeText={(text) => onDraftChange({ lastName: text })}
-          autoCapitalize="words"
-        />
-      </XStack>
-      <InputField
+    <YStack gap={0}>
+      <DetailRow
+        label="Name"
+        isFirst
+        rightSlot={
+          <XStack gap="$2" flex={1} minWidth={0}>
+            <InlineInput
+              placeholder={profileFieldCopy.firstName.placeholder}
+              value={draft.firstName}
+              onChangeText={(text) => onDraftChange({ firstName: text })}
+              autoCapitalize="words"
+            />
+            <InlineInput
+              placeholder={profileFieldCopy.lastName.placeholder}
+              value={draft.lastName}
+              onChangeText={(text) => onDraftChange({ lastName: text })}
+              autoCapitalize="words"
+            />
+          </XStack>
+        }
+      />
+      <DetailRow
         label={profileFieldCopy.email.label}
-        placeholder={profileFieldCopy.email.placeholder}
-        value={draft.email}
-        onChangeText={(text) => onDraftChange({ email: text })}
-        inputMode="email"
-        autoCapitalize="none"
+        rightSlot={
+          <InlineInput
+            placeholder={profileFieldCopy.email.placeholder}
+            value={draft.email}
+            onChangeText={(text) => onDraftChange({ email: text })}
+            inputMode="email"
+            autoCapitalize="none"
+          />
+        }
       />
-      <InputField
+      <DetailRow
         label={profileFieldCopy.phone.label}
-        placeholder={profileFieldCopy.phone.placeholder}
-        value={draft.phone}
-        onChangeText={(text) => onDraftChange({ phone: text })}
-        inputMode="tel"
-        disabled
         helper="Contact the club to change your phone number."
+        alignTop
+        rightSlot={
+          <InlineInput
+            placeholder={profileFieldCopy.phone.placeholder}
+            value={draft.phone}
+            onChangeText={(text) => onDraftChange({ phone: text })}
+            inputMode="tel"
+            disabled
+          />
+        }
       />
-      <PositionEditor selected={draft.position} onChange={(position) => onDraftChange({ position })} />
-      <InputField
+      <DetailRow
+        label={profileFieldCopy.position.label}
+        alignTop
+        rightSlot={
+          <InlinePositionEditor
+            selected={draft.position}
+            onChange={(position) => onDraftChange({ position })}
+          />
+        }
+      />
+      <DetailRow
         label={profileFieldCopy.jerseyNumber.label}
-        placeholder={profileFieldCopy.jerseyNumber.placeholder}
-        value={draft.jerseyNumber}
-        onChangeText={(text) => onDraftChange({ jerseyNumber: normalizeDigits(text, 2) })}
-        inputMode="numeric"
+        rightSlot={
+          <InlineInput
+            placeholder={profileFieldCopy.jerseyNumber.placeholder}
+            value={draft.jerseyNumber}
+            onChangeText={(text) => onDraftChange({ jerseyNumber: normalizeDigits(text, 2) })}
+            inputMode="numeric"
+          />
+        }
       />
     </YStack>
   )
@@ -309,70 +364,81 @@ const BackgroundEditor = ({
   onDraftChange: (update: Partial<ProfileDraft>) => void
 }) => {
   return (
-    <YStack gap="$4">
-      <BirthDateInputs
-        value={draft.birthDate}
-        onChange={(birthDate) => onDraftChange({ birthDate })}
+    <YStack gap={0}>
+      <DetailRow
+        label={profileFieldCopy.birthDate.label}
+        isFirst
+        rightSlot={
+          <InlineBirthDateInputs
+            value={draft.birthDate}
+            onChange={(birthDate) => onDraftChange({ birthDate })}
+          />
+        }
       />
-      <NationalityPicker
-        value={draft.nationality}
-        onChange={(nationality) => onDraftChange({ nationality })}
+      <DetailRow
+        label={profileFieldCopy.nationality.label}
+        rightSlot={
+          <InlineNationalityPicker
+            value={draft.nationality}
+            onChange={(nationality) => onDraftChange({ nationality })}
+          />
+        }
       />
-      <InputField
+      <DetailRow
         label={profileFieldCopy.address.label}
-        placeholder={profileFieldCopy.address.placeholder}
-        value={draft.address}
-        onChangeText={(text) => onDraftChange({ address: text })}
+        rightSlot={
+          <InlineInput
+            placeholder={profileFieldCopy.address.placeholder}
+            value={draft.address}
+            onChangeText={(text) => onDraftChange({ address: text })}
+          />
+        }
       />
     </YStack>
   )
 }
 
-const InputField = ({
-  label,
+const inlineInputStyle = {
+  borderWidth: 1,
+  borderColor: '$black1',
+  backgroundColor: '$white1',
+  borderRadius: 0,
+}
+
+const InlineInput = ({
   placeholder,
   value,
   onChangeText,
   disabled,
-  helper,
   inputMode,
   autoCapitalize,
 }: {
-  label: string
   placeholder?: string
   value: string
   onChangeText: (next: string) => void
   disabled?: boolean
-  helper?: string
   inputMode?: 'email' | 'tel' | 'numeric' | 'text'
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
 }) => (
-  <YStack gap="$3" flex={1}>
-    <Label theme="alt1" size="$3">
-      {label}
-    </Label>
-    <Input
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor="$color10"
-      disabled={disabled}
-      inputMode={inputMode}
-      autoCapitalize={autoCapitalize}
-      size="$4"
-      br="$4"
-      backgroundColor="$color1"
-      borderColor="$color5"
-    />
-    {helper ? (
-      <Paragraph theme="alt2" size="$2">
-        {helper}
-      </Paragraph>
-    ) : null}
-  </YStack>
+  <Input
+    value={value}
+    onChangeText={onChangeText}
+    placeholder={placeholder}
+    placeholderTextColor="$black9"
+    disabled={disabled}
+    inputMode={inputMode}
+    autoCapitalize={autoCapitalize}
+    size="$3"
+    {...inlineInputStyle}
+    textAlign="left"
+    fontWeight="600"
+    color="$black1"
+    alignSelf="stretch"
+    flex={1}
+  />
 )
 
-const BirthDateInputs = ({
+const InlineBirthDateInputs = ({
   value,
   onChange,
 }: {
@@ -386,62 +452,60 @@ const BirthDateInputs = ({
   }
 
   return (
-    <YStack gap="$3">
-      <Label theme="alt1" size="$3">
-        {profileFieldCopy.birthDate.label}
-      </Label>
-      <XStack gap="$3">
-        <Input
-          w={72}
-          placeholder="MM"
-          placeholderTextColor="$color10"
-          inputMode="numeric"
-          keyboardType="number-pad"
-          maxLength={2}
-          value={current.month}
-          onChangeText={(text) => update('month', text, 2)}
-          textAlign="center"
-          size="$4"
-          br="$4"
-          backgroundColor="$color1"
-          borderColor="$color5"
-        />
-        <Input
-          w={72}
-          placeholder="DD"
-          placeholderTextColor="$color10"
-          inputMode="numeric"
-          keyboardType="number-pad"
-          maxLength={2}
-          value={current.day}
-          onChangeText={(text) => update('day', text, 2)}
-          textAlign="center"
-          size="$4"
-          br="$4"
-          backgroundColor="$color1"
-          borderColor="$color5"
-        />
-        <Input
-          w={96}
-          placeholder="YYYY"
-          placeholderTextColor="$color10"
-          inputMode="numeric"
-          keyboardType="number-pad"
-          maxLength={4}
-          value={current.year}
-          onChangeText={(text) => update('year', text, 4)}
-          textAlign="center"
-          size="$4"
-          br="$4"
-          backgroundColor="$color1"
-          borderColor="$color5"
-        />
-      </XStack>
-    </YStack>
+    <XStack gap="$2" w="100%" alignSelf="stretch">
+      <Input
+        flex={1}
+        minWidth={0}
+        placeholder="MM"
+        placeholderTextColor="$black9"
+        inputMode="numeric"
+        keyboardType="number-pad"
+        maxLength={2}
+        value={current.month}
+        onChangeText={(text) => update('month', text, 2)}
+        textAlign="left"
+        size="$3"
+        {...inlineInputStyle}
+        fontWeight="600"
+        color="$black1"
+      />
+      <Input
+        flex={1}
+        minWidth={0}
+        placeholder="DD"
+        placeholderTextColor="$black9"
+        inputMode="numeric"
+        keyboardType="number-pad"
+        maxLength={2}
+        value={current.day}
+        onChangeText={(text) => update('day', text, 2)}
+        textAlign="left"
+        size="$3"
+        {...inlineInputStyle}
+        fontWeight="600"
+        color="$black1"
+      />
+      <Input
+        flex={1.4}
+        minWidth={0}
+        placeholder="YYYY"
+        placeholderTextColor="$black9"
+        inputMode="numeric"
+        keyboardType="number-pad"
+        maxLength={4}
+        value={current.year}
+        onChangeText={(text) => update('year', text, 4)}
+        textAlign="left"
+        size="$3"
+        {...inlineInputStyle}
+        fontWeight="600"
+        color="$black1"
+      />
+    </XStack>
   )
 }
 
-const NationalityPicker = ({
+const InlineNationalityPicker = ({
   value,
   onChange,
 }: {
@@ -450,36 +514,27 @@ const NationalityPicker = ({
 }) => {
   const options = getPhoneCountryOptions()
   const selected = value ? options.find((option) => option.code === value) ?? null : null
+  const triggerTextColor = selected ? '$black1' : '$black9'
 
   return (
-    <YStack gap="$3">
-      <Label theme="alt1" size="$3">
-        Nationality (Optional)
-      </Label>
-      <YStack
-        borderWidth={1}
-        borderColor="$color5"
-        borderRadius="$4"
-        backgroundColor="$color1"
-        px="$3"
-        py="$2"
-      >
-        <CountryPicker
-          value={(value || null) as PhoneCountryOption['code'] | null}
-          onChange={(code) => onChange(code)}
-          selected={selected}
-          options={options}
-          variant="country"
-          title="Select nationality"
-          placeholder={profileFieldCopy.nationality.placeholder}
-          popularCountries={['US', 'AR', 'BR', 'GB', 'DE', 'ES']}
-        />
-      </YStack>
-    </YStack>
+    <XStack {...inlineInputStyle} px="$2" py="$1.5" w="100%" alignSelf="stretch" ai="center">
+      <CountryPicker
+        value={(value || null) as PhoneCountryOption['code'] | null}
+        onChange={(code) => onChange(code)}
+        selected={selected}
+        options={options}
+        variant="country"
+        title="Select nationality"
+        placeholder={profileFieldCopy.nationality.placeholder}
+        popularCountries={['US', 'AR', 'BR', 'GB', 'DE', 'ES']}
+        triggerTextColor={triggerTextColor}
+        triggerIconColor="$black1"
+      />
+    </XStack>
   )
 }
 
-const PositionEditor = ({
+const InlinePositionEditor = ({
   selected,
   onChange,
 }: {
@@ -494,29 +549,24 @@ const PositionEditor = ({
   }
 
   return (
-    <YStack gap="$3">
-      <Label theme="alt1" size="$3">
-        {profileFieldCopy.position.label}
-      </Label>
-      <YStack gap="$3">
-        {POSITION_OPTIONS.map((option) => (
-          <XStack key={option} ai="center" gap="$3">
-            <Checkbox
-              checked={selected.includes(option)}
-              onCheckedChange={() => toggle(option)}
-              id={`position-edit-${option}`}
-              size="$3"
-            >
-              <Checkbox.Indicator>
-                <Check size={12} />
-              </Checkbox.Indicator>
-            </Checkbox>
-            <Label htmlFor={`position-edit-${option}`} onPress={() => toggle(option)}>
-              {option}
-            </Label>
-          </XStack>
-        ))}
-      </YStack>
+    <YStack gap="$2">
+      {POSITION_OPTIONS.map((option) => (
+        <XStack key={option} ai="center" gap="$3">
+          <Checkbox
+            checked={selected.includes(option)}
+            onCheckedChange={() => toggle(option)}
+            id={`position-edit-${option}`}
+            size="$3"
+          >
+            <Checkbox.Indicator>
+              <Check size={12} />
+            </Checkbox.Indicator>
+          </Checkbox>
+          <Label htmlFor={`position-edit-${option}`} onPress={() => toggle(option)}>
+            {option}
+          </Label>
+        </XStack>
+      ))}
     </YStack>
   )
 }

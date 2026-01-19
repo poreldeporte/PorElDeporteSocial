@@ -3,9 +3,8 @@ import type { ScrollViewProps } from 'react-native'
 
 import { z } from 'zod'
 import { useController, useFormContext } from 'react-hook-form'
-import { AlertDialog } from 'tamagui'
-
 import {
+  ConfirmDialog,
   FormWrapper,
   Button,
   Paragraph,
@@ -300,123 +299,50 @@ export const EditGameForm = ({
               </Theme>
             </FloatingCtaDock>
           ) : null}
-          <AlertDialog open={draftOffConfirmOpen} onOpenChange={setDraftOffConfirmOpen}>
-            <AlertDialog.Portal>
-              <AlertDialog.Overlay
-                key="overlay"
-                animation="medium"
-                enterStyle={{ opacity: 0 }}
-                exitStyle={{ opacity: 0 }}
-                o={0.5}
-                backgroundColor="$color5"
-              />
-              <AlertDialog.Content
-                key="content"
-                elevate
-                animation="medium"
-                enterStyle={{ opacity: 0, scale: 0.95 }}
-                exitStyle={{ opacity: 0, scale: 0.95 }}
-                backgroundColor="$color2"
-                br="$4"
-                p="$4"
-                gap="$3"
-              >
-                <AlertDialog.Title fontWeight="700">Turn off draft mode?</AlertDialog.Title>
-                <AlertDialog.Description>
-                  This will delete teams and scores. The game will still count as played but won’t
-                  affect W/L or GD.
-                </AlertDialog.Description>
-                <XStack gap="$3">
-                  <Button flex={1} theme="alt1" onPress={() => setDraftOffConfirmOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    flex={1}
-                    theme="red"
-                    onPress={() => {
-                      const pending = pendingDraftOffValues.current
-                      if (!pending) {
-                        setDraftOffConfirmOpen(false)
-                        return
-                      }
-                      pendingDraftOffValues.current = null
-                      setDraftOffConfirmOpen(false)
-                      mutation.mutate({
-                        id: game.id,
-                        ...serializeGameFormValues(pending),
-                        status: pending.status as GameDetail['status'],
-                      })
-                    }}
-                    disabled={mutation.isPending}
-                  >
-                    Turn off
-                  </Button>
-                </XStack>
-              </AlertDialog.Content>
-            </AlertDialog.Portal>
-          </AlertDialog>
-          <AlertDialog
+          <ConfirmDialog
+            open={draftOffConfirmOpen}
+            onOpenChange={setDraftOffConfirmOpen}
+            title="Turn off draft mode?"
+            description="This will delete teams and scores. The game will still count as played but won’t affect W/L or GD."
+            confirmLabel="Turn off"
+            confirmTone="destructive"
+            confirmPending={mutation.isPending}
+            onConfirm={() => {
+              const pending = pendingDraftOffValues.current
+              if (!pending) {
+                setDraftOffConfirmOpen(false)
+                return
+              }
+              pendingDraftOffValues.current = null
+              setDraftOffConfirmOpen(false)
+              mutation.mutate({
+                id: game.id,
+                ...serializeGameFormValues(pending),
+                status: pending.status as GameDetail['status'],
+              })
+            }}
+          />
+          <ConfirmDialog
             open={recurringOffConfirmOpen}
             onOpenChange={(open) => {
               if (!open) pendingRecurringOff.current = false
               setRecurringOffConfirmOpen(open)
             }}
-          >
-            <AlertDialog.Portal>
-              <AlertDialog.Overlay
-                key="overlay"
-                animation="medium"
-                enterStyle={{ opacity: 0 }}
-                exitStyle={{ opacity: 0 }}
-                o={0.5}
-                backgroundColor="$color5"
-              />
-              <AlertDialog.Content
-                key="content"
-                elevate
-                animation="medium"
-                enterStyle={{ opacity: 0, scale: 0.95 }}
-                exitStyle={{ opacity: 0, scale: 0.95 }}
-                backgroundColor="$color2"
-                br="$4"
-                p="$4"
-                gap="$3"
-              >
-                <AlertDialog.Title fontWeight="700">Stop recurring?</AlertDialog.Title>
-                <AlertDialog.Description>
-                  This will delete the upcoming game and stop future releases.
-                </AlertDialog.Description>
-                <XStack gap="$3">
-                  <Button
-                    flex={1}
-                    theme="alt1"
-                    onPress={() => {
-                      pendingRecurringOff.current = false
-                      setRecurringOffConfirmOpen(false)
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    flex={1}
-                    theme="red"
-                    onPress={() => {
-                      if (!pendingRecurringOff.current) {
-                        setRecurringOffConfirmOpen(false)
-                        return
-                      }
-                      pendingRecurringOff.current = false
-                      setRecurringOffConfirmOpen(false)
-                      deleteMutation.mutate({ id: game.id })
-                    }}
-                    disabled={deleteMutation.isPending}
-                  >
-                    Stop recurring
-                  </Button>
-                </XStack>
-              </AlertDialog.Content>
-            </AlertDialog.Portal>
-          </AlertDialog>
+            title="Stop recurring?"
+            description="This will delete the upcoming game and stop future releases."
+            confirmLabel="Stop recurring"
+            confirmTone="destructive"
+            confirmPending={deleteMutation.isPending}
+            onConfirm={() => {
+              if (!pendingRecurringOff.current) {
+                setRecurringOffConfirmOpen(false)
+                return
+              }
+              pendingRecurringOff.current = false
+              setRecurringOffConfirmOpen(false)
+              deleteMutation.mutate({ id: game.id })
+            }}
+          />
         </>
       )}
     </SchemaForm>

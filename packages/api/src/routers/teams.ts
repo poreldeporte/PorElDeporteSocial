@@ -9,13 +9,16 @@ import { recordDraftEvent, resetDraftForGame, startDraftForGame } from '../servi
 import { notifyCaptainTurn, notifyPlayerDrafted, notifyResultsConfirmed } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 import { markGameCompletedIfNeeded } from '../utils/markGameCompleted'
-import { nextSnakeTurn } from '../domain/draft'
+import { nextOriginalTurn, nextSnakeTurn } from '../domain/draft'
 
 const uuid = z.string().uuid()
+
+const draftStyleEnum = z.enum(['snake', 'original', 'auction'])
 
 const startDraftInput = z.object({
   gameId: uuid,
   teamNames: z.array(z.string().min(1)).min(2).optional(),
+  draftStyle: draftStyleEnum.optional(),
 })
 
 const pickInput = z.union([
@@ -173,6 +176,9 @@ export const teamsRouter = createTRPCRouter({
     if (game.draft_mode_enabled === false) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
     }
+    if (game.draft_status !== 'ready') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft is not ready to start' })
+    }
 
     const existing = await supabase.from('game_teams').select('id').eq('game_id', input.gameId)
     if (existing.error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: existing.error.message })
@@ -199,10 +205,24 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Team names must match captain count' })
     }
 
+    const requestedStyle = input.draftStyle ?? game.draft_style ?? 'snake'
+    if (requestedStyle === 'auction') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Auction draft is not available yet' })
+    }
+    if (requestedStyle === 'original') {
+      if (game.capacity !== 12) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Original draft requires capacity of 12' })
+      }
+      if (captainIds.length !== 2) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Original draft requires exactly two captains' })
+      }
+    }
+
     const { firstCaptainProfileId } = await startDraftForGame({
       gameId: input.gameId,
       teamNames: input.teamNames,
       captainProfileIds: captainIds,
+      draftStyle: requestedStyle,
       supabaseAuthed: supabase,
       supabaseAdmin,
       actorId: user.id,
@@ -266,6 +286,7 @@ export const teamsRouter = createTRPCRouter({
     }
 
     const currentTurn = game.draft_turn ?? 0
+    const draftStyle = game.draft_style ?? 'snake'
     if (!isAdmin && Number(team.draft_order) !== currentTurn) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Not your turn' })
     }
@@ -311,7 +332,10 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: insertError.message })
     }
 
-    const { nextTurn, nextDirection } = nextSnakeTurn(currentTurn, game.draft_direction ?? 1, teams.length)
+    const { nextTurn, nextDirection } =
+      draftStyle === 'original'
+        ? nextOriginalTurn(pickOrder, teams.length)
+        : nextSnakeTurn(currentTurn, game.draft_direction ?? 1, teams.length)
 
     await supabaseAdmin
       .from('games')
@@ -683,7 +707,7 @@ const fetchGame = async (supabase: SupabaseClient<Database>, gameId: string) => 
   const { data, error } = await supabase
     .from('games')
     .select(
-      'id, draft_status, draft_turn, draft_direction, start_time, status, draft_mode_enabled, draft_visibility, confirmation_enabled'
+      'id, draft_status, draft_turn, draft_direction, start_time, status, capacity, draft_mode_enabled, draft_style, draft_visibility, confirmation_enabled'
     )
     .eq('id', gameId)
     .maybeSingle()

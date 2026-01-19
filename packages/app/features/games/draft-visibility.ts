@@ -23,4 +23,4 @@ export const canPlayerAccessDraftRoom = (game: GameDetail) => {
   return isRosterReadyForDraft(game)
 }
 
-export const canAdminAccessDraftRoom = (game: GameDetail) => game.draftModeEnabled !== false
+export const canAdminAccessDraftRoom = (_game: GameDetail) => true

@@ -51,6 +51,7 @@ export const ScheduleTeaserCard = ({
     handlePress()
   }
   const showArrowFinal = showArrow ?? !ctaLabel
+  const showBorder = variant === 'draft'
   const metaLine =
     meta
       ?.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -61,7 +62,8 @@ export const ScheduleTeaserCard = ({
         key={`${variant}-${title}`}
         p="$4"
         bordered
-        $platform-native={{ borderWidth: 0 }}
+        bw={showBorder ? 1 : 0}
+        boc={showBorder ? '$black1' : undefined}
         br="$5"
         gap="$4"
         hoverStyle={{ backgroundColor: '$color2' }}

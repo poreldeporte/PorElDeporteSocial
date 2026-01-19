@@ -22,6 +22,7 @@ export default function Screen() {
     ? [
         {
           icon: RotateCcw,
+          label: 'Reset draft (admin only)',
           onPress: () => setResetConfirmOpen(true),
           variant: 'dark' as const,
         },

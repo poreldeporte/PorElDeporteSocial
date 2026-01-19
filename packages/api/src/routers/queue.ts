@@ -6,7 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { resetDraftForGame } from '../services/draft'
-import { notifyGuestNeedsConfirmation, notifyWaitlistPromoted } from '../services/notifications'
+import { notifyGuestNeedsConfirmation, notifyTardyMarked, notifyWaitlistPromoted } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
 const joinInput = z.object({
@@ -33,6 +33,17 @@ const adminAddInput = z.object({
 })
 
 const adminConfirmInput = adminAddInput
+const markNoShowInput = z.object({
+  queueId: z.string().uuid('Invalid queue id'),
+  isNoShow: z.boolean(),
+})
+const markTardyInput = z.object({
+  queueId: z.string().uuid('Invalid queue id'),
+  isTardy: z.boolean(),
+})
+const markConfirmedInput = z.object({
+  queueId: z.string().uuid('Invalid queue id'),
+})
 
 type QueueStatus = Database['public']['Enums']['game_queue_status']
 
@@ -463,6 +474,170 @@ export const queueRouter = createTRPCRouter({
     }
 
     return { ok: true }
+  }),
+
+  markNoShow: protectedProcedure.input(markNoShowInput).mutation(async ({ ctx, input }) => {
+    await ensureAdmin(ctx.supabase, ctx.user.id)
+
+    const { data: queueRow, error: queueError } = await supabaseAdmin
+      .from('game_queue')
+      .select('id, game_id, status, no_show_at, games!game_queue_game_id_fkey ( status )')
+      .eq('id', input.queueId)
+      .maybeSingle()
+
+    if (queueError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: queueError.message })
+    }
+    if (!queueRow) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
+    }
+    if (queueRow.status !== 'rostered') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not rostered' })
+    }
+    if (queueRow.games?.status !== 'completed') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game must be completed' })
+    }
+
+    const nextNoShowAt = input.isNoShow ? new Date().toISOString() : null
+    const nextNoShowBy = input.isNoShow ? ctx.user.id : null
+    const updatePayload = {
+      no_show_at: nextNoShowAt,
+      no_show_by: nextNoShowBy,
+    } as {
+      no_show_at: string | null
+      no_show_by: string | null
+      tardy_at?: string | null
+      tardy_by?: string | null
+    }
+    if (input.isNoShow) {
+      updatePayload.tardy_at = null
+      updatePayload.tardy_by = null
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('game_queue')
+      .update(updatePayload)
+      .eq('id', input.queueId)
+
+    if (updateError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: updateError.message })
+    }
+
+    return { gameId: queueRow.game_id, noShowAt: nextNoShowAt }
+  }),
+
+  markTardy: protectedProcedure.input(markTardyInput).mutation(async ({ ctx, input }) => {
+    await ensureAdmin(ctx.supabase, ctx.user.id)
+
+    const { data: queueRow, error: queueError } = await supabaseAdmin
+      .from('game_queue')
+      .select(
+        'id, game_id, profile_id, status, attendance_confirmed_at, guest_name, added_by_profile_id, games!game_queue_game_id_fkey ( status )'
+      )
+      .eq('id', input.queueId)
+      .maybeSingle()
+
+    if (queueError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: queueError.message })
+    }
+    if (!queueRow) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
+    }
+    if (queueRow.status !== 'rostered') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not rostered' })
+    }
+    if (queueRow.games?.status !== 'completed') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game must be completed' })
+    }
+
+    const now = new Date().toISOString()
+    const nextTardyAt = input.isTardy ? now : null
+    const nextTardyBy = input.isTardy ? ctx.user.id : null
+    const nextConfirmedAt =
+      input.isTardy && !queueRow.attendance_confirmed_at ? now : queueRow.attendance_confirmed_at ?? null
+    const updatePayload = {
+      tardy_at: nextTardyAt,
+      tardy_by: nextTardyBy,
+      attendance_confirmed_at: nextConfirmedAt,
+    } as {
+      tardy_at: string | null
+      tardy_by: string | null
+      attendance_confirmed_at: string | null
+      no_show_at?: string | null
+      no_show_by?: string | null
+    }
+    if (input.isTardy) {
+      updatePayload.no_show_at = null
+      updatePayload.no_show_by = null
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('game_queue')
+      .update(updatePayload)
+      .eq('id', input.queueId)
+
+    if (updateError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: updateError.message })
+    }
+
+    if (input.isTardy) {
+      const notifyTargetId = queueRow.profile_id ?? queueRow.added_by_profile_id
+      if (notifyTargetId) {
+        await safelyNotify(() =>
+          notifyTardyMarked({
+            supabaseAdmin,
+            gameId: queueRow.game_id,
+            profileId: notifyTargetId,
+            guestName: queueRow.profile_id ? null : queueRow.guest_name,
+          })
+        )
+      }
+    }
+
+    return { gameId: queueRow.game_id, tardyAt: nextTardyAt }
+  }),
+
+  markConfirmed: protectedProcedure.input(markConfirmedInput).mutation(async ({ ctx, input }) => {
+    await ensureAdmin(ctx.supabase, ctx.user.id)
+
+    const { data: queueRow, error: queueError } = await supabaseAdmin
+      .from('game_queue')
+      .select('id, game_id, status, attendance_confirmed_at, games!game_queue_game_id_fkey ( status )')
+      .eq('id', input.queueId)
+      .maybeSingle()
+
+    if (queueError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: queueError.message })
+    }
+    if (!queueRow) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
+    }
+    if (queueRow.status !== 'rostered') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Player is not rostered' })
+    }
+    if (queueRow.games?.status !== 'completed') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game must be completed' })
+    }
+
+    const now = new Date().toISOString()
+    const nextConfirmedAt = queueRow.attendance_confirmed_at ?? now
+
+    const { error: updateError } = await supabaseAdmin
+      .from('game_queue')
+      .update({
+        attendance_confirmed_at: nextConfirmedAt,
+        no_show_at: null,
+        no_show_by: null,
+        tardy_at: null,
+        tardy_by: null,
+      })
+      .eq('id', input.queueId)
+
+    if (updateError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: updateError.message })
+    }
+
+    return { gameId: queueRow.game_id }
   }),
 
   removeGuest: protectedProcedure

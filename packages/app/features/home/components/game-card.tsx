@@ -311,6 +311,9 @@ export const GameCard = ({
               size="$3"
               br="$10"
               theme="alt2"
+              chromeless
+              hoverStyle={{ backgroundColor: 'transparent' }}
+              pressStyle={{ backgroundColor: 'transparent' }}
               {...detailLink}
               onPress={(event: any) => {
                 event?.stopPropagation?.()

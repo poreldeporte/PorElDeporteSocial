@@ -145,6 +145,10 @@ const mergeQueueEntryFields = (entry: GameDetail['queue'][number], row: Partial<
   promotedAt: row.promoted_at ?? entry.promotedAt,
   droppedAt: row.dropped_at ?? entry.droppedAt,
   attendanceConfirmedAt: row.attendance_confirmed_at ?? entry.attendanceConfirmedAt,
+  noShowAt: row.no_show_at ?? entry.noShowAt,
+  noShowBy: row.no_show_by ?? entry.noShowBy,
+  tardyAt: row.tardy_at ?? entry.tardyAt,
+  tardyBy: row.tardy_by ?? entry.tardyBy,
 })
 
 const getQueueDelta = (payload: {
@@ -179,6 +183,10 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
     if (!gameId) return
     void utils.games.byId.invalidate({ id: gameId })
   }, 120)
+  const scheduleVoteInvalidate = useThrottledInvalidate(() => {
+    if (!gameId) return
+    void utils.games.captainVotes.invalidate({ gameId })
+  }, 120)
 
   const detailChannelHandler = useCallback(
     (channel: RealtimeChannel) => {
@@ -210,6 +218,7 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               confirmationEnabled: next.confirmation_enabled,
               joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
               draftModeEnabled: next.draft_mode_enabled,
+              draftStyle: next.draft_style,
               draftVisibility: next.draft_visibility,
               draftChatEnabled: next.draft_chat_enabled,
               crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
@@ -234,6 +243,7 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
               confirmationEnabled: next.confirmation_enabled,
               joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
               draftModeEnabled: next.draft_mode_enabled,
+              draftStyle: next.draft_style,
               draftVisibility: next.draft_visibility,
               draftChatEnabled: next.draft_chat_enabled,
               crunchTimeStartTimeLocal: next.crunch_time_start_time_local,
@@ -260,8 +270,13 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
           { event: '*', schema: 'public', table: 'game_captains', filter: `game_id=eq.${gameId}` },
           scheduleDetailInvalidate
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'game_captain_votes', filter: `game_id=eq.${gameId}` },
+          scheduleVoteInvalidate
+        )
     },
-    [gameId, utils, scheduleDetailInvalidate]
+    [gameId, utils, scheduleDetailInvalidate, scheduleVoteInvalidate]
   )
 
   const queueChannelHandler = useCallback(
@@ -368,6 +383,7 @@ export const useGamesListRealtime = (enabled: boolean) => {
               confirmationEnabled: next.confirmation_enabled,
               joinCutoffOffsetMinutesFromKickoff: next.join_cutoff_offset_minutes_from_kickoff,
               draftModeEnabled: next.draft_mode_enabled,
+              draftStyle: next.draft_style,
               draftVisibility: next.draft_visibility,
               draftChatEnabled: next.draft_chat_enabled,
               crunchTimeStartTimeLocal: next.crunch_time_start_time_local,

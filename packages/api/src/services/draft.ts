@@ -46,6 +46,7 @@ type StartDraftOptions = {
   gameId: string
   teamNames?: string[]
   captainProfileIds: string[]
+  draftStyle: 'snake' | 'original' | 'auction'
   supabaseAuthed: SupabaseClient<Database>
   supabaseAdmin: SupabaseClient<Database>
   actorId: string
@@ -55,6 +56,7 @@ export const startDraftForGame = async ({
   gameId,
   teamNames,
   captainProfileIds,
+  draftStyle,
   supabaseAuthed,
   supabaseAdmin,
   actorId,
@@ -142,7 +144,7 @@ export const startDraftForGame = async ({
 
   const { error: updateError } = await supabaseAdmin
     .from('games')
-    .update({ draft_status: 'in_progress', draft_turn: 0, draft_direction: 1 })
+    .update({ draft_status: 'in_progress', draft_turn: 0, draft_direction: 1, draft_style: draftStyle })
     .eq('id', gameId)
 
   if (updateError) {
@@ -154,7 +156,7 @@ export const startDraftForGame = async ({
     gameId,
     action: 'start',
     createdBy: actorId,
-    payload: { captainProfileIds },
+    payload: { captainProfileIds, draftStyle },
   })
 
   const firstCaptainProfileId =
@@ -234,9 +236,14 @@ export const resetDraftForGame = async ({
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: eventsError.message })
   }
 
+  const { error: votesError } = await supabaseAdmin.from('game_captain_votes').delete().eq('game_id', gameId)
+  if (votesError) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: votesError.message })
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from('games')
-    .update({ draft_status: 'pending', draft_turn: null, draft_direction: 1 })
+    .update({ draft_status: 'pending', draft_turn: null, draft_direction: 1, draft_style: null })
     .eq('id', gameId)
 
   if (updateError) {

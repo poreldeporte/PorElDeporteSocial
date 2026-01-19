@@ -88,7 +88,7 @@ export const GroupListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollH
           <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
         </YStack>
         {groupsQuery.isError ? (
-          <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
             <Paragraph theme="alt2">Unable to load groups.</Paragraph>
             <Button
               mt="$3"
@@ -99,13 +99,13 @@ export const GroupListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollH
             </Button>
           </Card>
         ) : groups.length === 0 ? (
-          <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
             <Paragraph theme="alt2">No groups yet.</Paragraph>
           </Card>
         ) : (
           <YStack gap="$2">
             {groups.map((group) => (
-              <Card key={group.id} bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3">
+              <Card key={group.id} bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
                 <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
                   <YStack gap="$0.5" flex={1} minWidth={200}>
                     <SizableText size="$5" fontWeight="600">

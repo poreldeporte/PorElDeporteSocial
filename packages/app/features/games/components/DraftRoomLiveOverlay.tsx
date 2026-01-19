@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Easing, KeyboardAvoidingView, Platform } from 'react-native'
+import { Animated, Easing, Keyboard, Platform } from 'react-native'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { Send } from '@tamagui/lucide-icons'
 import { LinearGradient } from '@tamagui/linear-gradient'
@@ -119,10 +119,27 @@ export const DraftRoomLiveOverlay = ({
 
   const [draft, setDraft] = useState('')
   const isSending = sendMutation.isPending
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
 
   useEffect(() => {
     hydratedPagesRef.current.clear()
   }, [roomId])
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const onShow = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0)
+    })
+    const onHide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0)
+    })
+    return () => {
+      onShow.remove()
+      onHide.remove()
+    }
+  }, [])
 
   useEffect(() => {
     if (!historyQuery.data?.pages) return
@@ -232,6 +249,7 @@ export const DraftRoomLiveOverlay = ({
       const saved = await sendMutation.mutateAsync({ roomId, content })
       await broadcastMessage(saved as ChatMessage)
       setDraft('')
+      Keyboard.dismiss()
     } catch (error) {
       toast.show('Unable to send message', {
         message: error instanceof Error ? error.message : undefined,
@@ -242,14 +260,13 @@ export const DraftRoomLiveOverlay = ({
   if (!chatEnabled) return null
 
   const bottomInset = insets.bottom ?? 0
-  const inputBottomOffset = bottomInset + overlayLayout.bottomOffset
+  const keyboardInset = Math.max(0, keyboardHeight - bottomInset)
+  const inputBottomOffset =
+    bottomInset + overlayLayout.bottomOffset + keyboardInset
   const messageBottomOffset =
     inputBottomOffset + overlayLayout.inputHeight + overlayLayout.messageGap
   const inputRightOffset =
     overlayLayout.reactionButtonSize + overlayLayout.sideInset * 2
-  const keyboardOffset = Platform.OS === 'ios' ? insets.top ?? 0 : 0
-  const keyboardBehavior =
-    Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined
   const placeholderColor =
     tokens.color?.white075?.val ?? 'rgba(255,255,255,0.75)'
   const gradientColors = [
@@ -259,12 +276,7 @@ export const DraftRoomLiveOverlay = ({
 
   return (
     <YStack position="absolute" top={0} left={0} right={0} bottom={0} pointerEvents="box-none">
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={keyboardBehavior}
-        keyboardVerticalOffset={keyboardOffset}
-        pointerEvents="box-none"
-      >
+      <YStack f={1} pointerEvents="box-none">
         <LinearGradient
           colors={gradientColors}
           start={{ x: 0.5, y: 0 }}
@@ -272,7 +284,7 @@ export const DraftRoomLiveOverlay = ({
           position="absolute"
           left={0}
           right={0}
-          bottom={0}
+          bottom={keyboardInset}
           h={overlayLayout.gradientHeight}
           pointerEvents="none"
         />
@@ -375,7 +387,7 @@ export const DraftRoomLiveOverlay = ({
             ❤️
           </SizableText>
         </Button>
-      </KeyboardAvoidingView>
+      </YStack>
     </YStack>
   )
 }

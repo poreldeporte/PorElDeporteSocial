@@ -8,6 +8,7 @@ describe('isProfileApproved', () => {
   it('returns false for pending or missing profiles', () => {
     expect(isProfileApproved({ approval_status: 'pending' })).toBe(false)
     expect(isProfileApproved({ approval_status: 'draft' })).toBe(false)
+    expect(isProfileApproved({ approval_status: 'rejected' })).toBe(false)
     expect(isProfileApproved(null)).toBe(false)
     expect(isProfileApproved(undefined)).toBe(false)
   })

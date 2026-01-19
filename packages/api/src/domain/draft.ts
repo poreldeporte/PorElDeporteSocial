@@ -16,6 +16,26 @@ export const nextSnakeTurn = (currentTurn: number, direction: number, teamCount:
   return { nextTurn, nextDirection }
 }
 
+const ORIGINAL_PICK_SEQUENCE = [0, 1, 0, 1, 0, 1, 1, 0, 1, 0]
+
+export const nextOriginalTurn = (currentPickOrder: number, teamCount: number) => {
+  if (teamCount !== 2) {
+    return { nextTurn: 0, nextDirection: 1 }
+  }
+  const nextIndex = currentPickOrder
+  if (nextIndex < 0 || nextIndex >= ORIGINAL_PICK_SEQUENCE.length) {
+    return { nextTurn: null, nextDirection: 1 }
+  }
+  return { nextTurn: ORIGINAL_PICK_SEQUENCE[nextIndex], nextDirection: 1 }
+}
+
+export const originalTurnForPick = (pickOrder: number, teamCount: number) => {
+  if (teamCount !== 2) return null
+  const index = pickOrder - 1
+  if (index < 0 || index >= ORIGINAL_PICK_SEQUENCE.length) return null
+  return ORIGINAL_PICK_SEQUENCE[index]
+}
+
 export const undoPayload = (payload: Record<string, unknown> | null | undefined, userId: string) => ({
   ...(payload ?? {}),
   undone: true,

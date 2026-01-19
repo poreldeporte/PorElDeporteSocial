@@ -75,9 +75,9 @@ const getPrimaryAction = (game: GameDetail) => {
   if (game.status === 'cancelled') return null
   if (game.draftModeEnabled === false) return null
   if (game.draftModeEnabled !== false && game.status === 'scheduled' && game.draftStatus !== 'completed') {
-    if (game.draftStatus === 'pending') return { kind: 'draft' as const, label: 'Set captains' }
+    if (game.draftStatus === 'pending') return { kind: 'draft' as const, label: 'Select captains' }
     if (game.draftStatus === 'ready') return { kind: 'draft' as const, label: 'Start draft' }
-    if (game.draftStatus === 'in_progress') return { kind: 'draft' as const, label: 'Manage draft' }
+    if (game.draftStatus === 'in_progress') return { kind: 'draft' as const, label: 'Open draft room' }
     return { kind: 'draft' as const, label: 'Review draft' }
   }
   if (!game.result) return { kind: 'result' as const, label: 'Report result' }
@@ -99,7 +99,10 @@ const getStatusLine = (game: GameDetail) => {
 }
 
 const formatDraftStatus = (status: GameDetail['draftStatus'] | null | undefined) => {
-  if (!status) return 'pending'
+  if (!status) return 'captains needed'
+  if (status === 'pending') return 'captains needed'
+  if (status === 'ready') return 'captains set'
   if (status === 'in_progress') return 'live'
+  if (status === 'completed') return 'complete'
   return status.replace('_', ' ')
 }

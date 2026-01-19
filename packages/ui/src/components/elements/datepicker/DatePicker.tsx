@@ -198,21 +198,18 @@ export const DatePickerExample = forwardRef(
     const [open, setOpen] = useState(false)
 
     useEffect(() => {
-      setOpen(false)
-    }, [selectedDates])
-
-    useEffect(() => {
       if (!value) {
-        if (selectedDates.length > 0) onDatesChange([])
+        onDatesChange((current) => (current.length ? [] : current))
         return
       }
       const next = new Date(value)
       if (Number.isNaN(next.getTime())) return
-      const current = selectedDates[0]
-      if (!current || current.toISOString() !== next.toISOString()) {
-        onDatesChange([next])
-      }
-    }, [value, selectedDates, onDatesChange])
+      onDatesChange((current) => {
+        const currentDate = current[0]
+        if (currentDate?.toISOString() === next.toISOString()) return current
+        return [next]
+      })
+    }, [value, onDatesChange])
 
     const datePickerConfig: {
       selectedDates: Date[]
@@ -225,6 +222,7 @@ export const DatePickerExample = forwardRef(
       onDatesChange: (dates) => {
         onDatesChange(dates)
         onChangeText(dates[0]?.toISOString() || '')
+        if (dates.length) setOpen(false)
       },
       calendar: {
         startDay: 1,
@@ -240,6 +238,7 @@ export const DatePickerExample = forwardRef(
             onReset={() => {
               onDatesChange([])
               onChangeText('')
+              setOpen(false)
             }}
             onButtonPress={() => setOpen(true)}
           />

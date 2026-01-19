@@ -17,7 +17,8 @@ const communityFields = `
   confirmation_reminders_local_times,
   crunch_time_enabled,
   crunch_time_start_time_local,
-  game_notification_times_local
+  game_notification_times_local,
+  community_banner_url
 `
 
 const updateDefaultsInput = z.object({
@@ -28,6 +29,7 @@ const updateDefaultsInput = z.object({
   crunchTimeEnabled: z.boolean().optional(),
   crunchTimeStartTimeLocal: z.string().min(1).optional(),
   gameNotificationTimesLocal: z.array(z.string()).optional(),
+  communityBannerUrl: z.string().min(1).optional(),
 })
 
 const fetchDefaultCommunity = async (supabase: SupabaseClient<Database>) => {
@@ -59,6 +61,7 @@ export const communityRouter = createTRPCRouter({
       crunchTimeEnabled: row.crunch_time_enabled,
       crunchTimeStartTimeLocal: row.crunch_time_start_time_local,
       gameNotificationTimesLocal: row.game_notification_times_local,
+      bannerUrl: row.community_banner_url,
     }
   }),
 
@@ -100,6 +103,9 @@ export const communityRouter = createTRPCRouter({
     if (input.gameNotificationTimesLocal !== undefined) {
       payload.game_notification_times_local = input.gameNotificationTimesLocal
     }
+    if (input.communityBannerUrl !== undefined) {
+      payload.community_banner_url = input.communityBannerUrl
+    }
 
     const { data, error } = await supabaseAdmin
       .from('communities')
@@ -140,6 +146,7 @@ export const communityRouter = createTRPCRouter({
       crunchTimeEnabled: data.crunch_time_enabled,
       crunchTimeStartTimeLocal: data.crunch_time_start_time_local,
       gameNotificationTimesLocal: data.game_notification_times_local,
+      bannerUrl: data.community_banner_url,
     }
   }),
 })

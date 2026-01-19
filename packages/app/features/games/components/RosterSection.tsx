@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Alert } from 'react-native'
 
-import { CheckCircle2, Clock, MoreHorizontal, Trash2 } from '@tamagui/lucide-icons'
+import { AlertTriangle, CheckCircle2, Clock, MoreHorizontal, Timer, Trash2 } from '@tamagui/lucide-icons'
 
 import {
   Button,
@@ -15,7 +15,7 @@ import {
 } from '@my/ui/public'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { formatPhoneDisplay } from 'app/utils/phone'
-import type { QueueEntry } from '../types'
+import type { GameStatus, QueueEntry } from '../types'
 import { RosterPlayerSheet } from './RosterPlayerSheet'
 
 type Props = {
@@ -26,10 +26,17 @@ type Props = {
   removingId?: string | null
   confirmingId?: string | null
   confirmingGuestId?: string | null
+  markingTardyId?: string | null
   closeMenusSignal?: number
+  gameStatus?: GameStatus
+  markingNoShowId?: string | null
+  markingConfirmedId?: string | null
   onRemoveEntry?: (entry: QueueEntry) => void
   onConfirmAttendance?: (profileId: string) => void
   onConfirmGuest?: (queueId: string) => void
+  onMarkNoShow?: (entry: QueueEntry, nextValue: boolean) => void
+  onMarkTardy?: (entry: QueueEntry, nextValue: boolean) => void
+  onMarkConfirmed?: (entry: QueueEntry) => void
   confirmationEnabled?: boolean
   isConfirmationOpen?: boolean
 }
@@ -42,10 +49,17 @@ export const RosterSection = ({
   removingId,
   confirmingId,
   confirmingGuestId,
+  markingTardyId,
   closeMenusSignal,
+  gameStatus,
+  markingNoShowId,
+  markingConfirmedId,
   onRemoveEntry,
   onConfirmAttendance,
   onConfirmGuest,
+  onMarkNoShow,
+  onMarkTardy,
+  onMarkConfirmed,
   confirmationEnabled = true,
   isConfirmationOpen = false,
 }: Props) => {
@@ -68,7 +82,7 @@ export const RosterSection = ({
 
   return (
     <>
-      <Card bordered borderColor="$black1" p={0} gap={0} overflow="visible">
+      <Card bordered borderColor="$black1" p={0} gap={0} overflow="hidden">
         {entries.length === 0 ? (
           <YStack px="$3" py="$2">
             <Paragraph theme="alt2">{emptyLabel}</Paragraph>
@@ -92,7 +106,12 @@ export const RosterSection = ({
                     py="$2"
                     borderTopWidth={index === 0 ? 0 : 1}
                     borderColor="$black1"
-                    pressStyle={{ backgroundColor: '$color2' }}
+                    borderWidth={1}
+                    transform={[{ scale: 0.97 }]}
+                    pressStyle={{
+                      backgroundColor: '$color2',
+                    }}
+                    animation="100ms"
                     overflow="visible"
                     onPress={() => setSelectedEntry(entry)}
                   >
@@ -105,6 +124,9 @@ export const RosterSection = ({
                       isRemoving={removingId === entry.id}
                       isConfirmingMember={confirmingId === entry.profileId}
                       isConfirmingGuest={confirmingGuestId === entry.id}
+                      isMarkingTardy={markingTardyId === entry.id}
+                      isMarkingNoShow={markingNoShowId === entry.id}
+                      isMarkingConfirmed={markingConfirmedId === entry.id}
                       menuOpen={openMenuId === entry.id}
                       onMenuOpenChange={(open) => {
                         setOpenMenuId(open ? entry.id : null)
@@ -112,7 +134,11 @@ export const RosterSection = ({
                       onRemove={() => onRemoveEntry?.(entry)}
                       onConfirmMember={() => onConfirmAttendance?.(entry.profileId)}
                       onConfirmGuest={() => onConfirmGuest?.(entry.id)}
+                      onMarkNoShow={(nextValue) => onMarkNoShow?.(entry, nextValue)}
+                      onMarkTardy={(nextValue) => onMarkTardy?.(entry, nextValue)}
+                      onMarkConfirmed={() => onMarkConfirmed?.(entry)}
                       confirmationEnabled={confirmationEnabled}
+                      gameStatus={gameStatus}
                     />
                   </YStack>
                 )
@@ -127,6 +153,7 @@ export const RosterSection = ({
         onOpenChange={(open) => {
           if (!open) setSelectedEntry(null)
         }}
+        gameStatus={gameStatus}
       />
     </>
   )
@@ -141,13 +168,20 @@ const PlayerRow = ({
   isRemoving,
   isConfirmingMember,
   isConfirmingGuest,
+  isMarkingTardy,
+  isMarkingNoShow,
+  isMarkingConfirmed,
   menuOpen,
   onMenuOpenChange,
   onRemove,
   onConfirmMember,
   onConfirmGuest,
+  onMarkNoShow,
+  onMarkTardy,
+  onMarkConfirmed,
   confirmationEnabled = true,
   isConfirmationOpen = false,
+  gameStatus,
 }: {
   entry: QueueEntry
   index: number
@@ -157,24 +191,45 @@ const PlayerRow = ({
   isRemoving?: boolean
   isConfirmingMember?: boolean
   isConfirmingGuest?: boolean
+  isMarkingTardy?: boolean
+  isMarkingNoShow?: boolean
+  isMarkingConfirmed?: boolean
   menuOpen: boolean
   onMenuOpenChange: (open: boolean) => void
   onRemove?: () => void
   onConfirmMember?: () => void
   onConfirmGuest?: () => void
+  onMarkNoShow?: (nextValue: boolean) => void
+  onMarkTardy?: (nextValue: boolean) => void
+  onMarkConfirmed?: () => void
   confirmationEnabled?: boolean
   isConfirmationOpen?: boolean
+  gameStatus?: GameStatus
 }) => {
+  const isCompleted = gameStatus === 'completed'
+  const isNoShow = Boolean(entry.noShowAt)
+  const isTardy = Boolean(entry.tardyAt)
   const confirmed =
-    entry.status === 'rostered' && (!confirmationEnabled || Boolean(entry.attendanceConfirmedAt))
+    entry.status === 'rostered' &&
+    (isCompleted ? !isNoShow && !isTardy : !confirmationEnabled || Boolean(entry.attendanceConfirmedAt))
   const isGuest = entry.isGuest
   const isAdder = Boolean(
     isGuest && entry.guest?.addedByProfileId && entry.guest.addedByProfileId === currentProfileId
   )
   const canRemoveEntry = isGuest ? canRemove || isAdder : canRemove
+  const canPostGameStatus = Boolean(canRemove && isCompleted && entry.status === 'rostered')
+  const canMarkTardy = canPostGameStatus && !isTardy
+  const canMarkNoShow = canPostGameStatus && !isNoShow
+  const canMarkConfirmed = canPostGameStatus && (isNoShow || isTardy)
   const canConfirmMember =
-    !isGuest && canRemove && confirmationEnabled && entry.status === 'rostered' && !entry.attendanceConfirmedAt
+    !isCompleted &&
+    !isGuest &&
+    canRemove &&
+    confirmationEnabled &&
+    entry.status === 'rostered' &&
+    !entry.attendanceConfirmedAt
   const canConfirmGuest =
+    !isCompleted &&
     isGuest &&
     confirmationEnabled &&
     entry.status === 'rostered' &&
@@ -182,7 +237,7 @@ const PlayerRow = ({
     (canRemove || (isAdder && isConfirmationOpen))
   const canConfirm = canConfirmMember || canConfirmGuest
   const isConfirming = isGuest ? isConfirmingGuest : isConfirmingMember
-  const showMenu = canConfirm || canRemoveEntry
+  const showMenu = canConfirm || canMarkTardy || canMarkNoShow || canMarkConfirmed || canRemoveEntry
   const handleConfirm = () => {
     if (!canConfirm || isConfirming) return
     Alert.alert('Confirm attendance?', 'This marks the player as confirmed for this game.', [
@@ -206,6 +261,150 @@ const PlayerRow = ({
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: onRemove },
     ])
+  }
+  const handleTardy = () => {
+    if (!canMarkTardy || isMarkingTardy) return
+    Alert.alert('Mark tardy?', 'This flags the player as tardy for this game.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Mark tardy',
+        style: 'default',
+        onPress: () => onMarkTardy?.(true),
+      },
+    ])
+  }
+  const handleNoShow = () => {
+    if (!canMarkNoShow || isMarkingNoShow) return
+    Alert.alert('No-show?', 'This flags the player as a no-show for this game.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'No show',
+        style: 'destructive',
+        onPress: () => onMarkNoShow?.(true),
+      },
+    ])
+  }
+  const handleConfirmStatus = () => {
+    if (!canMarkConfirmed || isMarkingConfirmed) return
+    Alert.alert('Confirm?', 'This marks the player as confirmed for this game.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        style: 'default',
+        onPress: () => onMarkConfirmed?.(),
+      },
+    ])
+  }
+  const menuItems: { key: string; node: JSX.Element }[] = []
+  if (canConfirm) {
+    menuItems.push({
+      key: 'confirm-attendance',
+      node: (
+        <Button
+          chromeless
+          justifyContent="flex-start"
+          space="$2"
+          size="$4"
+          px="$3"
+          icon={CheckCircle2}
+          onPress={() => {
+            onMenuOpenChange(false)
+            handleConfirm()
+          }}
+        >
+          Confirm attendance
+        </Button>
+      ),
+    })
+  }
+  if (canMarkTardy) {
+    menuItems.push({
+      key: 'tardy',
+      node: (
+        <Button
+          chromeless
+          justifyContent="flex-start"
+          space="$2"
+          size="$4"
+          px="$3"
+          icon={Timer}
+          disabled={isMarkingTardy}
+          onPress={() => {
+            onMenuOpenChange(false)
+            handleTardy()
+          }}
+        >
+          Tardy
+        </Button>
+      ),
+    })
+  }
+  if (canMarkNoShow) {
+    menuItems.push({
+      key: 'no-show',
+      node: (
+        <Button
+          chromeless
+          justifyContent="flex-start"
+          space="$2"
+          size="$4"
+          px="$3"
+          theme="red"
+          icon={AlertTriangle}
+          disabled={isMarkingNoShow}
+          onPress={() => {
+            onMenuOpenChange(false)
+            handleNoShow()
+          }}
+        >
+          No show
+        </Button>
+      ),
+    })
+  }
+  if (canMarkConfirmed) {
+    menuItems.push({
+      key: 'confirm-status',
+      node: (
+        <Button
+          chromeless
+          justifyContent="flex-start"
+          space="$2"
+          size="$4"
+          px="$3"
+          icon={CheckCircle2}
+          disabled={isMarkingConfirmed}
+          onPress={() => {
+            onMenuOpenChange(false)
+            handleConfirmStatus()
+          }}
+        >
+          Confirm
+        </Button>
+      ),
+    })
+  }
+  if (canRemoveEntry) {
+    menuItems.push({
+      key: 'remove',
+      node: (
+        <Button
+          chromeless
+          justifyContent="flex-start"
+          theme="red"
+          space="$2"
+          size="$4"
+          px="$3"
+          icon={Trash2}
+          onPress={() => {
+            onMenuOpenChange(false)
+            handleRemove()
+          }}
+        >
+          {isGuest ? 'Remove guest' : 'Remove player'}
+        </Button>
+      ),
+    })
   }
   const record = entry.record
   const recentLabel = !isGuest
@@ -232,6 +431,15 @@ const PlayerRow = ({
         <UserAvatar size={avatarSize} name={avatarName} avatarUrl={avatarUrl} />
         <YStack f={1} minHeight={avatarSize} jc="center" gap="$0.5">
           <SizableText fontWeight="600">{displayName}</SizableText>
+          {isNoShow ? (
+            <Paragraph size="$2" color="$red10">
+              No-show
+            </Paragraph>
+          ) : isTardy ? (
+            <Paragraph size="$2" color="$yellow10">
+              Tardy
+            </Paragraph>
+          ) : null}
           {guestSubline ? (
             <Paragraph theme="alt2" size="$2">
               {guestSubline}
@@ -250,7 +458,11 @@ const PlayerRow = ({
         </YStack>
       </XStack>
       <XStack ai="center" gap="$1">
-        {entry.status === 'rostered' ? (
+        {isNoShow ? (
+          <AlertTriangle size={18} color="$red10" aria-label="No-show" />
+        ) : isTardy ? (
+          <Timer size={18} color="$yellow10" aria-label="Tardy" />
+        ) : entry.status === 'rostered' ? (
           confirmed ? (
             <CheckCircle2 size={18} color="$green10" aria-label="Confirmed" />
           ) : (
@@ -275,7 +487,7 @@ const PlayerRow = ({
                 pressStyle={{ backgroundColor: '$color3' }}
                 hoverStyle={{ backgroundColor: '$color3' }}
                 aria-label="Roster actions"
-                disabled={isRemoving || isConfirming}
+                disabled={isRemoving || isConfirming || isMarkingNoShow || isMarkingTardy || isMarkingConfirmed}
                 onPress={(event) => {
                   event?.stopPropagation?.()
                 }}
@@ -298,40 +510,12 @@ const PlayerRow = ({
             >
               <Popover.Arrow bw={1} boc="$borderColor" bg="$background" />
               <YStack gap="$1">
-                {canConfirm ? (
-                  <Button
-                    chromeless
-                    justifyContent="flex-start"
-                    space="$2"
-                    size="$4"
-                    px="$3"
-                    icon={CheckCircle2}
-                    onPress={() => {
-                      onMenuOpenChange(false)
-                      handleConfirm()
-                    }}
-                  >
-                    Confirm attendance
-                  </Button>
-                ) : null}
-                {canConfirm && canRemoveEntry ? <Separator /> : null}
-                {canRemoveEntry ? (
-                  <Button
-                    chromeless
-                    justifyContent="flex-start"
-                    theme="red"
-                    space="$2"
-                    size="$4"
-                    px="$3"
-                    icon={Trash2}
-                    onPress={() => {
-                      onMenuOpenChange(false)
-                      handleRemove()
-                    }}
-                  >
-                    {isGuest ? 'Remove guest' : 'Remove player'}
-                  </Button>
-                ) : null}
+                {menuItems.map((item, index) => (
+                  <Fragment key={item.key}>
+                    {index ? <Separator /> : null}
+                    {item.node}
+                  </Fragment>
+                ))}
               </YStack>
             </Popover.Content>
           </Popover>

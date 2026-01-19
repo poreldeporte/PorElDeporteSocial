@@ -121,6 +121,9 @@ export const GameDetailScreen = ({
   const [addGuestOpen, setAddGuestOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [confirmingGuestId, setConfirmingGuestId] = useState<string | null>(null)
+  const [markingNoShowId, setMarkingNoShowId] = useState<string | null>(null)
+  const [markingTardyId, setMarkingTardyId] = useState<string | null>(null)
+  const [markingConfirmedId, setMarkingConfirmedId] = useState<string | null>(null)
   const [menuCloseTick, setMenuCloseTick] = useState(0)
   const closeMenus = useCallback(() => {
     setMenuCloseTick((prev) => prev + 1)
@@ -163,6 +166,39 @@ export const GameDetailScreen = ({
     onError: (err) => toast.show('Unable to confirm guest', { message: err.message }),
     onSettled: () => setConfirmingGuestId(null),
   })
+  const markNoShowMutation = api.queue.markNoShow.useMutation({
+    onSuccess: async ({ gameId: resolvedGameId }, variables) => {
+      await Promise.all([
+        utils.games.list.invalidate(),
+        utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
+      ])
+      toast.show(variables.isNoShow ? 'No-show flagged' : 'No-show cleared')
+    },
+    onError: (err) => toast.show('Unable to update no-show', { message: err.message }),
+    onSettled: () => setMarkingNoShowId(null),
+  })
+  const markTardyMutation = api.queue.markTardy.useMutation({
+    onSuccess: async ({ gameId: resolvedGameId }, variables) => {
+      await Promise.all([
+        utils.games.list.invalidate(),
+        utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
+      ])
+      toast.show(variables.isTardy ? 'Tardy flagged' : 'Tardy cleared')
+    },
+    onError: (err) => toast.show('Unable to update tardy', { message: err.message }),
+    onSettled: () => setMarkingTardyId(null),
+  })
+  const markConfirmedMutation = api.queue.markConfirmed.useMutation({
+    onSuccess: async ({ gameId: resolvedGameId }) => {
+      await Promise.all([
+        utils.games.list.invalidate(),
+        utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
+      ])
+      toast.show('Player confirmed')
+    },
+    onError: (err) => toast.show('Unable to confirm player', { message: err.message }),
+    onSettled: () => setMarkingConfirmedId(null),
+  })
 
   const view = useGameDetailState({
     game: data,
@@ -190,7 +226,7 @@ export const GameDetailScreen = ({
   const canPlayerSeeDraftRoom = data ? canPlayerAccessDraftRoom(data) : false
   const showDraftCard = data
     ? canManage
-      ? !view.isUnreleased && canAdminAccessDraftRoom(data)
+      ? !view.isUnreleased && draftEnabled && canAdminAccessDraftRoom(data)
       : canPlayerSeeDraftRoom
     : false
   const showDraftHelper = canManage && !!data && data.draftModeEnabled === false && !view.isUnreleased
@@ -287,6 +323,18 @@ export const GameDetailScreen = ({
   const handleConfirmGuest = (queueId: string) => {
     setConfirmingGuestId(queueId)
     confirmGuestMutation.mutate({ queueId })
+  }
+  const handleMarkNoShow = (entry: GameDetail['queue'][number], nextValue: boolean) => {
+    setMarkingNoShowId(entry.id)
+    markNoShowMutation.mutate({ queueId: entry.id, isNoShow: nextValue })
+  }
+  const handleMarkTardy = (entry: GameDetail['queue'][number], nextValue: boolean) => {
+    setMarkingTardyId(entry.id)
+    markTardyMutation.mutate({ queueId: entry.id, isTardy: nextValue })
+  }
+  const handleMarkConfirmed = (entry: GameDetail['queue'][number]) => {
+    setMarkingConfirmedId(entry.id)
+    markConfirmedMutation.mutate({ queueId: entry.id })
   }
 
   const handleCta = () => {
@@ -437,12 +485,19 @@ export const GameDetailScreen = ({
             removingId={removingId}
             confirmingId={confirmingId}
             confirmingGuestId={confirmingGuestId}
+            markingNoShowId={markingNoShowId}
+            markingTardyId={markingTardyId}
+            markingConfirmedId={markingConfirmedId}
             confirmationEnabled={data.confirmationEnabled}
             isConfirmationOpen={view.isConfirmationOpen}
             closeMenusSignal={menuCloseTick}
+            gameStatus={data.status}
             onRemoveEntry={handleRemoveEntry}
             onConfirmAttendance={handleConfirmMember}
             onConfirmGuest={handleConfirmGuest}
+            onMarkNoShow={handleMarkNoShow}
+            onMarkTardy={handleMarkTardy}
+            onMarkConfirmed={handleMarkConfirmed}
           />
 
           {view.waitlistedPlayers.length ? (
@@ -455,6 +510,7 @@ export const GameDetailScreen = ({
                 currentProfileId={user?.id ?? null}
                 removingId={removingId}
                 closeMenusSignal={menuCloseTick}
+                gameStatus={data.status}
                 onRemoveEntry={handleRemoveEntry}
               />
             </>
@@ -637,11 +693,12 @@ const DraftStatusCard = ({
   result: GameDetail['result']
   draftLink: ReturnType<typeof useLink>
 }) => {
-  const content = getDraftStatusContent(draftStatus, canManage, draftVisibility, result)
+  const content = getDraftStatusContent(draftStatus, canManage, result)
   return (
     <Card
       bordered
-      $platform-native={{ borderWidth: 0 }}
+      bw={1}
+      boc="$black1"
       px="$3"
       py="$3"
       {...draftLink}
@@ -666,16 +723,18 @@ const DraftStatusCard = ({
             {content.note}
           </Paragraph>
         ) : null}
-        <Paragraph theme="alt2" size="$2">
-          {content.hint}
-        </Paragraph>
+        {content.hint ? (
+          <Paragraph theme="alt2" size="$2">
+            {content.hint}
+          </Paragraph>
+        ) : null}
       </YStack>
     </Card>
   )
 }
 
 const DraftModeDisabledCard = () => (
-  <Card bordered $platform-native={{ borderWidth: 0 }} px="$3" py="$3">
+  <Card bordered bw={1} boc="$black1" px="$3" py="$3">
     <YStack gap="$1.5">
       <SizableText fontWeight="600">Draft mode is off</SizableText>
       <Paragraph theme="alt2" size="$2">
@@ -688,15 +747,14 @@ const DraftModeDisabledCard = () => (
 const getDraftStatusContent = (
   draftStatus: GameDetail['draftStatus'],
   canManage: boolean,
-  draftVisibility: ReturnType<typeof resolveDraftVisibility>,
   result: GameDetail['result']
 ): {
   headline: string
   subline?: string
   note?: string
-  hint: string
+  hint?: string
 } => {
-  const manageHint = draftVisibility === 'admin_only' ? 'Tap to pick teams' : 'Tap to manage draft'
+  const manageHint = 'Tap to manage picks'
   const resultHint = 'Tap to manage draft'
   if (canManage && result) {
     if (result.status === 'confirmed') {
@@ -715,31 +773,31 @@ const getDraftStatusContent = (
   switch (draftStatus) {
     case 'in_progress':
       return {
-        headline: canManage ? 'Draft is live' : 'Draft happening now',
+        headline: canManage ? 'Captains are drafting' : 'Draft happening now',
         subline: undefined,
-        note: canManage ? 'Keep picks moving until both rosters are full.' : undefined,
+        note: canManage ? 'Monitor picks and undo if needed.' : undefined,
         hint: canManage ? manageHint : 'Tap to watch live picks',
       }
     case 'completed':
       return {
-        headline: 'Teams locked in',
-        subline: 'Captains finished picking. Review the squads before kickoff.',
+        headline: 'Teams set!',
+        subline: 'Teams are set. Review squads before kickoff.',
         hint: 'Tap to review teams',
       }
     case 'ready':
       return {
         headline: canManage ? 'Captains set' : 'Draft starting now',
-        subline: canManage ? 'Draft is about to start.' : 'Captains are ready to pick.',
-        hint: canManage ? manageHint : 'Tap to enter the draft room',
+        subline: canManage ? 'Ready when you are.' : 'Captains are ready to pick.',
+        hint: canManage ? undefined : 'Tap to enter the draft room',
       }
     case 'pending':
     default:
       return {
-        headline: canManage ? 'Pick captains to unlock drafting' : 'Captains coming soon',
+        headline: canManage ? 'Select captains to start the draft' : 'Captains coming soon',
         subline: canManage
-          ? 'Choose rostered captains so we can start picking.'
+          ? 'Select rostered captains. Votes are advisory.'
           : 'We’ll draft as soon as captains are announced.',
-        hint: canManage ? 'Tap to set captains' : 'Captains coming soon',
+        hint: canManage ? 'Tap to select captains' : 'Captains coming soon',
       }
   }
 }

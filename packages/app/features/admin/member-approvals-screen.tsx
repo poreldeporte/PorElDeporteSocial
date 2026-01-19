@@ -1,4 +1,4 @@
-import { StyleSheet, type ScrollViewProps } from 'react-native'
+import { Alert, StyleSheet, type ScrollViewProps } from 'react-native'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 
 import {
@@ -6,13 +6,16 @@ import {
   Card,
   FullscreenSpinner,
   Paragraph,
+  Popover,
   ScrollView,
+  Separator,
   SizableText,
   XStack,
   YStack,
   useToastController,
 } from '@my/ui/public'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, MoreHorizontal, PenSquare, X } from '@tamagui/lucide-icons'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { formatProfileName } from 'app/utils/profileName'
@@ -56,6 +59,8 @@ export const MemberApprovalsScreen = ({
   const queryClient = useQueryClient()
   const router = useRouter()
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const realtimeEnabled = isAdmin && !isLoading
   const scheduleInvalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
@@ -100,7 +105,10 @@ export const MemberApprovalsScreen = ({
       setApprovingId(profileId)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] }),
+        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending-count'] }),
+      ])
       toast.show('Member approved')
     },
     onError: (error: Error) => {
@@ -108,6 +116,35 @@ export const MemberApprovalsScreen = ({
     },
     onSettled: () => {
       setApprovingId(null)
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: async (profileId: string) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ approval_status: 'rejected' })
+        .eq('id', profileId)
+        .select('id')
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      if (!data?.id) throw new Error('Unable to reject member.')
+    },
+    onMutate: (profileId) => {
+      setRejectingId(profileId)
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] }),
+        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending-count'] }),
+      ])
+      toast.show('Application rejected')
+    },
+    onError: (error: Error) => {
+      toast.show('Unable to reject member', { message: error.message })
+    },
+    onSettled: () => {
+      setRejectingId(null)
     },
   })
 
@@ -169,7 +206,7 @@ export const MemberApprovalsScreen = ({
           <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
         </YStack>
         {pendingQuery.isError ? (
-          <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
             <Paragraph theme="alt2">Unable to load pending members.</Paragraph>
             <Button
               mt="$3"
@@ -180,58 +217,167 @@ export const MemberApprovalsScreen = ({
             </Button>
           </Card>
         ) : pendingMembers.length === 0 ? (
-          <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
             <Paragraph theme="alt2">No pending members right now.</Paragraph>
           </Card>
         ) : (
-          pendingMembers.map((member: PendingProfile) => {
-            const displayName = buildMemberName(member)
-            const isApproving = approvingId === member.id && approveMutation.isPending
-            return (
-              <Card
-                key={member.id}
-                bordered
-                $platform-native={{ borderWidth: 0 }}
-                p="$4"
-                gap="$3"
-              >
-                <YStack gap="$2">
-                  <SizableText size="$5" fontWeight="600">
-                    {displayName}
-                  </SizableText>
-                  {member.email ? <Paragraph theme="alt2">Email: {member.email}</Paragraph> : null}
-                  {member.phone ? (
-                    <Paragraph theme="alt2">
-                      Phone: {formatPhoneDisplay(member.phone) || member.phone}
-                    </Paragraph>
-                  ) : null}
-                  {member.position ? (
-                    <Paragraph theme="alt2">Position: {member.position}</Paragraph>
-                  ) : null}
-                  {member.jersey_number ? (
-                    <Paragraph theme="alt2">Jersey: {member.jersey_number}</Paragraph>
-                  ) : null}
-                  {member.birth_date ? (
-                    <Paragraph theme="alt2">Birth date: {member.birth_date}</Paragraph>
-                  ) : null}
-                </YStack>
-                <XStack gap="$2">
-                  <Button
-                    onPress={() => router.push(`/admin/approvals/${member.id}`)}
-                    disabled={approveMutation.isPending}
-                  >
-                    Edit profile
-                  </Button>
-                  <Button
-                    onPress={() => approveMutation.mutate(member.id)}
-                    disabled={approveMutation.isPending}
-                  >
-                    {isApproving ? 'Approving...' : 'Approve'}
-                  </Button>
-                </XStack>
-              </Card>
-            )
-          })
+          <YStack gap="$2">
+            {pendingMembers.map((member: PendingProfile) => {
+              const displayName = buildMemberName(member)
+              const isApproving = approvingId === member.id && approveMutation.isPending
+              const isRejecting = rejectingId === member.id && rejectMutation.isPending
+              const actionsDisabled = approveMutation.isPending || rejectMutation.isPending
+              const menuOpen = openMenuId === member.id
+              const closeMenu = () => setOpenMenuId(null)
+              const handleReject = () => {
+                if (rejectMutation.isPending) return
+                Alert.alert(
+                  'Reject application?',
+                  `${displayName} can reapply after updating their profile.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Reject',
+                      style: 'destructive',
+                      onPress: () => rejectMutation.mutate(member.id),
+                    },
+                  ]
+                )
+              }
+              return (
+                <Card
+                  key={member.id}
+                  bordered
+                  bw={1}
+                  boc="$black1"
+                  br="$5"
+                  p="$4"
+                  gap="$3"
+                >
+                  <XStack ai="center" jc="space-between" gap="$2">
+                    <SizableText size="$5" fontWeight="600" flex={1} minWidth={0}>
+                      {displayName}
+                    </SizableText>
+                    <Popover
+                      open={menuOpen}
+                      onOpenChange={(open) => setOpenMenuId(open ? member.id : null)}
+                      allowFlip
+                      stayInFrame={{ padding: 8 }}
+                    >
+                      <Popover.Trigger asChild>
+                        <Button
+                          size="$2"
+                          circular
+                          icon={MoreHorizontal}
+                          backgroundColor="$color2"
+                          borderWidth={1}
+                          borderColor="$color5"
+                          pressStyle={{ backgroundColor: '$color3' }}
+                          hoverStyle={{ backgroundColor: '$color3' }}
+                          aria-label="Member actions"
+                          disabled={actionsDisabled}
+                        />
+                      </Popover.Trigger>
+                      <Popover.Content
+                        side="bottom"
+                        align="end"
+                        sideOffset={4}
+                        bw={1}
+                        boc="$borderColor"
+                        br="$4"
+                        p="$2"
+                        bg="$background"
+                        minWidth={180}
+                        enterStyle={{ y: -6, o: 0 }}
+                        exitStyle={{ y: -6, o: 0 }}
+                        elevate
+                        themeInverse
+                      >
+                        <Popover.Arrow bw={1} boc="$borderColor" bg="$background" />
+                        <YStack gap="$1">
+                          <Button
+                            chromeless
+                            justifyContent="flex-start"
+                            space="$2"
+                            size="$4"
+                            px="$3"
+                            icon={PenSquare}
+                            onPress={() => {
+                              closeMenu()
+                              router.push(`/admin/approvals/${member.id}`)
+                            }}
+                            disabled={actionsDisabled}
+                          >
+                            Review
+                          </Button>
+                          <Separator />
+                          <Button
+                            chromeless
+                            justifyContent="flex-start"
+                            space="$2"
+                            size="$4"
+                            px="$3"
+                            icon={CheckCircle2}
+                            onPress={() => {
+                              closeMenu()
+                              approveMutation.mutate(member.id)
+                            }}
+                            disabled={actionsDisabled}
+                          >
+                            {isApproving ? 'Approving...' : 'Approve'}
+                          </Button>
+                          <Separator />
+                          <Button
+                            chromeless
+                            justifyContent="flex-start"
+                            theme="red"
+                            space="$2"
+                            size="$4"
+                            px="$3"
+                            icon={X}
+                            onPress={() => {
+                              closeMenu()
+                              handleReject()
+                            }}
+                            disabled={actionsDisabled}
+                          >
+                            {isRejecting ? 'Rejecting...' : 'Reject'}
+                          </Button>
+                        </YStack>
+                      </Popover.Content>
+                    </Popover>
+                  </XStack>
+                  <YStack gap="$2">
+                    {member.email ? (
+                      <Paragraph theme="alt2" size="$2">
+                        Email: {member.email}
+                      </Paragraph>
+                    ) : null}
+                    {member.phone ? (
+                      <Paragraph theme="alt2" size="$2">
+                        Phone: {formatPhoneDisplay(member.phone) || member.phone}
+                      </Paragraph>
+                    ) : null}
+                    {member.position ? (
+                      <Paragraph theme="alt2" size="$2">
+                        Position: {member.position}
+                      </Paragraph>
+                    ) : null}
+                    {member.jersey_number ? (
+                      <Paragraph theme="alt2" size="$2">
+                        Jersey: {member.jersey_number}
+                      </Paragraph>
+                    ) : null}
+                    {member.birth_date ? (
+                      <Paragraph theme="alt2" size="$2">
+                        Birth date: {member.birth_date}
+                      </Paragraph>
+                    ) : null}
+                  </YStack>
+                </Card>
+              )
+            })}
+          </YStack>
         )}
       </YStack>
     </ScrollView>

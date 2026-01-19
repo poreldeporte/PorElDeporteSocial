@@ -59,6 +59,7 @@ const baseGame: GameDetail = {
   confirmationEnabled: true,
   joinCutoffOffsetMinutesFromKickoff: 0,
   draftModeEnabled: true,
+  draftStyle: null,
   draftVisibility: 'public',
   draftChatEnabled: true,
   crunchTimeStartTimeLocal: null,

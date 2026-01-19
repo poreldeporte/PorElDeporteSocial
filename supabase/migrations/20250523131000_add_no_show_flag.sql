@@ -1,0 +1,3 @@
+ALTER TABLE public.game_queue
+  ADD COLUMN IF NOT EXISTS no_show_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS no_show_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL;

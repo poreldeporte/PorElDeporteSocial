@@ -1,6 +1,7 @@
 export * from './AchievementCard'
 export * from './Banner'
 export * from './CustomToast'
+export * from './ConfirmDialog'
 export * from './EventCard'
 export * from './FeedCard'
 export * from './FieldError'

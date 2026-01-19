@@ -2,11 +2,11 @@ import { Image, Share, StyleSheet, type ScrollViewProps } from 'react-native'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Path, Svg } from 'react-native-svg'
 import { useLink } from 'solito/link'
-import { AlertDialog } from 'tamagui'
 
 import {
   Button,
   Card,
+  ConfirmDialog,
   Paragraph,
   ScrollView,
   SizableText,
@@ -17,13 +17,13 @@ import {
   useToastController,
 } from '@my/ui/public'
 import { ArrowRight, Check, ChevronDown, Shield, Star, Trophy } from '@tamagui/lucide-icons'
-import { bannerMerch } from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { getDockSpacer } from 'app/constants/dock'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
+import { UploadCommunityBanner } from 'app/features/settings/components/upload-community-banner'
 import type { GameListItem } from 'app/features/games/types'
 import { HistoryGameCard } from 'app/features/games/components/HistoryGameCard'
 import { useThemeSetting } from 'app/provider/theme'
@@ -108,7 +108,10 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
             avatarUrl={data.avatarUrl}
             phone={data.profile?.phone}
             stats={data.stats}
+            coverImageUrl={data.communityBannerUrl}
+            communityId={data.communityId}
             canEditAvatar
+            canEditBanner={data.isAdmin}
           />
           <BadgeSection
             role={data.role}
@@ -161,13 +164,14 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
 }
 
 const useProfileData = () => {
-  const { profile, avatarUrl, user, displayName, role } = useUser()
+  const { profile, avatarUrl, user, displayName, role, isAdmin } = useUser()
   useStatsRealtime(Boolean(user))
   useGamesListRealtime(Boolean(user))
   const logout = useLogout()
   const historyLink = useLink({ href: '/games/history' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
   const historyQuery = api.games.list.useQuery({ scope: 'past' })
+  const communityQuery = api.community.defaults.useQuery(undefined, { enabled: Boolean(user) })
 
   const leaderboardEntry = useMemo(() => {
     if (!user?.id) return null
@@ -196,7 +200,10 @@ const useProfileData = () => {
     avatarUrl,
     displayName: displayName || 'Member',
     role,
+    isAdmin,
     userId: user?.id ?? '',
+    communityId: communityQuery.data?.id ?? null,
+    communityBannerUrl: communityQuery.data?.bannerUrl ?? null,
     onLogout: () => logout({ userId: user?.id ?? null }),
     stats,
     performance,
@@ -380,19 +387,23 @@ const ProfileHero = ({
   stats,
   coverImageUrl,
   canEditAvatar,
+  canEditBanner,
+  communityId,
 }: {
   name: string
   avatarUrl: string | null
   phone?: string | null
   stats: StatSnapshot
-  coverImageUrl?: string
+  coverImageUrl?: string | null
   canEditAvatar?: boolean
+  canEditBanner?: boolean
+  communityId?: string | null
 }) => {
   const { set, resolvedTheme } = useThemeSetting()
   const isDark = resolvedTheme === 'dark'
   const themeLabel = isDark ? 'Dark' : 'Light'
   const phoneLabel = formatPhoneDisplay(phone) || 'Add phone'
-  const coverSource = coverImageUrl ? { uri: coverImageUrl } : bannerMerch
+  const coverSource = coverImageUrl ? { uri: coverImageUrl } : null
 
   const bannerHeight = 180
   const avatarSize = 112
@@ -406,6 +417,21 @@ const ProfileHero = ({
     <UserAvatar size={avatarSize} name={name} avatarUrl={avatarUrl} />
   )
 
+  const bannerContent = (
+    <YStack h={bannerHeight} w="100%" bg="$color3" position="relative" overflow="hidden">
+      {coverSource ? (
+        <Image source={coverSource} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+      ) : null}
+    </YStack>
+  )
+
+  const bannerNode =
+    canEditBanner && communityId ? (
+      <UploadCommunityBanner communityId={communityId}>{bannerContent}</UploadCommunityBanner>
+    ) : (
+      bannerContent
+    )
+
   return (
     <Card
       bordered
@@ -416,9 +442,7 @@ const ProfileHero = ({
       overflow="hidden"
     >
       <YStack position="relative">
-        <YStack h={bannerHeight} w="100%" bg="$color3" position="relative" overflow="hidden">
-          <Image source={coverSource} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-        </YStack>
+        {bannerNode}
         <YStack
           position="absolute"
           top={bannerHeight - avatarSize / 2}
@@ -503,58 +527,18 @@ const LogoutSection = ({ onLogout }: { onLogout: () => void }) => {
       >
         Log out
       </Paragraph>
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            key="overlay"
-            animation="medium"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-            o={0.5}
-            backgroundColor="$color5"
-          />
-          <AlertDialog.Content
-            key="content"
-            elevate
-            animation="medium"
-            enterStyle={{ opacity: 0, scale: 0.95 }}
-            exitStyle={{ opacity: 0, scale: 0.95 }}
-            backgroundColor="$color2"
-            br="$4"
-            p="$4"
-            gap="$3"
-          >
-            <AlertDialog.Title fontWeight="700">Log out?</AlertDialog.Title>
-            <AlertDialog.Description>
-              You will need to sign in again to access your account.
-            </AlertDialog.Description>
-            <XStack gap="$3">
-              <Button
-                size="$3"
-                br="$10"
-                flex={1}
-                variant="outlined"
-                onPress={() => setConfirmOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="$3"
-                br="$10"
-                flex={1}
-                theme="red"
-                onPress={() => {
-                  setConfirmOpen(false)
-                  onLogout()
-                }}
-                pressStyle={{ opacity: 0.85 }}
-              >
-                Log out
-              </Button>
-            </XStack>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Log out?"
+        description="You will need to sign in again to access your account."
+        confirmLabel="Log out"
+        confirmTone="destructive"
+        onConfirm={() => {
+          setConfirmOpen(false)
+          onLogout()
+        }}
+      />
     </Card>
   )
 }
