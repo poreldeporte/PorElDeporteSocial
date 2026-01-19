@@ -122,7 +122,7 @@ const EditProfileForm = ({
   avatarUrl: string | null
   userId: string
   submitLabel?: string
-  approvalStatus: 'draft' | 'pending' | 'approved'
+  approvalStatus: 'draft' | 'pending' | 'approved' | 'rejected'
   showStatusBadge?: boolean
   onComplete?: () => void
   floatingCta?: boolean
@@ -278,7 +278,7 @@ const EditProfileForm = ({
               </YStack>
               <YStack gap="$4">
                 {topSection}
-                <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                <Card bordered bw={1} boc="$black1" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
                       <SizableText size="$5" fontWeight="700">
@@ -307,7 +307,7 @@ const EditProfileForm = ({
                     <NationalityField />
                   </YStack>
                 </Card>
-                <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                <Card bordered bw={1} boc="$black1" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
                       <SizableText size="$5" fontWeight="700">
@@ -334,7 +334,7 @@ const EditProfileForm = ({
                     </XStack>
                   </YStack>
                 </Card>
-                <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+                <Card bordered bw={1} boc="$black1" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
                       <SizableText size="$5" fontWeight="700">
@@ -436,9 +436,10 @@ const buildProfileDisplayName = (initial: ProfileFormInitial) => {
   return name || 'Member profile'
 }
 
-const buildProfileStatusLabel = (status: 'draft' | 'pending' | 'approved') => {
+const buildProfileStatusLabel = (status: 'draft' | 'pending' | 'approved' | 'rejected') => {
   if (status === 'approved') return 'Membership Active'
   if (status === 'draft') return 'Setup incomplete'
+  if (status === 'rejected') return 'Application not approved'
   return 'Review pending'
 }
 
@@ -591,7 +592,7 @@ export const AdminProfileEditScreen = ({
   }
 
   const roleSection = (
-    <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
+    <Card bordered bw={1} boc="$black1" br="$5" p="$4">
       <YStack gap="$3">
         <YStack gap="$1">
           <SizableText size="$5" fontWeight="700">

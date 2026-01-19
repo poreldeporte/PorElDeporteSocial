@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Keyboard, TouchableWithoutFeedback } from 'react-native'
 
 import {
   Button,
@@ -66,6 +67,7 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
       toast.show('Enter a valid phone number.')
       return
     }
+    Keyboard.dismiss()
     mutation.mutate({
       gameId,
       firstName: trimmedFirstName,
@@ -94,100 +96,111 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
         zIndex={0}
       />
       <Sheet.Frame backgroundColor="$background">
-        <YStack px="$4" pt="$4" pb="$3" gap="$2.5">
-          <XStack ai="center" jc="space-between" gap="$2">
-            <YStack gap="$0.5" flex={1} minWidth={0}>
-              <SizableText size="$6" fontWeight="700">
-                Add guest
-              </SizableText>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <YStack flex={1}>
+            <YStack px="$4" pt="$4" pb="$3" gap="$2.5">
+              <XStack ai="center" jc="space-between" gap="$2">
+                <YStack gap="$0.5" flex={1} minWidth={0}>
+                  <SizableText size="$6" fontWeight="700">
+                    Add guest
+                  </SizableText>
+                  <Paragraph theme="alt2" size="$2">
+                    Add a one-time guest to this game.
+                  </Paragraph>
+                </YStack>
+                <Button chromeless size="$2" onPress={() => onOpenChange(false)}>
+                  Close
+                </Button>
+              </XStack>
               <Paragraph theme="alt2" size="$2">
-                Add a one-time guest to this game.
+                Max 4 guests per member per game.
               </Paragraph>
+              <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
             </YStack>
-            <Button chromeless size="$2" onPress={() => onOpenChange(false)}>
-              Close
-            </Button>
-          </XStack>
-          <Paragraph theme="alt2" size="$2">
-            Max 4 guests per member per game.
-          </Paragraph>
-          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
-        </YStack>
-        <Separator />
-        <YStack px="$4" py="$3" gap="$3">
-          <YStack gap="$1">
-            <Paragraph fontWeight="600">First name</Paragraph>
-            <Input
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="First name"
-              placeholderTextColor="$color10"
-              autoCapitalize="words"
-              borderRadius={12}
-              borderColor="$borderColor"
-              backgroundColor="$color1"
-            />
+            <Separator />
+            <YStack px="$4" py="$3" gap="$3">
+              <YStack gap="$1">
+                <Paragraph fontWeight="600">First name</Paragraph>
+                <Input
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="First name"
+                  placeholderTextColor="$color10"
+                  autoCapitalize="words"
+                  borderRadius={12}
+                  borderColor="$borderColor"
+                  backgroundColor="$color1"
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+              </YStack>
+              <YStack gap="$1">
+                <Paragraph fontWeight="600">Last name</Paragraph>
+                <Input
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Last name"
+                  placeholderTextColor="$color10"
+                  autoCapitalize="words"
+                  borderRadius={12}
+                  borderColor="$borderColor"
+                  backgroundColor="$color1"
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+              </YStack>
+              <YStack gap="$1">
+                <Paragraph fontWeight="600">Phone number</Paragraph>
+                <XStack
+                  ai="center"
+                  gap="$2"
+                  borderRadius={12}
+                  borderColor="$borderColor"
+                  borderWidth={1}
+                  backgroundColor="$color1"
+                  px="$3"
+                  py="$2"
+                >
+                  <Text fontSize={16} fontWeight="700">
+                    +1
+                  </Text>
+                  <UsPhoneMaskInput
+                    value={phone}
+                    onChange={setPhone}
+                    textProps={{ fontSize: 16, color: '$color' }}
+                    inputProps={{
+                      selectionColor: BRAND_COLORS.primary,
+                      caretColor: BRAND_COLORS.primary,
+                    }}
+                  />
+                </XStack>
+              </YStack>
+              <YStack gap="$1">
+                <Paragraph fontWeight="600">Style of play (optional)</Paragraph>
+                <TextArea
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Quick notes for the draft"
+                  placeholderTextColor="$color10"
+                  borderRadius={12}
+                  borderColor="$borderColor"
+                  backgroundColor="$color1"
+                  minHeight={100}
+                  maxLength={280}
+                />
+              </YStack>
+              <Button
+                size="$3"
+                br="$10"
+                disabled={!canSubmit}
+                onPress={handleSubmit}
+                iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
+              >
+                {mutation.isPending ? 'Adding…' : 'Add guest'}
+              </Button>
+            </YStack>
           </YStack>
-          <YStack gap="$1">
-            <Paragraph fontWeight="600">Last name</Paragraph>
-            <Input
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Last name"
-              placeholderTextColor="$color10"
-              autoCapitalize="words"
-              borderRadius={12}
-              borderColor="$borderColor"
-              backgroundColor="$color1"
-            />
-          </YStack>
-          <YStack gap="$1">
-            <Paragraph fontWeight="600">Phone number</Paragraph>
-            <XStack
-              ai="center"
-              gap="$2"
-              borderRadius={12}
-              borderColor="$borderColor"
-              borderWidth={1}
-              backgroundColor="$color1"
-              px="$3"
-              py="$2"
-            >
-              <Text fontSize={16} fontWeight="700">
-                +1
-              </Text>
-              <UsPhoneMaskInput
-                value={phone}
-                onChange={setPhone}
-                textProps={{ fontSize: 16, color: '$color' }}
-                inputProps={{ selectionColor: BRAND_COLORS.primary, caretColor: BRAND_COLORS.primary }}
-              />
-            </XStack>
-          </YStack>
-          <YStack gap="$1">
-            <Paragraph fontWeight="600">Style of play (optional)</Paragraph>
-            <TextArea
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Quick notes for the draft"
-              placeholderTextColor="$color10"
-              borderRadius={12}
-              borderColor="$borderColor"
-              backgroundColor="$color1"
-              minHeight={100}
-              maxLength={280}
-            />
-          </YStack>
-          <Button
-            size="$3"
-            br="$10"
-            disabled={!canSubmit}
-            onPress={handleSubmit}
-            iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
-          >
-            {mutation.isPending ? 'Adding…' : 'Add guest'}
-          </Button>
-        </YStack>
+        </TouchableWithoutFeedback>
       </Sheet.Frame>
     </Sheet>
   )

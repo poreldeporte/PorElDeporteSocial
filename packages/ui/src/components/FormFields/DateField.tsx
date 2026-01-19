@@ -30,6 +30,10 @@ export const DateField = (props: Pick<InputProps, 'size'>) => {
       : rawErrorMessage
 
   const inputRef = useRef<HTMLInputElement>(null) // Initialize with null
+  const safeDateValue =
+    field.value?.dateValue && Number.isFinite(field.value.dateValue.getTime())
+      ? field.value.dateValue
+      : undefined
 
   useImperativeHandle(field.ref, () => inputRef.current) // Access the current value
 
@@ -46,10 +50,19 @@ export const DateField = (props: Pick<InputProps, 'size'>) => {
               <DatePickerExample
                 disabled={disabled}
                 placeholderTextColor="$color10"
-                value={field.value?.dateValue ? field.value.dateValue.toISOString() : undefined}
-                onChangeText={(dateValue) =>
-                  field.onChange({ ...(field.value ?? {}), dateValue: new Date(dateValue) })
-                }
+                value={safeDateValue ? safeDateValue.toISOString() : undefined}
+                onChangeText={(dateValue) => {
+                  if (!dateValue) {
+                    field.onChange({ ...(field.value ?? {}), dateValue: undefined })
+                    return
+                  }
+                  const next = new Date(dateValue)
+                  if (!Number.isFinite(next.getTime())) {
+                    field.onChange({ ...(field.value ?? {}), dateValue: undefined })
+                    return
+                  }
+                  field.onChange({ ...(field.value ?? {}), dateValue: next })
+                }}
                 onBlur={field.onBlur}
                 ref={inputRef}
                 placeholder=""

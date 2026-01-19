@@ -256,3 +256,25 @@ export const notifyGuestNeedsConfirmation = async ({
     data: { url: toGameUrl(gameId) },
   })
 }
+
+export const notifyTardyMarked = async ({
+  supabaseAdmin,
+  gameId,
+  profileId,
+  guestName,
+}: NotifyOptions & { profileId: string; guestName?: string | null }) => {
+  const game = await fetchGameSummary(supabaseAdmin, gameId)
+  if (!game) return
+
+  const guestLabel = guestName?.trim()
+  const title = guestLabel ? `Tardy noted for ${guestLabel}` : `Tardy noted: ${game.name}`
+  const body = guestLabel
+    ? `Your guest was marked tardy for ${game.name}.`
+    : 'You were marked tardy for this game.'
+
+  await sendPushToUserIds(supabaseAdmin, [profileId], {
+    title,
+    body,
+    data: { url: toGameUrl(gameId) },
+  })
+}

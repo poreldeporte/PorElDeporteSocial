@@ -10,6 +10,7 @@ import {
   Text,
   XStack,
   YStack,
+  type ColorTokens,
 } from '@my/ui/public'
 import { ChevronDown } from '@tamagui/lucide-icons'
 import { BRAND_COLORS } from 'app/constants/colors'
@@ -32,6 +33,8 @@ type CountryPickerProps = {
   placeholder?: string
   popularCountries?: PhoneCountryOption['code'][]
   showLabel?: boolean
+  triggerTextColor?: ColorTokens | string
+  triggerIconColor?: ColorTokens | string
 }
 
 export const CountryPicker = ({
@@ -46,6 +49,8 @@ export const CountryPicker = ({
   placeholder = 'Select country',
   popularCountries = DEFAULT_POPULAR_COUNTRIES,
   showLabel = true,
+  triggerTextColor,
+  triggerIconColor,
 }: CountryPickerProps) => {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -74,12 +79,14 @@ export const CountryPicker = ({
     setQuery('')
   }
 
+  const isCountry = variant === 'country'
   const showDialCode = variant === 'dial'
   const triggerLabel = selectedOption
     ? showDialCode
       ? `+${selectedOption.callingCode}`
       : selectedOption.name
     : placeholder
+  const iconColor = triggerIconColor ?? '$color10'
 
   return (
     <>
@@ -89,18 +96,30 @@ export const CountryPicker = ({
         disabled={disabled}
         padding={0}
         flexShrink={0}
-        alignSelf={variant === 'country' ? 'flex-start' : 'center'}
+        alignSelf={isCountry ? 'stretch' : 'center'}
+        width={isCountry ? '100%' : undefined}
         backgroundColor="transparent"
         pressStyle={{ opacity: 0.7 }}
       >
-        <XStack ai="center" gap="$1">
-          {selectedOption ? <Text fontSize={17}>{selectedOption.flag}</Text> : null}
-          {showLabel ? (
-            <Text fontSize={17} fontWeight="700">
-              {triggerLabel}
-            </Text>
-          ) : null}
-          <ChevronDown size={16} color="$color10" />
+        <XStack
+          ai="center"
+          gap="$1"
+          flex={isCountry ? 1 : undefined}
+          justifyContent={isCountry ? 'space-between' : 'flex-start'}
+        >
+          <XStack ai="center" gap="$1" flexShrink={1} minWidth={0}>
+            {selectedOption ? (
+              <Text fontSize={17} color={triggerTextColor}>
+                {selectedOption.flag}
+              </Text>
+            ) : null}
+            {showLabel ? (
+              <Text fontSize={17} fontWeight="700" color={triggerTextColor}>
+                {triggerLabel}
+              </Text>
+            ) : null}
+          </XStack>
+          <ChevronDown size={16} color={iconColor} />
         </XStack>
       </Button>
       <Sheet

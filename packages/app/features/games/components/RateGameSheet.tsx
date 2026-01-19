@@ -52,6 +52,7 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
 
   const submit = () => {
     if (!rating || mutation.isPending) return
+    Keyboard.dismiss()
     mutation.mutate({ gameId, rating, comment })
   }
 

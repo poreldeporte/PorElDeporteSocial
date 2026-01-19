@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { Check as CheckIcon } from '@tamagui/lucide-icons'
 import { Controller, useForm } from 'react-hook-form'
 import { SolitoImage } from 'solito/image'
 import { useRouter } from 'solito/router'
 
 import {
   Button,
+  Checkbox,
   FieldError,
   FormWrapper,
   H2,
@@ -19,6 +21,7 @@ import {
   YStack,
   submitButtonBaseProps,
 } from '@my/ui/public'
+
 import { pedLogo } from 'app/assets'
 import { CountryPicker } from 'app/components/CountryPicker'
 import { UsPhoneMaskInput } from 'app/components/UsPhoneMaskInput'
@@ -65,6 +68,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const [status, setStatus] = useState<'idle' | 'sending' | 'verifying'>('idle')
   const [country, setCountry] = useState<PhoneCountryOption['code']>(DEFAULT_COUNTRY)
   const [resendSeconds, setResendSeconds] = useState(0)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const phoneForm = useForm<PhoneValues>({ defaultValues: { phone: '' } })
   const codeForm = useForm<CodeValues>({ defaultValues: { code: '' } })
   const countryOptions = getPhoneCountryOptions()
@@ -79,6 +83,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
     setPhone(null)
     setStatus('idle')
     setResendSeconds(0)
+    setTermsAccepted(false)
     phoneForm.reset({ phone: '' })
     codeForm.reset({ code: '' })
   }, [codeForm, pathname, phoneForm])
@@ -184,7 +189,10 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
 
   const phoneDisplay = phone ? formatPhoneDisplay(phone) : 'your number'
   const contentPaddingTop = SCREEN_CONTENT_PADDING.top
-  const submitDisabled = status !== 'idle'
+  const submitDisabled = status !== 'idle' || (step === 'phone' && !termsAccepted)
+  const submitButtonStyle = submitDisabled
+    ? { backgroundColor: '$color4', borderColor: '$color4', color: '$color11' }
+    : { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary, color: '$background' }
 
   return (
     <YStack f={1} bg="$color1">
@@ -281,6 +289,8 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
             {...submitButtonBaseProps}
             onPress={step === 'phone' ? handleSendCode : handleVerifyCode}
             disabled={submitDisabled}
+            {...submitButtonStyle}
+            o={submitDisabled ? 0.7 : 1}
           >
             {step === 'phone'
               ? status === 'sending'
@@ -290,7 +300,9 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
                 ? 'Verifying…'
                 : 'Verify'}
           </Button>
-          {step === 'phone' ? <TermsNotice /> : null}
+          {step === 'phone' ? (
+            <TermsAgreement checked={termsAccepted} onCheckedChange={setTermsAccepted} />
+          ) : null}
         </FormWrapper.Footer>
         {(isLoadingSession || status !== 'idle') && <LoadingOverlay />}
       </FormWrapper>
@@ -322,22 +334,44 @@ const AuthHeader = ({ title, subtitle }: AuthHeaderProps) => (
   </YStack>
 )
 
-const TermsNotice = () => (
-  <XStack gap="$1" jc="center" flexWrap="wrap">
-    <SizableText fontSize={12} theme="alt2" textAlign="center">
-      By continuing, you agree to the
-    </SizableText>
-    <Link href="/terms-of-service" textDecorationLine="underline" color={PRIMARY_COLOR} fontSize={12}>
-      Terms
-    </Link>
-    <SizableText fontSize={12} theme="alt2" textAlign="center">
-      and
-    </SizableText>
-    <Link href="/privacy-policy" textDecorationLine="underline" color={PRIMARY_COLOR} fontSize={12}>
-      Privacy Policy.
-    </Link>
-  </XStack>
-)
+const TermsAgreement = ({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean
+  onCheckedChange: (next: boolean) => void
+}) => {
+  const toggle = () => onCheckedChange(!checked)
+
+  return (
+    <XStack gap="$2" jc="center" ai="center">
+      <Checkbox
+        id="auth-terms"
+        size="$4"
+        checked={checked}
+        borderWidth={2}
+        borderColor={checked ? PRIMARY_COLOR : '$color11'}
+        backgroundColor={checked ? PRIMARY_COLOR : '$color2'}
+        onCheckedChange={(next) => onCheckedChange(next === true)}
+        aria-label="Agree to Terms and Privacy Policy"
+      >
+        <Checkbox.Indicator>
+          <CheckIcon size={16} color="$color1" />
+        </Checkbox.Indicator>
+      </Checkbox>
+      <Text size="$2" theme="alt2" textAlign="center" flexShrink={1}>
+        <Text onPress={toggle}>I agree to the </Text>
+        <Link href="/terms-of-service" textDecorationLine="underline" color={PRIMARY_COLOR} fontSize={12}>
+          Terms
+        </Link>
+        <Text onPress={toggle}> and </Text>
+        <Link href="/privacy-policy" textDecorationLine="underline" color={PRIMARY_COLOR} fontSize={12}>
+          Privacy Policy.
+        </Link>
+      </Text>
+    </XStack>
+  )
+}
 
 type PhoneInputFieldProps = {
   value: string

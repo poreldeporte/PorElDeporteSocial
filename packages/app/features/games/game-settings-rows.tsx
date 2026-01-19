@@ -318,6 +318,8 @@ export const SettingRowDate = <T extends FieldValues>({
   const { field, fieldState } = useController({ control, name })
   const disabled = formState.isSubmitting
   const value = field.value as { dateValue?: Date } | undefined
+  const safeDateValue =
+    value?.dateValue && Number.isFinite(value.dateValue.getTime()) ? value.dateValue : undefined
   const errorMessage =
     (fieldState.error as { dateValue?: { message?: string } } | undefined)?.dateValue?.message ??
     fieldState.error?.message
@@ -327,10 +329,19 @@ export const SettingRowDate = <T extends FieldValues>({
       <YStack width={width} maxWidth="60%">
         <DatePickerExample
           disabled={disabled}
-          value={value?.dateValue ? value.dateValue.toISOString() : undefined}
-          onChangeText={(dateValue) =>
-            field.onChange({ ...(value ?? {}), dateValue: new Date(dateValue) })
-          }
+          value={safeDateValue ? safeDateValue.toISOString() : undefined}
+          onChangeText={(dateValue) => {
+            if (!dateValue) {
+              field.onChange({ ...(value ?? {}), dateValue: undefined })
+              return
+            }
+            const next = new Date(dateValue)
+            if (!Number.isFinite(next.getTime())) {
+              field.onChange({ ...(value ?? {}), dateValue: undefined })
+              return
+            }
+            field.onChange({ ...(value ?? {}), dateValue: next })
+          }}
           onBlur={field.onBlur}
           id={`date-${String(name)}`}
         />

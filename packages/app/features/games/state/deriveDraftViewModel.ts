@@ -44,6 +44,8 @@ export type DraftViewModelArgs = {
 
 export type DraftViewModel = ReturnType<typeof deriveDraftViewModel>
 
+const ORIGINAL_PICK_SEQUENCE = [0, 1, 0, 1, 0, 1, 1, 0, 1, 0]
+
 const sortRostered = (entries: QueueEntry[]) =>
   [...entries].sort(
     (a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
@@ -83,6 +85,7 @@ export const deriveDraftViewModel = ({
   isCaptainTurn,
 }: DraftViewModelArgs) => {
   const draftStatus = gameDetail?.draftStatus ?? gameMeta?.draft_status ?? 'pending'
+  const draftStyle = gameDetail?.draftStyle ?? 'snake'
   const captains = gameDetail?.captains ?? []
   const captainIds = new Set(captains.map((captain) => captain.profileId))
 
@@ -112,7 +115,15 @@ export const deriveDraftViewModel = ({
   const currentRound = Math.max(1, Math.ceil(pickNumberWithPending / teamCount))
 
   const nextTeam = (() => {
-    if (!teams.length || typeof gameMeta?.draft_turn !== 'number') return null
+    if (!teams.length) return null
+    if (draftStyle === 'original') {
+      if (teams.length !== 2) return null
+      const nextIndex = pickNumberWithPending
+      const nextTeamIndex = ORIGINAL_PICK_SEQUENCE[nextIndex]
+      if (typeof nextTeamIndex !== 'number') return null
+      return teams.find((team) => team.draft_order === nextTeamIndex) ?? null
+    }
+    if (typeof gameMeta?.draft_turn !== 'number') return null
     let nextTurn = gameMeta.draft_turn + (gameMeta.draft_direction ?? 1)
     let nextDirection = gameMeta.draft_direction ?? 1
     if (nextTurn >= teams.length) {

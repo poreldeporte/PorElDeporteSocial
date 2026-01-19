@@ -1,5 +1,5 @@
 export type ProfileApproval = {
-  approval_status: 'draft' | 'pending' | 'approved' | null
+  approval_status: 'draft' | 'pending' | 'approved' | 'rejected' | null
 }
 
 export const PROFILE_APPROVAL_FIELDS = 'approval_status'

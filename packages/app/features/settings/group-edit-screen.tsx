@@ -229,80 +229,88 @@ export const GroupEditScreen = ({
           </YStack>
 
           <YStack gap="$3">
-            <YStack gap="$1">
-              <SizableText size="$4" fontWeight="600">
-                Group name
-              </SizableText>
-              <Input
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. Wednesday Squad"
-                placeholderTextColor="$color10"
-                autoCapitalize="words"
-                autoCorrect={false}
-                borderRadius={12}
-                borderColor="$borderColor"
-                backgroundColor="$background"
-                color="$color"
-              />
-            </YStack>
-
-            <YStack gap="$1">
-              <SizableText size="$4" fontWeight="600">
-                Members ({selectedCount})
-              </SizableText>
-              <Paragraph theme="alt2" size="$2">
-                Removing members also removes them from upcoming group games.
-              </Paragraph>
-            </YStack>
-
-            {membersQuery.isLoading ? (
-              <Paragraph theme="alt2">Loading members…</Paragraph>
-            ) : membersQuery.isError ? (
-              <Paragraph theme="alt2">Unable to load members.</Paragraph>
-            ) : members.length === 0 ? (
-              <Paragraph theme="alt2">No approved members yet.</Paragraph>
-            ) : (
-              <YStack gap="$2">
-                {members.map((member) => {
-                  const selected = selectedIds.has(member.id)
-                  const phoneLabel = formatPhoneDisplay(member.phone)
-                  return (
-                    <Card
-                      key={member.id}
-                      bordered
-                      $platform-native={{ borderWidth: 0 }}
-                      p="$3"
-                      onPress={() => toggleMember(member.id)}
-                      pressStyle={{ opacity: 0.8 }}
-                    >
-                      <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-                        <YStack gap="$0.5" flex={1} minWidth={200}>
-                          <SizableText size="$4" fontWeight="600">
-                            {buildMemberName(member)}
-                          </SizableText>
-                          {phoneLabel ? (
-                            <Paragraph theme="alt2" size="$2">
-                              {phoneLabel}
-                            </Paragraph>
-                          ) : null}
-                        </YStack>
-                        <Button
-                          chromeless
-                          size="$3"
-                          icon={selected ? Check : Plus}
-                          aria-label={selected ? 'Remove member' : 'Add member'}
-                          onPress={(event) => {
-                            event?.stopPropagation?.()
-                            toggleMember(member.id)
-                          }}
-                        />
-                      </XStack>
-                    </Card>
-                  )
-                })}
+            <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+              <YStack gap="$1">
+                <SizableText size="$4" fontWeight="600">
+                  Group name
+                </SizableText>
+                <Input
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. Wednesday Squad"
+                  placeholderTextColor="$color10"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  borderRadius={12}
+                  borderColor="$borderColor"
+                  backgroundColor="$background"
+                  color="$color"
+                />
               </YStack>
-            )}
+            </Card>
+
+            <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+              <YStack gap="$1">
+                <SizableText size="$4" fontWeight="600">
+                  Members ({selectedCount})
+                </SizableText>
+                <Paragraph theme="alt2" size="$2">
+                  Removing members also removes them from upcoming group games.
+                </Paragraph>
+              </YStack>
+
+              <YStack mt="$3">
+                {membersQuery.isLoading ? (
+                  <Paragraph theme="alt2">Loading members…</Paragraph>
+                ) : membersQuery.isError ? (
+                  <Paragraph theme="alt2">Unable to load members.</Paragraph>
+                ) : members.length === 0 ? (
+                  <Paragraph theme="alt2">No approved members yet.</Paragraph>
+                ) : (
+                  <YStack gap="$2">
+                    {members.map((member) => {
+                      const selected = selectedIds.has(member.id)
+                      const phoneLabel = formatPhoneDisplay(member.phone)
+                      return (
+                        <Card
+                          key={member.id}
+                          bordered
+                          bw={1}
+                          boc="$black1"
+                          br="$5"
+                          p="$3"
+                          onPress={() => toggleMember(member.id)}
+                          pressStyle={{ opacity: 0.8 }}
+                        >
+                          <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
+                            <YStack gap="$0.5" flex={1} minWidth={200}>
+                              <SizableText size="$4" fontWeight="600">
+                                {buildMemberName(member)}
+                              </SizableText>
+                              {phoneLabel ? (
+                                <Paragraph theme="alt2" size="$2">
+                                  {phoneLabel}
+                                </Paragraph>
+                              ) : null}
+                            </YStack>
+                            <Button
+                              chromeless
+                              size="$3"
+                              icon={selected ? Check : Plus}
+                              aria-label={selected ? 'Remove member' : 'Add member'}
+                              onPress={(event) => {
+                                event?.stopPropagation?.()
+                                toggleMember(member.id)
+                              }}
+                            />
+                          </XStack>
+                        </Card>
+                      )
+                    })}
+                  </YStack>
+                )}
+              </YStack>
+            </Card>
 
             {showFloatingCta ? null : (
               <Button mt="$2" disabled={saveDisabled} onPress={handleSave}>

@@ -29,7 +29,8 @@ const Page: NextPageWithLayout = () => {
       py={0}
       height="$4"
       width="$4"
-      aria-label="Reset draft"
+      aria-label="Reset draft (admin only)"
+      title="Reset draft (admin only)"
       pressStyle={{ opacity: 0.7 }}
       onPress={() => setResetConfirmOpen(true)}
     >

@@ -199,7 +199,7 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
               const detailLine = [roleLabel, phoneLabel].filter(Boolean).join(' · ')
               const canRemove = isOwner
               return (
-                <Card key={member.id} bordered $platform-native={{ borderWidth: 0 }} p="$4" gap="$3">
+                <Card key={member.id} bordered bw={1} boc="$black1" p="$4" gap="$3">
                   <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
                     <XStack ai="center" gap="$3" flex={1} minWidth={220}>
                       <Avatar circular size="$3" bg="$color3">

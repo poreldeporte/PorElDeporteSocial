@@ -1,21 +1,27 @@
 import { useMemo } from 'react'
 
-import { Button, Paragraph, Separator, Sheet, SizableText, XStack, YStack } from '@my/ui/public'
+import { Paragraph, Separator, Sheet, SizableText, XStack, YStack } from '@my/ui/public'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { formatPhoneDisplay } from 'app/utils/phone'
 
-import type { QueueEntry } from '../types'
+import type { GameStatus, QueueEntry } from '../types'
 import { RecentFormChips } from './RecentFormChips'
 
 type RosterPlayerSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   entry: QueueEntry | null
+  gameStatus?: GameStatus
 }
 
-export const RosterPlayerSheet = ({ open, onOpenChange, entry }: RosterPlayerSheetProps) => {
+export const RosterPlayerSheet = ({
+  open,
+  onOpenChange,
+  entry,
+  gameStatus,
+}: RosterPlayerSheetProps) => {
   const profileId = entry?.profileId ?? null
   const leaderboardQuery = api.stats.leaderboard.useQuery(undefined, {
     enabled: open && Boolean(profileId),
@@ -34,17 +40,22 @@ export const RosterPlayerSheet = ({ open, onOpenChange, entry }: RosterPlayerShe
 
   if (!entry) return null
 
+  const isCompleted = gameStatus === 'completed'
   const isGuest = entry.isGuest
   const name = isGuest ? entry.guest?.name?.trim() || 'Guest' : entry.player.name ?? 'Player'
   const avatarUrl = isGuest ? null : entry.player.avatarUrl ?? null
-  const statusLabel =
-    entry.status === 'rostered'
-      ? entry.attendanceConfirmedAt
-        ? 'Confirmed'
-        : 'Rostered'
-      : entry.status === 'waitlisted'
-        ? 'Waitlisted'
-        : 'Dropped'
+  const statusLabel = entry.noShowAt
+    ? 'No-show'
+    : entry.tardyAt
+      ? 'Tardy'
+      : entry.status === 'rostered'
+        ? isCompleted || entry.attendanceConfirmedAt
+          ? 'Confirmed'
+          : 'Rostered'
+        : entry.status === 'waitlisted'
+          ? 'Waitlisted'
+          : 'Dropped'
+  const statusColor = entry.noShowAt ? '$red10' : entry.tardyAt ? '$yellow10' : undefined
   const guestPhone = isGuest ? formatPhoneDisplay(entry.guest?.phone) : null
   const guestAddedBy = isGuest ? entry.guest?.addedByName?.trim() : null
   const guestNotes = isGuest ? entry.guest?.notes?.trim() : null
@@ -82,7 +93,7 @@ export const RosterPlayerSheet = ({ open, onOpenChange, entry }: RosterPlayerShe
                   <SizableText size="$6" fontWeight="700" numberOfLines={1} flex={1} minWidth={0}>
                     {name}
                   </SizableText>
-                  <Paragraph theme="alt2" size="$2">
+                  <Paragraph theme="alt2" size="$2" color={statusColor}>
                     {statusLabel}
                   </Paragraph>
                 </XStack>

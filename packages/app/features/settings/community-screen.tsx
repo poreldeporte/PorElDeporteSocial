@@ -51,14 +51,14 @@ const SECTION_LETTER_SPACING = 1.6
 
 const CommunitySettingsSchema = z.object({
   community_timezone: formFields.text.describe('Community timezone // America/New_York'),
-  community_priority_enabled: formFields.boolean_switch.describe('Community priority'),
+  community_priority_enabled: formFields.boolean_switch.describe('Prioritize members over guests'),
   confirmation_window_hours_before_kickoff: formFields.number
     .min(0)
     .describe('Confirmation window (hours) // 24'),
-  confirmation_reminders_local_times: formFields.text.describe('Confirmation reminders // HH:MM, HH:MM'),
+  confirmation_reminders_local_times: formFields.text.describe('Confirmation reminders (local) // 09:00, 12:00, 15:00'),
   crunch_time_enabled: formFields.boolean_switch.describe('Crunch time enabled'),
-  crunch_time_start_time_local: formFields.text.min(1).describe('Crunch time start // 17:00'),
-  game_notification_times_local: formFields.text.describe('Game notifications // HH:MM, HH:MM'),
+  crunch_time_start_time_local: formFields.text.min(1).describe('Crunch time start (local) // 17:00'),
+  game_notification_times_local: formFields.text.describe('Game notifications (local) // 09:00, 12:00'),
 })
 
 type CommunitySettingsValues = z.infer<typeof CommunitySettingsSchema>
@@ -184,12 +184,12 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
                   Community settings
                 </SizableText>
                 <Paragraph theme="alt2" size="$3">
-                  Defaults apply to all new games unless overridden.
+                  Defaults apply to all new games. Existing games keep their own settings.
                 </Paragraph>
               </YStack>
               <SettingSection
                 title="General"
-                note="Set the community timezone and roster priority for guests."
+                note="Set the community timezone and roster priority. All times below use this timezone."
               >
                 <SettingRowText
                   name="community_timezone"
@@ -198,12 +198,12 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
                 />
                 <SettingRowSwitch
                   name="community_priority_enabled"
-                  label="Community priority"
+                  label="Prioritize members over guests"
                 />
               </SettingSection>
               <SettingSection
                 title="Confirmations"
-                note="Players can confirm within the window, and reminders send at the times below."
+                note="Players can confirm within the window. Reminders send at the times below."
               >
                 <SettingRowNumber
                   name="confirmation_window_hours_before_kickoff"
@@ -213,14 +213,14 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
                 />
                 <SettingRowText
                   name="confirmation_reminders_local_times"
-                  label="Confirmation reminder times"
-                  placeholder="HH:MM, HH:MM"
+                  label="Confirmation reminder times (local)"
+                  placeholder="09:00, 12:00, 15:00"
                   width={160}
                 />
               </SettingSection>
               <SettingSection
                 title="Crunch time"
-                note="Enable crunch time to let waitlisted players grab open spots at the start time."
+                note="Crunch time opens unclaimed spots to the waitlist at the start time."
               >
                 <SettingRowSwitch name="crunch_time_enabled" label="Crunch time enabled" />
                 <CrunchTimeStartRow />
@@ -231,13 +231,13 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
               >
                 <SettingRowText
                   name="game_notification_times_local"
-                  label="Game notification times"
-                  placeholder="HH:MM, HH:MM"
+                  label="Game notification times (local)"
+                  placeholder="09:00, 12:00"
                   width={160}
                 />
               </SettingSection>
-              <SettingSection title="Members" note="Review approvals and member access.">
-                <SettingRow label="Review members">
+              <SettingSection title="Admin tools" note="Quick links for member approvals and groups.">
+                <SettingRow label="Member approvals">
                   <Button
                     chromeless
                     size="$2"
@@ -246,14 +246,9 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
                     pressStyle={{ opacity: 0.7 }}
                     onPress={() => router.push('/admin/approvals')}
                   >
-                    Open
+                    Review
                   </Button>
                 </SettingRow>
-              </SettingSection>
-              <SettingSection
-                title="Groups"
-                note="Create private audiences for games."
-              >
                 <SettingRow label="Manage groups">
                   <Button
                     chromeless
@@ -263,7 +258,7 @@ export const CommunitySettingsScreen = ({ scrollProps, headerSpacer, topInset }:
                     pressStyle={{ opacity: 0.7 }}
                     onPress={() => router.push('/settings/groups')}
                   >
-                    Open
+                    Manage
                   </Button>
                 </SettingRow>
               </SettingSection>
@@ -487,12 +482,18 @@ const CrunchTimeStartRow = () => {
   const { watch } = useFormContext<CommunitySettingsValues>()
   const crunchEnabled = Boolean(watch('crunch_time_enabled'))
   return (
-    <SettingRowText
-      name="crunch_time_start_time_local"
-      label="Crunch time start"
-      placeholder="17:00"
-      width={120}
-      disabled={!crunchEnabled}
-    />
+    <YStack gap="$1">
+      <Paragraph theme="alt2" size="$2">
+        Crunch time start is the cutoff. After this time, waitlisted players can claim open spots.
+        First to open and claim takes it.
+      </Paragraph>
+      <SettingRowText
+        name="crunch_time_start_time_local"
+        label="Crunch time start"
+        placeholder="17:00"
+        width={120}
+        disabled={!crunchEnabled}
+      />
+    </YStack>
   )
 }

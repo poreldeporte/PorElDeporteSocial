@@ -1,4 +1,5 @@
 import type { IconProps } from '@tamagui/helpers-icon'
+import { Platform } from 'react-native'
 import { SizableText, XStack, YStack, useTheme } from '@my/ui/public'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
@@ -10,6 +11,7 @@ export type HeaderAction = {
   icon: IconComponent
   onPress?: () => void
   variant?: 'light' | 'dark'
+  label?: string
 }
 
 type AppTopBarProps = {
@@ -26,9 +28,17 @@ type CircleButtonProps = {
   icon?: IconComponent
   onPress?: () => void
   variant?: 'light' | 'dark'
+  accessibilityLabel?: string
+  title?: string
 }
 
-const CircleButton = ({ icon: Icon, onPress, variant = 'dark' }: CircleButtonProps) => {
+const CircleButton = ({
+  icon: Icon,
+  onPress,
+  variant = 'dark',
+  accessibilityLabel,
+  title,
+}: CircleButtonProps) => {
   if (!Icon) {
     return <YStack w={chromeTokens.buttonSize} h={chromeTokens.buttonSize} />
   }
@@ -44,6 +54,8 @@ const CircleButton = ({ icon: Icon, onPress, variant = 'dark' }: CircleButtonPro
       jc="center"
       bg={bg}
       onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+      title={title}
       pressStyle={{ opacity: 0.86, scale: 0.98 }}
       shadowColor={chromeTokens.shadowColor}
       shadowOpacity={chromeTokens.shadowOpacity}
@@ -91,6 +103,8 @@ export const AppTopBar = ({
                 icon={action.icon}
                 onPress={action.onPress}
                 variant={action.variant ?? rightVariant}
+                accessibilityLabel={action.label}
+                title={Platform.OS === 'web' ? action.label : undefined}
               />
             ))}
           </XStack>
