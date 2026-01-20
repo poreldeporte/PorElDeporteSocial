@@ -9,9 +9,9 @@
       "channel": "development",
       "env": {
         "APP_ENV": "development",
-        "EXPO_PUBLIC_URL": "https://unistack-next-delta.vercel.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ypcwgcajfhlcqevgvdvt.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwY3dnY2FqZmhsY3Fldmd2ZHZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY1ODE1OTAsImV4cCI6MjAzMjE1NzU5MH0.NDvbXoWOe4E8HFit2nDyh-TnIoqBhnGq1kc-L41VNGY"
+        "EXPO_PUBLIC_URL": "https://por-el-deporte-social-next.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ztvftjvxxjvsmoxdggpv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dmZ0anZ4eGp2c21veGRnZ3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwOTU4MDQsImV4cCI6MjA3NzY3MTgwNH0.pKzm05LE0zisG9y0YbQVyETTuJQ-gS_UBTXgDrtNiQ4"
       },
       "ios": {
         "simulator": true,
@@ -24,9 +24,9 @@
       "channel": "development",
       "env": {
         "APP_ENV": "development",
-        "EXPO_PUBLIC_URL": "https://unistack-next-delta.vercel.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ypcwgcajfhlcqevgvdvt.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwY3dnY2FqZmhsY3Fldmd2ZHZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY1ODE1OTAsImV4cCI6MjAzMjE1NzU5MH0.NDvbXoWOe4E8HFit2nDyh-TnIoqBhnGq1kc-L41VNGY"
+        "EXPO_PUBLIC_URL": "https://por-el-deporte-social-next.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ztvftjvxxjvsmoxdggpv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dmZ0anZ4eGp2c21veGRnZ3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwOTU4MDQsImV4cCI6MjA3NzY3MTgwNH0.pKzm05LE0zisG9y0YbQVyETTuJQ-gS_UBTXgDrtNiQ4"
       },
       "ios": {
         "image": "latest"
@@ -38,9 +38,9 @@
       "env": {
         "APP_ENV": "development",
         "NODE_ENV": "development",
-        "EXPO_PUBLIC_URL": "https://unistack-next-delta.vercel.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ypcwgcajfhlcqevgvdvt.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwY3dnY2FqZmhsY3Fldmd2ZHZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY1ODE1OTAsImV4cCI6MjAzMjE1NzU5MH0.NDvbXoWOe4E8HFit2nDyh-TnIoqBhnGq1kc-L41VNGY"
+        "EXPO_PUBLIC_URL": "https://por-el-deporte-social-next.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ztvftjvxxjvsmoxdggpv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dmZ0anZ4eGp2c21veGRnZ3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwOTU4MDQsImV4cCI6MjA3NzY3MTgwNH0.pKzm05LE0zisG9y0YbQVyETTuJQ-gS_UBTXgDrtNiQ4"
       },
       "android": {
         "buildType": "apk"
@@ -57,9 +57,9 @@
       },
       "env": {
         "APP_ENV": "staging",
-        "EXPO_PUBLIC_URL": "https://unistack-next-delta.vercel.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ypcwgcajfhlcqevgvdvt.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwY3dnY2FqZmhsY3Fldmd2ZHZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY1ODE1OTAsImV4cCI6MjAzMjE1NzU5MH0.NDvbXoWOe4E8HFit2nDyh-TnIoqBhnGq1kc-L41VNGY"
+        "EXPO_PUBLIC_URL": "https://por-el-deporte-social-next.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ztvftjvxxjvsmoxdggpv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dmZ0anZ4eGp2c21veGRnZ3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwOTU4MDQsImV4cCI6MjA3NzY3MTgwNH0.pKzm05LE0zisG9y0YbQVyETTuJQ-gS_UBTXgDrtNiQ4"
       },
       "ios": {
         "image": "latest"
@@ -74,9 +74,9 @@
       },
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_URL": "https://unistack-next-delta.vercel.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ypcwgcajfhlcqevgvdvt.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwY3dnY2FqZmhsY3Fldmd2ZHZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY1ODE1OTAsImV4cCI6MjAzMjE1NzU5MH0.NDvbXoWOe4E8HFit2nDyh-TnIoqBhnGq1kc-L41VNGY"
+        "EXPO_PUBLIC_URL": "https://por-el-deporte-social-next.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ztvftjvxxjvsmoxdggpv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dmZ0anZ4eGp2c21veGRnZ3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwOTU4MDQsImV4cCI6MjA3NzY3MTgwNH0.pKzm05LE0zisG9y0YbQVyETTuJQ-gS_UBTXgDrtNiQ4"
       },
       "ios": {
         "image": "latest"

@@ -146,3 +146,12 @@ export const formatPhoneDisplay = (value?: string | null) => {
   if (digits.length === 11 && digits.startsWith('1')) return formatUsDisplay(digits.slice(1))
   return `+${digits.slice(0, MAX_E164_DIGITS)}`
 }
+
+export const formatNationalityDisplay = (value?: string | null) => {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const option = getPhoneCountryOptions().find((country) => country.code === trimmed)
+  if (!option) return trimmed
+  return `${option.flag} ${option.name}`
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Keyboard, TouchableWithoutFeedback } from 'react-native'
+import { Star } from '@tamagui/lucide-icons'
 
 import {
   Button,
@@ -13,12 +14,17 @@ import {
   TextArea,
   XStack,
   YStack,
+  submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
 import { UsPhoneMaskInput } from 'app/components/UsPhoneMaskInput'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { api } from 'app/utils/api'
 import { parsePhoneToE164 } from 'app/utils/phone'
+
+import { ctaButtonStyles } from '../cta-styles'
+
+const STAR_VALUES = [1, 2, 3, 4, 5]
 
 type AddGuestSheetProps = {
   open: boolean
@@ -33,6 +39,7 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
+  const [rating, setRating] = useState(0)
 
   const mutation = api.queue.addGuest.useMutation({
     onSuccess: async ({ status }) => {
@@ -51,6 +58,7 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
     setLastName('')
     setPhone('')
     setNotes('')
+    setRating(0)
   }, [open])
 
   const trimmedFirstName = firstName.trim()
@@ -58,7 +66,12 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
   const trimmedPhone = phone.trim()
   const trimmedNotes = notes.trim()
   const canSubmit =
-    trimmedFirstName.length > 0 && trimmedLastName.length > 0 && trimmedPhone.length > 0 && !mutation.isPending
+    trimmedFirstName.length > 0 &&
+    trimmedLastName.length > 0 &&
+    trimmedPhone.length > 0 &&
+    rating > 0 &&
+    !mutation.isPending
+  const submitButtonStyle = canSubmit ? ctaButtonStyles.brandSolid : ctaButtonStyles.neutralSolid
 
   const handleSubmit = () => {
     if (!canSubmit) return
@@ -74,6 +87,7 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
       lastName: trimmedLastName,
       phone: normalizedPhone,
       notes: trimmedNotes || null,
+      rating,
     })
   }
 
@@ -95,7 +109,7 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
         exitStyle={{ opacity: 0 }}
         zIndex={0}
       />
-      <Sheet.Frame backgroundColor="$background">
+      <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <YStack flex={1}>
             <YStack px="$4" pt="$4" pb="$3" gap="$2.5">
@@ -119,36 +133,62 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
             </YStack>
             <Separator />
             <YStack px="$4" py="$3" gap="$3">
-              <YStack gap="$1">
-                <Paragraph fontWeight="600">First name</Paragraph>
-                <Input
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder="First name"
-                  placeholderTextColor="$color10"
-                  autoCapitalize="words"
-                  borderRadius={12}
-                  borderColor="$borderColor"
-                  backgroundColor="$color1"
-                  returnKeyType="done"
-                  onSubmitEditing={Keyboard.dismiss}
-                />
+              <YStack gap="$2">
+                <Paragraph fontWeight="600">Rating</Paragraph>
+                <XStack gap="$1" ai="center">
+                  {STAR_VALUES.map((value) => {
+                    const active = value <= rating
+                    return (
+                      <Button
+                        key={value}
+                        chromeless
+                        p="$1"
+                        onPress={() => setRating(value)}
+                        aria-label={`Rate ${value} stars`}
+                        pressStyle={{ opacity: 0.7 }}
+                      >
+                        <Star
+                          size={24}
+                          color={active ? BRAND_COLORS.primary : '$color8'}
+                          fill={active ? BRAND_COLORS.primary : 'transparent'}
+                        />
+                      </Button>
+                    )
+                  })}
+                </XStack>
               </YStack>
-              <YStack gap="$1">
-                <Paragraph fontWeight="600">Last name</Paragraph>
-                <Input
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder="Last name"
-                  placeholderTextColor="$color10"
-                  autoCapitalize="words"
-                  borderRadius={12}
-                  borderColor="$borderColor"
-                  backgroundColor="$color1"
-                  returnKeyType="done"
-                  onSubmitEditing={Keyboard.dismiss}
-                />
-              </YStack>
+              <XStack gap="$3">
+                <YStack gap="$1" flex={1} minWidth={0}>
+                  <Paragraph fontWeight="600">First name</Paragraph>
+                  <Input
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="First name"
+                    placeholderTextColor="$color10"
+                    autoCapitalize="words"
+                    borderRadius={12}
+                    borderColor="$borderColor"
+                    backgroundColor="$color1"
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                </YStack>
+                <YStack gap="$1" flex={1} minWidth={0}>
+                  <Paragraph fontWeight="600">Last name</Paragraph>
+                  <Input
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="Last name"
+                    placeholderTextColor="$color10"
+                    autoCapitalize="words"
+                    borderRadius={12}
+                    borderColor="$borderColor"
+                    backgroundColor="$color1"
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                </YStack>
+              </XStack>
               <YStack gap="$1">
                 <Paragraph fontWeight="600">Phone number</Paragraph>
                 <XStack
@@ -190,11 +230,11 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
                 />
               </YStack>
               <Button
-                size="$3"
-                br="$10"
+                {...submitButtonBaseProps}
                 disabled={!canSubmit}
                 onPress={handleSubmit}
                 iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
+                {...submitButtonStyle}
               >
                 {mutation.isPending ? 'Adding…' : 'Add guest'}
               </Button>

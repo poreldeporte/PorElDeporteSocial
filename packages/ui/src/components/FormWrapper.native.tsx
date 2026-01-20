@@ -59,8 +59,9 @@ type BodyProps = YStackProps & {
 }
 
 const Body = forwardRef<TamaguiElement, BodyProps>(function Body({ scrollProps, ...props }, ref) {
+  const { keyboardShouldPersistTaps = 'handled', ...scrollViewProps } = scrollProps ?? {}
   return (
-    <ScrollView {...scrollProps} f={1}>
+    <ScrollView keyboardShouldPersistTaps={keyboardShouldPersistTaps} {...scrollViewProps} f={1}>
       <YStack p="$4" ref={ref} gap="$2" pb="$8" {...props} />
     </ScrollView>
   )

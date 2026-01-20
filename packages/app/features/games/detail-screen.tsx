@@ -47,6 +47,7 @@ import {
   SectionTitle,
 } from './components'
 import { getGameCtaIcon, type GameCtaState } from './cta-icons'
+import { ctaButtonStyles } from './cta-styles'
 import { deriveCombinedStatus, deriveUserStateMessage, getConfirmCountdownLabel } from './status-helpers'
 import { useGameDetailState } from './useGameDetailState'
 import { canAdminAccessDraftRoom, canPlayerAccessDraftRoom, resolveDraftVisibility } from './draft-visibility'
@@ -482,6 +483,7 @@ export const GameDetailScreen = ({
             entries={view.rosteredPlayers}
             canManage={canManage}
             currentProfileId={user?.id ?? null}
+            communityId={data.communityId}
             removingId={removingId}
             confirmingId={confirmingId}
             confirmingGuestId={confirmingGuestId}
@@ -508,6 +510,7 @@ export const GameDetailScreen = ({
                 emptyLabel="No one on the waitlist yet."
                 canManage={canManage}
                 currentProfileId={user?.id ?? null}
+                communityId={data.communityId}
                 removingId={removingId}
                 closeMenusSignal={menuCloseTick}
                 gameStatus={data.status}
@@ -617,7 +620,8 @@ const AttendanceCard = ({
   const isClaimCta = !isConfirmation && (ctaLabel === 'Claim spot' || isJoinWaitlist || isGrabOpenSpot)
   const isDropCta = ctaLabel === 'Drop'
   const isCompletedCta = ctaLabel === 'Game completed'
-  const isInverseCta = isRateCta || isClaimCta || isDropCta || isCompletedCta
+  const usesCustomCtaStyle =
+    isConfirmation || isRateCta || isClaimCta || isDropCta || isCompletedCta
   const ctaState: GameCtaState | undefined =
     ctaLabel === 'Drop'
       ? 'drop'
@@ -634,12 +638,17 @@ const AttendanceCard = ({
     isRate: isRateCta,
     ctaState,
   })
+  const ctaStyle = isConfirmation
+    ? ctaButtonStyles.brandSolid
+    : isRateCta || isCompletedCta
+      ? ctaButtonStyles.neutralSolid
+      : isDropCta
+        ? ctaButtonStyles.inkOutline
+        : isClaimCta
+          ? ctaButtonStyles.brandSolid
+          : {}
   const buttonTheme =
-    isInverseCta || isConfirmation
-      ? undefined
-      : theme === 'alt2'
-        ? 'alt2'
-        : undefined
+    usesCustomCtaStyle ? undefined : theme === 'alt2' ? 'alt2' : undefined
   const handler = isConfirmation ? onConfirmAttendance : onCta
   const label = isConfirmation ? 'Confirm spot' : ctaLabel
   const detail =
@@ -664,13 +673,7 @@ const AttendanceCard = ({
           theme={buttonTheme}
           disabled={disabled}
           icon={icon}
-          backgroundColor={
-            isConfirmation ? BRAND_COLORS.primary : isInverseCta ? '$color' : undefined
-          }
-          borderColor={
-            isConfirmation ? BRAND_COLORS.primary : isInverseCta ? '$color' : undefined
-          }
-          color={isInverseCta ? '$background' : undefined}
+          {...ctaStyle}
           onPress={handler}
         >
           {label}

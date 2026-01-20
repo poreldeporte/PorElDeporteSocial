@@ -1,8 +1,9 @@
 import { Button, Paragraph, XStack, YStack } from '@my/ui/public'
 import type { ThemeName } from '@tamagui/core'
 
-import { BRAND_COLORS } from 'app/constants/colors'
 import { getGameCtaIcon } from 'app/features/games/cta-icons'
+
+import { ctaButtonStyles } from '../cta-styles'
 import type { GameActionBarProps } from './GameActionBar.types'
 
 export const GameActionBar = ({
@@ -16,20 +17,22 @@ export const GameActionBar = ({
   const isCompletedCta = view.ctaLabel === 'Game completed'
   const isJoinCta =
     view.ctaState === 'claim' || view.ctaState === 'join-waitlist' || view.ctaState === 'grab-open-spot'
+  const isDropCta = view.ctaState === 'drop'
   const primaryButtonStyle =
-    !view.isGamePending && !isRateCta && isJoinCta
-      ? {
-          backgroundColor: 'transparent',
-          borderColor: BRAND_COLORS.primary,
-          color: BRAND_COLORS.primary,
-        }
-      : {}
-  const rateButtonStyle = isRateCta
-    ? { backgroundColor: '$color', borderColor: '$color', color: '$background' }
-    : {}
+    isRateCta || isCompletedCta
+      ? ctaButtonStyles.neutralSolid
+      : !view.isGamePending && isDropCta
+        ? ctaButtonStyles.inkOutline
+        : !view.isGamePending && isJoinCta
+          ? view.canConfirmAttendance
+            ? ctaButtonStyles.brandOutline
+            : ctaButtonStyles.brandSolid
+          : {}
   const buttonTheme =
-    isRateCta || isJoinCta ? undefined : (view.ctaTheme as ThemeName | undefined)
-  const confirmStyle = { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
+    isRateCta || isJoinCta || isDropCta || isCompletedCta
+      ? undefined
+      : (view.ctaTheme as ThemeName | undefined)
+  const confirmStyle = ctaButtonStyles.brandSolid
   const primaryIcon = getGameCtaIcon({
     isPending: view.isGamePending,
     isRate: isRateCta,
@@ -48,7 +51,6 @@ export const GameActionBar = ({
           icon={primaryIcon}
           theme={buttonTheme}
           {...primaryButtonStyle}
-          {...rateButtonStyle}
         >
           {view.ctaLabel}
         </Button>

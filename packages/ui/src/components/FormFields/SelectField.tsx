@@ -75,7 +75,7 @@ const SelectSheetAdapter = ({ native }: { native: boolean }) => (
       }}
       snapPointsMode="fit"
     >
-      <Sheet.Frame marginBottom="$12">
+      <Sheet.Frame marginBottom="$12" borderColor="$black1" borderWidth={1}>
         <Sheet.ScrollView>
           <Adapt.Contents />
         </Sheet.ScrollView>

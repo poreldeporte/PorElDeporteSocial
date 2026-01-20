@@ -37,6 +37,7 @@ import {
   SettingRowSwitch,
   SettingRowText,
   SettingRowToggle,
+  SettingRowTime,
   SettingSection,
 } from './game-settings-rows'
 
@@ -204,7 +205,7 @@ export const EditGameForm = ({
               note="Adjust kickoff, venue, roster cap, and join cutoff."
             >
               <SettingRowDate<GameFormValues> name="start_time" label="Date" />
-              <SettingRowSelect<GameFormValues>
+              <SettingRowTime<GameFormValues>
                 name="start_time_time"
                 label="Start time"
                 placeholder={formProps.start_time_time.placeholder}
@@ -366,7 +367,7 @@ const RecurringFields = ({
   return (
     <>
       <SettingRowDate<GameFormValues> name={dateName} label="Release date" />
-      <SettingRowSelect<GameFormValues>
+      <SettingRowTime<GameFormValues>
         name={timeName}
         label="Release time"
         placeholder={timePlaceholder}

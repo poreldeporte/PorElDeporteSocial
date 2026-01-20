@@ -143,7 +143,7 @@ export const AddPlayerSheet = ({
         exitStyle={{ opacity: 0 }}
         zIndex={0}
       />
-      <Sheet.Frame backgroundColor="$background">
+      <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
         <YStack px="$4" pt="$4" pb="$3" gap="$3">
           <XStack ai="center" jc="space-between">
             <SizableText fontSize={20} fontWeight="700">

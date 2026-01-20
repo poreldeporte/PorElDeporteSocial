@@ -3,6 +3,7 @@ import { Children, Fragment, type ReactNode } from 'react'
 import { useController, useFormContext, type FieldValues, type Path } from 'react-hook-form'
 import {
   Adapt,
+  Button,
   FieldError,
   Input,
   Paragraph,
@@ -25,6 +26,51 @@ const SECTION_LETTER_SPACING = 1.6
 type SelectOption = {
   value: string
   name: string
+}
+
+const parseTimeValue = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return { timePart: '', period: '' }
+  const periodMatch = trimmed.match(/(am|pm)\s*$/i)
+  const period = periodMatch ? periodMatch[1].toUpperCase() : ''
+  let timePart = periodMatch ? trimmed.slice(0, periodMatch.index) : trimmed
+  timePart = timePart.replace(/\s*(am|pm)\s*$/i, '').trim()
+  return { timePart, period }
+}
+
+const buildTimeValue = (timePart: string, period: string) => {
+  const trimmed = timePart.trim()
+  if (!trimmed) return ''
+  return period ? `${trimmed} ${period}` : trimmed
+}
+
+const normalizeTimePart = (timePart: string) => {
+  const match = timePart.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return timePart.trim()
+  let hours = Number(match[1])
+  const minutes = match[2]
+  if (hours === 0) hours = 12
+  if (hours > 12) hours = hours % 12 || 12
+  return `${hours}:${minutes}`
+}
+
+const formatTimeInput = (raw: string) => {
+  const digits = raw.replace(/[^\d]/g, '').slice(0, 4)
+  if (!digits) return ''
+  if (digits.length <= 2) return digits
+  if (digits.length === 3) return `${digits[0]}:${digits.slice(1)}`
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`
+}
+
+const finalizeTimeInput = (raw: string) => {
+  const formatted = formatTimeInput(raw)
+  if (!formatted) return ''
+  if (!formatted.includes(':')) {
+    return `${formatted}:00`
+  }
+  const [hoursRaw, minutesRaw = ''] = formatted.split(':')
+  const minutes = minutesRaw.padEnd(2, '0').slice(0, 2)
+  return `${hoursRaw}:${minutes}`
 }
 
 export const SettingSection = ({
@@ -249,6 +295,102 @@ export const SettingRowNumber = <T extends FieldValues>({
   )
 }
 
+export const SettingRowTime = <T extends FieldValues>({
+  name,
+  label,
+  placeholder,
+  width = 140,
+  disabled: disabledOverride = false,
+  options: _options,
+}: {
+  name: Path<T>
+  label: string
+  options?: SelectOption[]
+  placeholder?: string
+  width?: number
+  disabled?: boolean
+}) => {
+  const { control, formState } = useFormContext<T>()
+  const { field, fieldState } = useController({ control, name })
+  const disabled = formState.isSubmitting || disabledOverride
+  const rawValue = typeof field.value === 'string' ? field.value : ''
+  const { timePart, period: parsedPeriod } = parseTimeValue(rawValue)
+  const activePeriod = timePart ? parsedPeriod || 'AM' : ''
+
+  const handleTimeChange = (next: string) => {
+    const parsed = parseTimeValue(next)
+    const formatted = formatTimeInput(parsed.timePart)
+    const nextPeriod = parsed.period || (formatted ? activePeriod || 'AM' : '')
+    field.onChange(buildTimeValue(formatted, nextPeriod))
+  }
+
+  const handlePeriodChange = (nextPeriod: 'AM' | 'PM') => {
+    if (!timePart) return
+    const nextTimePart = normalizeTimePart(finalizeTimeInput(timePart))
+    field.onChange(buildTimeValue(nextTimePart, nextPeriod))
+  }
+
+  const handleTimeBlur = () => {
+    field.onBlur()
+    if (!timePart) return
+    const nextTimePart = normalizeTimePart(finalizeTimeInput(timePart))
+    const nextValue = buildTimeValue(nextTimePart, activePeriod || 'AM')
+    if (nextValue && nextValue !== rawValue) {
+      field.onChange(nextValue)
+    }
+  }
+
+  return (
+    <SettingRow label={label} error={fieldState.error?.message}>
+      <XStack ai="center" jc="flex-end" gap="$2" maxWidth="70%">
+        <Input
+          value={timePart}
+          onChangeText={handleTimeChange}
+          onBlur={handleTimeBlur}
+          placeholder={placeholder}
+          placeholderTextColor="$color10"
+          keyboardType="number-pad"
+          inputMode="numeric"
+          disabled={disabled}
+          textAlign="right"
+          width={width}
+          fontSize={15}
+          color="$color"
+          borderWidth={0}
+          backgroundColor="transparent"
+          px={0}
+          py={0}
+          opacity={disabled ? 0.6 : 1}
+        />
+        <XStack gap="$1">
+          <Button
+            size="$2"
+            borderWidth={1}
+            backgroundColor={activePeriod === 'AM' ? BRAND_COLORS.primary : 'transparent'}
+            borderColor={activePeriod === 'AM' ? BRAND_COLORS.primary : '$color6'}
+            color={activePeriod === 'AM' ? '$color1' : '$color'}
+            onPress={() => handlePeriodChange('AM')}
+            disabled={disabled}
+          >
+            AM
+          </Button>
+          <Button
+            size="$2"
+            borderWidth={1}
+            backgroundColor={activePeriod === 'PM' ? BRAND_COLORS.primary : 'transparent'}
+            borderColor={activePeriod === 'PM' ? BRAND_COLORS.primary : '$color6'}
+            color={activePeriod === 'PM' ? '$color1' : '$color'}
+            onPress={() => handlePeriodChange('PM')}
+            disabled={disabled}
+          >
+            PM
+          </Button>
+        </XStack>
+      </XStack>
+    </SettingRow>
+  )
+}
+
 export const SettingRowSelect = <T extends FieldValues>({
   name,
   label,
@@ -374,7 +516,7 @@ const SelectSheetAdapter = ({
       snapPointsMode={snapPointsMode}
       snapPoints={snapPoints}
     >
-      <Sheet.Frame marginBottom="$12">
+      <Sheet.Frame marginBottom="$12" borderColor="$black1" borderWidth={1}>
         <Sheet.ScrollView>
           <Adapt.Contents />
         </Sheet.ScrollView>

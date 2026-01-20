@@ -1,9 +1,13 @@
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
+import { supabaseAdmin } from '../supabase-admin'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 
 const leaderboardMetric = z.enum(['overall', 'wins', 'goal_diff', 'captain'])
+const communityRatingInput = z.object({ communityId: z.string().uuid() })
+const profileCommunityRatingInput = communityRatingInput.extend({ profileId: z.string().uuid() })
+const DEFAULT_RATING = 1500
 
 const toNumber = (value: unknown) => {
   if (typeof value === 'number') return value
@@ -79,4 +83,58 @@ export const statsRouter = createTRPCRouter({
       games: stats?.games ?? 0,
     }
   }),
+
+  myCommunityRating: protectedProcedure
+    .input(communityRatingInput)
+    .query(async ({ ctx, input }) => {
+      const { data, error } = await ctx.supabase
+        .from('community_ratings')
+        .select('rating, rated_games')
+        .eq('community_id', input.communityId)
+        .eq('profile_id', ctx.user.id)
+        .maybeSingle()
+
+      if (error) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+      }
+
+      return {
+        rating: typeof data?.rating === 'number' ? data.rating : DEFAULT_RATING,
+        ratedGames: typeof data?.rated_games === 'number' ? data.rated_games : 0,
+      }
+    }),
+
+  profileCommunityRating: protectedProcedure
+    .input(profileCommunityRatingInput)
+    .query(async ({ ctx, input }) => {
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from('memberships')
+        .select('id')
+        .eq('community_id', input.communityId)
+        .eq('profile_id', ctx.user.id)
+        .maybeSingle()
+
+      if (membershipError) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: membershipError.message })
+      }
+      if (!membership) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Not a community member.' })
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from('community_ratings')
+        .select('rating, rated_games')
+        .eq('community_id', input.communityId)
+        .eq('profile_id', input.profileId)
+        .maybeSingle()
+
+      if (error) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+      }
+
+      return {
+        rating: typeof data?.rating === 'number' ? data.rating : DEFAULT_RATING,
+        ratedGames: typeof data?.rated_games === 'number' ? data.rated_games : 0,
+      }
+    }),
 })

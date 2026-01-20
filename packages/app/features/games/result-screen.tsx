@@ -8,19 +8,26 @@ import {
   Input,
   Paragraph,
   ScrollView,
-  Separator,
   SizableText,
   Spinner,
   XStack,
   YStack,
+  isWeb,
+  submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
+import { useRouter } from 'solito/router'
+
+import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
+import { getDockSpacer } from 'app/constants/dock'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { formatProfileName } from 'app/utils/profileName'
 import { useTeamsState } from 'app/utils/useTeamsState'
-import { useRouter } from 'solito/router'
+import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
+
+import { ctaButtonStyles } from './cta-styles'
 
 type Team = ReturnType<typeof useTeamsState>['teams'][number]
 
@@ -45,6 +52,7 @@ export const GameResultScreen = ({
   const { teams, query, isAdmin } = useTeamsState({ gameId })
   const { data: gameDetail } = api.games.byId.useQuery({ id: gameId }, { enabled: !!gameId })
   const toast = useToastController()
+  const insets = useSafeAreaInsets()
   const [scoreByTeamId, setScoreByTeamId] = useState<Record<string, string>>({})
   const [hasPrefilledScores, setHasPrefilledScores] = useState(false)
   const draftStatus = query.data?.game?.draft_status ?? 'pending'
@@ -52,6 +60,8 @@ export const GameResultScreen = ({
   const result = gameDetail?.result ?? null
   const scoreEntries = buildScoreEntries(teams, scoreByTeamId)
   const leaderTeamId = getLeaderTeamId(scoreEntries)
+  const showFloatingCta = !isWeb
+  const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
 
   const mutation = api.teams.reportResult.useMutation({
     onSuccess: async () => {
@@ -159,23 +169,32 @@ export const GameResultScreen = ({
       ? [baseContentStyle, ...contentContainerStyle]
       : [baseContentStyle, contentContainerStyle]
   )
+  const submitLabel = mutation.isPending ? 'Submitting…' : 'Submit result'
 
   return (
-    <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
-      {headerSpacer}
-      <YStack gap="$4">
-        <YStack gap="$2">
-          <SizableText size="$7" fontWeight="700">
-            Report result
-          </SizableText>
-          <Paragraph theme="alt2">{helperCopy}</Paragraph>
-          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
-        </YStack>
-        <Card px="$4" py="$4" br="$5" bordered $platform-native={{ borderWidth: 0 }}>
-          <YStack gap="$3">
-            <SectionHeader title="Scoreboard" subtitle="Add the final score for each team." />
-            <YStack gap="$2">
-              {teams.map((team) => {
+    <YStack f={1} position="relative">
+      <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+        {headerSpacer}
+        <YStack gap="$4">
+          <YStack gap="$2">
+            <SizableText size="$7" fontWeight="700">
+              Report result
+            </SizableText>
+            <Paragraph theme="alt2">{helperCopy}</Paragraph>
+            <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+          </YStack>
+        <YStack gap="$3">
+          <Card
+            bordered
+            borderColor="$black1"
+            p={0}
+            gap={0}
+            br="$4"
+            overflow="hidden"
+            backgroundColor="$color1"
+          >
+            <YStack gap={0}>
+              {teams.map((team, index) => {
                 const scoreValue = scoreByTeamId[team.id] ?? ''
                 const variant = leaderTeamId
                   ? team.id === leaderTeamId
@@ -190,6 +209,7 @@ export const GameResultScreen = ({
                     team={team}
                     scoreValue={scoreValue}
                     variant={variant}
+                    index={index}
                     onScoreChange={(value) =>
                       setScoreByTeamId((prev) => ({ ...prev, [team.id]: value }))
                     }
@@ -197,46 +217,51 @@ export const GameResultScreen = ({
                 )
               })}
             </YStack>
-
-            <Separator />
+          </Card>
+          {!showFloatingCta ? (
             <Button
               size="$3"
               br="$10"
               disabled={!canSubmit}
               onPress={submit}
               iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
+              {...ctaButtonStyles.brandSolid}
             >
-              {mutation.isPending ? 'Submitting…' : 'Submit result'}
+              {submitLabel}
             </Button>
-            {mutation.isSuccess ? (
-              <Paragraph theme="alt2">
-                Result submitted. Redirecting to game&hellip;
-              </Paragraph>
-            ) : null}
-          </YStack>
-        </Card>
-        {query.data?.game?.draft_status !== 'completed' ? (
-          <Card px="$4" py="$3" bordered $platform-native={{ borderWidth: 0 }}>
-            <Paragraph theme="alt2">Results can be submitted once teams are finalized.</Paragraph>
-          </Card>
-        ) : null}
-      </YStack>
-    </ScrollView>
+          ) : null}
+          {mutation.isSuccess ? (
+            <Paragraph theme="alt2">
+              Result submitted. Redirecting to game&hellip;
+            </Paragraph>
+          ) : null}
+        </YStack>
+          {query.data?.game?.draft_status !== 'completed' ? (
+            <Card px="$4" py="$3" bordered $platform-native={{ borderWidth: 0 }}>
+              <Paragraph theme="alt2">Results can be submitted once teams are finalized.</Paragraph>
+            </Card>
+          ) : null}
+          {showFloatingCta ? <YStack h={dockSpacer} /> : null}
+        </YStack>
+      </ScrollView>
+      {showFloatingCta ? (
+        <FloatingCtaDock transparent>
+          <XStack>
+            <Button
+              {...submitButtonBaseProps}
+              disabled={!canSubmit}
+              onPress={submit}
+              iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
+              {...ctaButtonStyles.brandSolid}
+            >
+              {submitLabel}
+            </Button>
+          </XStack>
+        </FloatingCtaDock>
+      ) : null}
+    </YStack>
   )
 }
-
-const SectionHeader = ({ title, subtitle }: { title: string; subtitle?: string }) => (
-  <YStack gap="$0.5">
-    <SizableText size="$5" fontWeight="600">
-      {title}
-    </SizableText>
-    {subtitle ? (
-      <Paragraph theme="alt2" size="$2">
-        {subtitle}
-      </Paragraph>
-    ) : null}
-  </YStack>
-)
 
 type ScoreEntry = {
   team: Team
@@ -303,11 +328,13 @@ const ResultScoreCard = ({
   team,
   scoreValue,
   variant,
+  index,
   onScoreChange,
 }: {
   team: Team
   scoreValue: string
   variant: ResultTeamVariant
+  index: number
   onScoreChange: (value: string) => void
 }) => {
   const tone = getTeamTone(variant)
@@ -319,7 +346,14 @@ const ResultScoreCard = ({
     })) ?? []
 
   return (
-    <YStack borderWidth={1} borderColor={tone.borderColor as any} br="$4" p="$2" gap="$1.5" bg={tone.bg as any}>
+    <YStack
+      px="$3"
+      py="$2"
+      gap="$1.5"
+      bg={tone.bg as any}
+      borderTopWidth={index === 0 ? 0 : 1}
+      borderColor="$black1"
+    >
       <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
         <SizableText size="$7" fontWeight="800" color={tone.scoreColor as any}>
           {team.name}
@@ -332,8 +366,8 @@ const ResultScoreCard = ({
           onChangeText={onScoreChange}
           textAlign="center"
           w={72}
-          fontSize={22}
-          fontWeight="800"
+          fontSize={28}
+          fontWeight="900"
           color={tone.scoreColor as any}
           borderColor={tone.borderColor as any}
           backgroundColor="$background"

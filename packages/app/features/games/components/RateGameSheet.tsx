@@ -12,10 +12,13 @@ import {
   TextArea,
   XStack,
   YStack,
+  submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { api } from 'app/utils/api'
+
+import { ctaButtonStyles } from '../cta-styles'
 
 const STAR_VALUES = [1, 2, 3, 4, 5]
 
@@ -50,8 +53,11 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
     setComment('')
   }, [gameId, open])
 
+  const isSubmitDisabled = !rating || mutation.isPending
+  const submitButtonStyle = isSubmitDisabled ? ctaButtonStyles.neutralSolid : ctaButtonStyles.brandSolid
+
   const submit = () => {
-    if (!rating || mutation.isPending) return
+    if (isSubmitDisabled) return
     Keyboard.dismiss()
     mutation.mutate({ gameId, rating, comment })
   }
@@ -79,7 +85,7 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
         exitStyle={{ opacity: 0 }}
         zIndex={0}
       />
-      <Sheet.Frame backgroundColor="$background">
+      <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <YStack flex={1}>
             <YStack px="$4" pt="$4" pb="$3" gap="$2.5">
@@ -159,11 +165,11 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
                 />
               </YStack>
               <Button
-                size="$3"
-                br="$10"
-                disabled={!rating || mutation.isPending}
+                {...submitButtonBaseProps}
+                disabled={isSubmitDisabled}
                 onPress={submit}
                 iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
+                {...submitButtonStyle}
               >
                 {mutation.isPending ? 'Sending...' : 'Send feedback'}
               </Button>

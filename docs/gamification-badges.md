@@ -60,36 +60,4 @@ Goal: reward consistent participation with a simple, app-wide progression system
 - Unlocks are app-wide and persist across communities.
 
 ## Community rating (per community)
-Goal: capture community-specific skill separate from global XP.
-
-Rules:
-- Public rating scoped to each community.
-- Starts at 100 for new members.
-- Rating is hidden until 5 completed games in the community (shown as Unrated).
-- Unrated players are treated as 100 for team averages.
-- Calculated only (no manual edits).
-- Updates after each completed game with confirmed result.
-- Rating inputs are game results only (wins/losses + scoreline for goal diff).
-- Early confirmation does not affect rating.
-- Streaks are tracked for display but do not change rating.
-- No decay or forgiveness.
-- No changes for cancelled games.
-- Only rostered, attendance-confirmed players are rated (or all rostered if confirmation is disabled).
-
-Formula (simple Elo):
-- Team rating = average rating of attendance-confirmed players.
-- Expected = 1 / (1 + 10^((opp - ours) / 400)).
-- Result = 1 win, 0 loss (0.5 tie if supported).
-- K = 32 for the first 5 games, then 16.
-- Margin multiplier:
-  - margin = abs(winner_score - loser_score), default 1 if no scoreline.
-  - 1 goal: 1.0, 2 goals: 1.25, 3+ goals: 1.5.
-- Delta = K * (result - expected) * margin.
-- Apply the same delta to each participating player on the team.
-- Rating floor: 0.
-
-Player summary:
-- You start at 100 and need 5 games before your rating shows.
-- Wins move you up, losses move you down.
-- Beating stronger teams moves you more than beating weaker teams.
-- Big wins move you a bit more (when scores are entered).
+See `docs/community-rating.md`.

@@ -10,11 +10,6 @@ export const StatsCard = ({ stats, isLoading }: StatsCardProps) => {
   const router = useRouter()
   return (
     <YStack gap="$1.5">
-      <XStack ai="center">
-        <SizableText size="$5" fontWeight="600">
-          My record
-        </SizableText>
-      </XStack>
       <StatsCardBody stats={stats} isLoading={isLoading} />
     </YStack>
   )
