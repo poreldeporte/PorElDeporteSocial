@@ -6,6 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { recordDraftEvent, resetDraftForGame, startDraftForGame } from '../services/draft'
+import { reconcileCommunityRatingForGame } from '../services/community-rating'
 import { notifyCaptainTurn, notifyPlayerDrafted, notifyResultsConfirmed } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 import { markGameCompletedIfNeeded } from '../utils/markGameCompleted'
@@ -541,6 +542,9 @@ export const teamsRouter = createTRPCRouter({
     }
     await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, payload.status === 'confirmed')
     if (payload.status === 'confirmed') {
+      await reconcileCommunityRatingForGame(supabaseAdmin, payload.game_id)
+    }
+    if (payload.status === 'confirmed') {
       try {
         await notifyResultsConfirmed({ supabaseAdmin, gameId: input.gameId })
       } catch {}
@@ -591,6 +595,7 @@ export const teamsRouter = createTRPCRouter({
     }
 
     if (resultRow.status === 'confirmed') {
+      await reconcileCommunityRatingForGame(supabaseAdmin, input.gameId)
       return { ok: true }
     }
 
@@ -607,6 +612,7 @@ export const teamsRouter = createTRPCRouter({
       await recordPlayerStats(input.gameId, resultRow.winning_team_id, teamIds)
     }
     await markGameCompletedIfNeeded(supabaseAdmin, input.gameId, true)
+    await reconcileCommunityRatingForGame(supabaseAdmin, input.gameId)
     try {
       await notifyResultsConfirmed({ supabaseAdmin, gameId: input.gameId })
     } catch {}

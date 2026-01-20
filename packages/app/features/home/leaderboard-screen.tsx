@@ -1,9 +1,8 @@
-import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { useMemo, useState, type ReactNode } from 'react'
+import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { Crown as CrownIcon } from '@tamagui/lucide-icons'
 import {
-  Avatar,
   Button,
   Card,
   FullscreenSpinner,
@@ -20,19 +19,12 @@ import { api, type RouterOutputs } from 'app/utils/api'
 import { useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
+import { LeaderboardPlayerSheet } from './components/LeaderboardPlayerSheet'
 
 type Metric = 'wins' | 'losses' | 'goal_diff' | 'games'
 type RawEntry = RouterOutputs['stats']['leaderboard'][number]
 type Entry = RawEntry & { rank: number; winRate: number; recent: string[] }
 
-const metricOptions: { id: Metric; label: string }[] = [
-  { id: 'wins', label: 'W' },
-  { id: 'losses', label: 'L' },
-  { id: 'goal_diff', label: 'GD' },
-  { id: 'games', label: 'GP' },
-]
-
-const formatWinRate = (value: number) => `${Math.round((value || 0) * 100)}%`
 const normalizeEntry = (entry: RawEntry): Entry => ({
   ...entry,
   rank: entry.rank ?? 0,
@@ -55,16 +47,19 @@ type ScrollHeaderProps = {
 export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
   const insets = useSafeAreaInsets()
   const { user } = useUser()
-  useStatsRealtime(Boolean(user))
-  const [metric, setMetric] = useState<Metric>('wins')
-  const queryMetric = metric === 'goal_diff' ? 'goal_diff' : metric === 'wins' ? 'wins' : 'overall'
+  const communityQuery = api.community.defaults.useQuery(undefined, { enabled: Boolean(user) })
+  useStatsRealtime(Boolean(user), communityQuery.data?.id ?? null)
+  const [sortMetric, setSortMetric] = useState<Metric>('wins')
+  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
+  const queryMetric =
+    sortMetric === 'goal_diff' ? 'goal_diff' : sortMetric === 'wins' ? 'wins' : 'overall'
   const query = api.stats.leaderboard.useQuery({ metric: queryMetric as any })
 
   const entries = useMemo(() => (query.data ?? []).map(normalizeEntry), [query.data])
   const sorted = useMemo(() => {
     const list = [...entries]
     list.sort((a, b) => {
-      switch (metric) {
+      switch (sortMetric) {
         case 'wins':
           return (b.wins ?? 0) - (a.wins ?? 0)
         case 'losses':
@@ -78,8 +73,13 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
       }
     })
     return list
-  }, [entries, metric])
+  }, [entries, sortMetric])
   const glowRow = useMemo(() => sorted.slice(0, 3), [sorted])
+  const selectedProfileId = selectedEntry?.profileId ?? null
+  const sheetEntry = useMemo(() => {
+    if (!selectedProfileId) return selectedEntry
+    return sorted.find((entry) => entry.profileId === selectedProfileId) ?? selectedEntry
+  }, [selectedEntry, selectedProfileId, sorted])
 
   if (query.isLoading) {
     return (
@@ -119,101 +119,149 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
           </YStack>
         ) : null}
 
-        <Card bordered $platform-native={{ borderWidth: 0 }} p="$1.5" gap="$1">
-          <XStack gap="$1" ai="center" jc="space-between">
-            <XStack gap="$1" ai="center" flex={1} flexWrap="wrap">
-              {metricOptions.map((option) => (
-                <Button
-                  key={option.id}
-                  size="$2"
-                  theme={metric === option.id ? 'active' : 'alt1'}
-                  onPress={() => setMetric(option.id)}
-                  flex={1}
+        <YStack gap="$2">
+          {sorted.length ? (
+            <Card bordered borderColor="$black1" p={0} gap={0} overflow="hidden">
+              <TableHeader sortMetric={sortMetric} onSort={setSortMetric} />
+            </Card>
+          ) : null}
+          <Card bordered borderColor="$black1" p={0} gap={0} overflow="hidden">
+            {sorted.length === 0 ? (
+              <Paragraph theme="alt2" px="$3" py="$3">
+                No players to rank yet.
+              </Paragraph>
+            ) : (
+              <YStack gap={0}>
+                {sorted.map((entry, index) => (
+                <YStack
+                  key={entry.profileId ?? index}
+                  px="$3"
+                  py="$3"
+                  borderTopWidth={index === 0 ? 0 : 1}
+                  borderColor="$black1"
+                  borderWidth={1}
+                  transform={[{ scale: 0.97 }]}
+                  pressStyle={{ backgroundColor: '$color2' }}
+                  animation="100ms"
+                  overflow="visible"
+                  onPress={() => setSelectedEntry(entry)}
                 >
-                  {option.label}
-                </Button>
-              ))}
-            </XStack>
-          </XStack>
-        </Card>
-
-        <Card bordered $platform-native={{ borderWidth: 0 }} p="$0" gap="$0">
-          {sorted.length === 0 ? (
-            <Paragraph theme="alt2" px="$3" py="$3">
-              No players to rank yet.
-            </Paragraph>
-        ) : (
-          <>
-            <TableHeader />
-            {sorted.map((entry, index) => (<LeaderboardRow key={entry.profileId ?? index} rank={entry.rank || index + 1} entry={entry} />))}
-          </>
-        )}
-      </Card>
+                    <LeaderboardRow rank={index + 1} entry={entry} />
+                  </YStack>
+                ))}
+              </YStack>
+            )}
+          </Card>
+        </YStack>
       </YStack>
       <YStack h={dockSpacer} />
+      <LeaderboardPlayerSheet
+        open={Boolean(sheetEntry)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedEntry(null)
+        }}
+        entry={sheetEntry}
+        communitySize={entries.length}
+        communityId={communityQuery.data?.id ?? null}
+      />
     </ScrollView>
   )
 }
 
 const LeaderboardRow = ({ rank, entry }: { rank: number; entry: Entry }) => {
+  const displayName = entry.name ?? 'Member'
+
   return (
-    <XStack
-      px="$2"
-      py="$1.5"
-      ai="center"
-      gap="$0.5"
-      flexWrap="nowrap"
-      borderBottomWidth={1}
-      borderColor="$color4"
-      backgroundColor="$color1"
-    >
-      <RankBadge rank={rank} />
-      <Paragraph fontWeight="700" size="$2" numberOfLines={1} ellipsizeMode="tail" pl="$1" flex={1}>
-        {entry.name}
+    <XStack ai="center" gap="$2" jc="space-between">
+      <Paragraph theme="alt2" minWidth={24}>
+        {rank}.
       </Paragraph>
-      <Column value={`${entry.wins}`} />
-      <Column value={`${entry.losses}`} />
-      <Column value={`${entry.goalDiff}`} />
-      <Column value={`${entry.games}`} />
+      <YStack f={1} jc="center" pr="$2" minWidth={0}>
+        <SizableText fontWeight="600" numberOfLines={1} minWidth={0}>
+          {displayName}
+        </SizableText>
+      </YStack>
+      <XStack ai="center" gap="$1">
+        <Column value={`${entry.wins}`} />
+        <Column value={`${entry.losses}`} />
+        <Column value={`${entry.goalDiff}`} />
+        <Column value={`${entry.games}`} />
+      </XStack>
     </XStack>
   )
 }
 
-const RankBadge = ({ rank }: { rank: number }) => (
-  <YStack width={32} height={32} ai="center" jc="center" br="$10" backgroundColor={rank === 1 ? '$color8' : '$color3'}>
-    <Paragraph fontWeight="700" size="$2">
-      {rank}
-    </Paragraph>
-  </YStack>
-)
-
 const Column = ({ value }: { value: string }) => (
-  <YStack minWidth={52} ai="flex-end" gap="$0.1">
+  <YStack minWidth={columnWidth} ai="flex-end" gap="$0.1">
     <Paragraph fontWeight="700" size="$2" ta="right">
       {value}
     </Paragraph>
   </YStack>
 )
 
-const TableHeader = () => (
-  <XStack px="$2" py="$1.25" ai="center" gap="$0.5" flexWrap="nowrap" borderBottomWidth={1} borderColor="$color4">
-    <Paragraph fontWeight="700" size="$2" minWidth={32} ta="center">
+const TableHeader = ({
+  sortMetric,
+  onSort,
+}: {
+  sortMetric: Metric
+  onSort: (metric: Metric) => void
+}) => (
+  <XStack
+    px="$3"
+    py="$3"
+    ai="center"
+    jc="space-between"
+    gap="$2"
+    flexWrap="nowrap"
+    borderBottomWidth={1}
+    borderColor="$black1"
+    transform={[{ scale: 0.97 }]}
+  >
+    <Paragraph fontWeight="700" size="$2" minWidth={24} theme="alt2">
       {' '}
     </Paragraph>
-    <Paragraph fontWeight="700" size="$2" flex={1} pl="$1">
+    <Paragraph fontWeight="700" size="$2" flex={1} pr="$2">
       Player
     </Paragraph>
-    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
-      W
-    </Paragraph>
-    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
-      L
-    </Paragraph>
-    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
-      GD
-    </Paragraph>
-    <Paragraph fontWeight="700" size="$2" minWidth={52} ta="right">
-      GP
+    <XStack ai="center" gap="$1">
+      <HeaderColumn label="W" metric="wins" isActive={sortMetric === 'wins'} onPress={onSort} />
+      <HeaderColumn label="L" metric="losses" isActive={sortMetric === 'losses'} onPress={onSort} />
+      <HeaderColumn label="GD" metric="goal_diff" isActive={sortMetric === 'goal_diff'} onPress={onSort} />
+      <HeaderColumn label="GP" metric="games" isActive={sortMetric === 'games'} onPress={onSort} />
+    </XStack>
+  </XStack>
+)
+
+const columnWidth = 36
+
+const HeaderColumn = ({
+  label,
+  metric,
+  isActive,
+  onPress,
+}: {
+  label: string
+  metric: Metric
+  isActive: boolean
+  onPress: (metric: Metric) => void
+}) => (
+  <XStack
+    minWidth={columnWidth}
+    ai="center"
+    jc="flex-end"
+    cursor="pointer"
+    pressStyle={{ opacity: 0.6 }}
+    onPress={() => onPress(metric)}
+    accessibilityRole="button"
+  >
+    <Paragraph
+      fontWeight="700"
+      size="$2"
+      ta="right"
+      color={isActive ? '$color12' : '$color10'}
+      {...(isActive ? { textDecorationLine: 'underline', textDecorationColor: BRAND_COLORS.primary } : {})}
+    >
+      {label}
     </Paragraph>
   </XStack>
 )

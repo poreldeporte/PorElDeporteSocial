@@ -9,7 +9,12 @@ import {
   parseBirthDateParts,
   type BirthDateParts,
 } from 'app/utils/birthDate'
-import { formatPhoneDisplay, getPhoneCountryOptions, type PhoneCountryOption } from 'app/utils/phone'
+import {
+  formatNationalityDisplay,
+  formatPhoneDisplay,
+  getPhoneCountryOptions,
+  type PhoneCountryOption,
+} from 'app/utils/phone'
 import { CountryPicker } from 'app/components/CountryPicker'
 
 import { profileFieldCopy } from './field-copy'
@@ -88,10 +93,8 @@ const formatJerseyNumber = (value?: number | string | null) => {
 }
 
 const formatNationality = (value?: string | null) => {
-  if (!value) return 'Add your nationality'
-  const option = getPhoneCountryOptions().find((country) => country.code === value)
-  if (!option) return value
-  return `${option.flag} ${option.name}`
+  const formatted = formatNationalityDisplay(value)
+  return formatted || 'Add your nationality'
 }
 
 const DetailRow = ({
@@ -170,8 +173,14 @@ const DetailsSection = ({
       gap={isEditing ? '$4' : '$3'}
       backgroundColor={cardBackground}
     >
-      <XStack ai="center" jc="space-between">
-        <SizableText size="$5" fontWeight="600">
+      <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
+        <SizableText
+          size="$5"
+          fontWeight="600"
+          textTransform="uppercase"
+          flexShrink={1}
+          minWidth={0}
+        >
           {title}
         </SizableText>
         {isEditing ? (

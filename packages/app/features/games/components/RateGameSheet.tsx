@@ -17,6 +17,8 @@ import {
 import { BRAND_COLORS } from 'app/constants/colors'
 import { api } from 'app/utils/api'
 
+import { ctaButtonStyles } from '../cta-styles'
+
 const STAR_VALUES = [1, 2, 3, 4, 5]
 
 type RateGameSheetProps = {
@@ -164,6 +166,7 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
                 disabled={!rating || mutation.isPending}
                 onPress={submit}
                 iconAfter={mutation.isPending ? <Spinner size="small" /> : undefined}
+                {...ctaButtonStyles.brandSolid}
               >
                 {mutation.isPending ? 'Sending...' : 'Send feedback'}
               </Button>

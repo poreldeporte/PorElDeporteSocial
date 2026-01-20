@@ -23,6 +23,7 @@ type Props = {
   emptyLabel?: string
   canManage?: boolean
   currentProfileId?: string | null
+  communityId?: string | null
   removingId?: string | null
   confirmingId?: string | null
   confirmingGuestId?: string | null
@@ -46,6 +47,7 @@ export const RosterSection = ({
   emptyLabel = 'No players yet.',
   canManage = false,
   currentProfileId,
+  communityId,
   removingId,
   confirmingId,
   confirmingGuestId,
@@ -154,6 +156,7 @@ export const RosterSection = ({
           if (!open) setSelectedEntry(null)
         }}
         gameStatus={gameStatus}
+        communityId={communityId}
       />
     </>
   )

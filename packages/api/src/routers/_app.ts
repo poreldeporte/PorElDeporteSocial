@@ -13,6 +13,7 @@ import { communityRouter } from './community'
 import { membersRouter } from './members'
 import { reviewsRouter } from './reviews'
 import { groupsRouter } from './groups'
+import { profilesRouter } from './profiles'
 export const appRouter = createTRPCRouter({
   greeting: greetingRouter,
   games: gamesRouter,
@@ -24,6 +25,7 @@ export const appRouter = createTRPCRouter({
   notifications: notificationsRouter,
   community: communityRouter,
   members: membersRouter,
+  profiles: profilesRouter,
   groups: groupsRouter,
   reviews: reviewsRouter,
 })

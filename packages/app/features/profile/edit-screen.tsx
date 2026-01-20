@@ -281,7 +281,7 @@ const EditProfileForm = ({
                 <Card bordered bw={1} boc="$black1" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
-                      <SizableText size="$5" fontWeight="700">
+                      <SizableText size="$5" fontWeight="700" textTransform="uppercase">
                         Identity
                       </SizableText>
                       <Paragraph theme="alt2" size="$2">
@@ -310,7 +310,7 @@ const EditProfileForm = ({
                 <Card bordered bw={1} boc="$black1" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
-                      <SizableText size="$5" fontWeight="700">
+                      <SizableText size="$5" fontWeight="700" textTransform="uppercase">
                         Player details
                       </SizableText>
                       <Paragraph theme="alt2" size="$2">
@@ -337,7 +337,7 @@ const EditProfileForm = ({
                 <Card bordered bw={1} boc="$black1" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
-                      <SizableText size="$5" fontWeight="700">
+                      <SizableText size="$5" fontWeight="700" textTransform="uppercase">
                         Location
                       </SizableText>
                       <Paragraph theme="alt2" size="$2">

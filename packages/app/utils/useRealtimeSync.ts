@@ -432,11 +432,14 @@ export const useGamesListRealtime = (enabled: boolean) => {
   })
 }
 
-export const useStatsRealtime = (enabled: boolean) => {
+export const useStatsRealtime = (enabled: boolean, communityId?: string | null) => {
   const utils = api.useUtils()
   const scheduleInvalidate = useThrottledInvalidate(() => {
     void utils.stats.myStats.invalidate()
     void utils.stats.leaderboard.invalidate()
+    if (communityId) {
+      void utils.stats.myCommunityRating.invalidate({ communityId })
+    }
   }, 200)
 
   const statsChannelHandler = useCallback(
@@ -444,6 +447,10 @@ export const useStatsRealtime = (enabled: boolean) => {
       channel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'game_results' },
+        scheduleInvalidate
+      ).on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'game_queue' },
         scheduleInvalidate
       )
     },

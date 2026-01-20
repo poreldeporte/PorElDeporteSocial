@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@my/supabase/types'
 import { shuffleOrder } from '../domain/draft'
+import { rollbackCommunityRatingForGame } from './community-rating'
 
 type DraftEventAction = 'pick' | 'undo' | 'reset' | 'start' | 'finalize'
 
@@ -223,6 +224,8 @@ export const resetDraftForGame = async ({
   if (resultsError) {
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: resultsError.message })
   }
+
+  await rollbackCommunityRatingForGame(supabaseAdmin, gameId)
 
   if (!preserveCaptains) {
     const { error: captainsError } = await supabaseAdmin.from('game_captains').delete().eq('game_id', gameId)

@@ -6,6 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { resetDraftForGame } from '../services/draft'
+import { reconcileCommunityRatingForGame } from '../services/community-rating'
 import { notifyGuestNeedsConfirmation, notifyTardyMarked, notifyWaitlistPromoted } from '../services/notifications'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
@@ -522,6 +523,8 @@ export const queueRouter = createTRPCRouter({
     if (updateError) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: updateError.message })
     }
+
+    await reconcileCommunityRatingForGame(supabaseAdmin, queueRow.game_id)
 
     return { gameId: queueRow.game_id, noShowAt: nextNoShowAt }
   }),

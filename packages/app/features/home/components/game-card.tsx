@@ -8,12 +8,12 @@ import {
   DEFAULT_CRUNCH_TIME_ENABLED,
   DEFAULT_CRUNCH_TIME_START_TIME_LOCAL,
 } from '@my/config/game'
+import { ctaButtonStyles } from 'app/features/games/cta-styles'
 import { CombinedStatusBadge, StatusNote } from 'app/features/games/components'
 import { getGameCtaIcon, type GameCtaState } from 'app/features/games/cta-icons'
 import { deriveCombinedStatus, getConfirmCountdownLabel } from 'app/features/games/status-helpers'
 import type { GameListItem } from 'app/features/games/types'
 import { buildConfirmationWindowStart, buildJoinCutoff, buildZonedTime, formatGameKickoffLabel } from 'app/features/games/time-utils'
-import { BRAND_COLORS } from 'app/constants/colors'
 
 const ctaCopy: Record<GameCtaState, string> = {
   claim: 'Claim spot',
@@ -180,7 +180,6 @@ export const GameCard = ({
   const isRateCta = game.status === 'completed'
   const isJoinAction =
     ctaState === 'claim' || ctaState === 'join-waitlist' || ctaState === 'grab-open-spot'
-  const isClaimCta = ctaState === 'claim'
   const canLeave =
     game.status === 'scheduled' &&
     !isUnreleased &&
@@ -188,25 +187,18 @@ export const GameCard = ({
     !isLocked &&
     game.draftStatus !== 'in_progress'
   const isDropCta = ctaState === 'drop'
-  const isInverseCta = isJoinAction || isDropCta
-  const ctaTheme = isRateCta ? 'alt2' : isInverseCta || showConfirmCta ? undefined : 'alt2'
+  const hasCustomCtaStyle = isRateCta || showConfirmCta || isJoinAction || isDropCta
+  const ctaTheme = hasCustomCtaStyle ? undefined : 'alt2'
   const primaryButtonStyle =
-    !isPending && !isRateCta && showConfirmCta
-      ? { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
-      : !isPending && !isRateCta && isInverseCta
-        ? {
-            backgroundColor: '$color',
-            borderColor: '$color',
-            color: '$background',
-          }
-        : {}
-  const claimButtonStyle =
-    !isPending && !isRateCta && isClaimCta
-      ? {
-          borderColor: BRAND_COLORS.primary,
-          color: BRAND_COLORS.primary,
-        }
-      : {}
+    isRateCta
+      ? ctaButtonStyles.neutralSolid
+      : !isPending && showConfirmCta
+        ? ctaButtonStyles.brandSolid
+        : !isPending && isDropCta
+          ? ctaButtonStyles.inkOutline
+          : !isPending && isJoinAction
+            ? ctaButtonStyles.brandSolid
+            : {}
   const ctaLabel = isRateCta
     ? 'Rate the game'
     : showConfirmCta
@@ -294,14 +286,13 @@ export const GameCard = ({
               flex={1}
               size="$3"
               br="$10"
-            disabled={ctaDisabled}
-            icon={primaryIcon}
-            theme={ctaTheme}
-            {...primaryButtonStyle}
-            {...claimButtonStyle}
-            onPress={(event) => {
-              event?.stopPropagation?.()
-              handleCtaPress()
+              disabled={ctaDisabled}
+              icon={primaryIcon}
+              theme={ctaTheme}
+              {...primaryButtonStyle}
+              onPress={(event) => {
+                event?.stopPropagation?.()
+                handleCtaPress()
               }}
             >
               {ctaLabel}

@@ -6,6 +6,7 @@ import type { Database } from '@my/supabase/types'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { fetchDraftStartSnapshot, getDraftStartBlocker, resetDraftForGame } from '../services/draft'
+import { rollbackCommunityRatingForGame } from '../services/community-rating'
 import {
   notifyCaptainsAssigned,
   notifyGameCancelled,
@@ -43,7 +44,15 @@ type QueueWithProfile = QueueRow & {
   added_by: Pick<ProfileRow, 'id' | 'name' | 'first_name' | 'last_name'> | null
   profiles: Pick<
     ProfileRow,
-    'id' | 'name' | 'first_name' | 'last_name' | 'avatar_url' | 'jersey_number' | 'position'
+    | 'id'
+    | 'name'
+    | 'first_name'
+    | 'last_name'
+    | 'avatar_url'
+    | 'phone'
+    | 'nationality'
+    | 'jersey_number'
+    | 'position'
   > | null
 }
 
@@ -396,6 +405,8 @@ export const gamesRouter = createTRPCRouter({
               first_name,
               last_name,
               avatar_url,
+              phone,
+              nationality,
               jersey_number,
               position
             )
@@ -504,6 +515,8 @@ export const gamesRouter = createTRPCRouter({
             id: playerId,
             name: playerName,
             avatarUrl: entry.profiles?.avatar_url ?? null,
+            phone: entry.profiles?.phone ?? null,
+            nationality: entry.profiles?.nationality ?? null,
             jerseyNumber: entry.profiles?.jersey_number ?? null,
             position: entry.profiles?.position ?? null,
           },
@@ -956,6 +969,10 @@ export const gamesRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error?.message ?? 'Unable to update game' })
     }
 
+    if (input.status === 'cancelled') {
+      await rollbackCommunityRatingForGame(supabaseAdmin, input.id)
+    }
+
     if (input.capacity !== undefined) {
       const { data: reconcileData, error: reconcileError } = await ctx.supabase.rpc('reconcile_game_capacity', {
         p_game_id: input.id,
@@ -1037,6 +1054,8 @@ export const gamesRouter = createTRPCRouter({
         })
       }
 
+      await rollbackCommunityRatingForGame(supabaseAdmin, data.id)
+
       try {
         await notifyGameCancelled({ supabaseAdmin, gameId: data.id })
       } catch {}
@@ -1047,6 +1066,8 @@ export const gamesRouter = createTRPCRouter({
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await ensureAdmin(ctx.supabase, ctx.user.id)
+
+      await rollbackCommunityRatingForGame(supabaseAdmin, input.id)
 
       const { error } = await supabaseAdmin.from('games').delete().eq('id', input.id)
       if (error) {

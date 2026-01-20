@@ -6,49 +6,44 @@ import { Card, Paragraph, Separator, Sheet, SizableText, XStack, YStack } from '
 import { RatingBlock } from 'app/components/RatingBlock'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { BRAND_COLORS } from 'app/constants/colors'
+import { RecentFormChips } from 'app/features/games/components/RecentFormChips'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { formatNationalityDisplay } from 'app/utils/phone'
 
-import type { GameStatus, QueueEntry } from '../types'
-import { RecentFormChips } from './RecentFormChips'
+type LeaderboardEntry = RouterOutputs['stats']['leaderboard'][number]
 
-type RosterPlayerSheetProps = {
+type LeaderboardPlayerSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  entry: QueueEntry | null
-  gameStatus?: GameStatus
+  entry: LeaderboardEntry | null
+  communitySize: number
   communityId?: string | null
 }
 
-export const RosterPlayerSheet = ({
+export const LeaderboardPlayerSheet = ({
   open,
   onOpenChange,
   entry,
-  gameStatus,
+  communitySize,
   communityId,
-}: RosterPlayerSheetProps) => {
-  const profileId = entry?.profileId ?? null
-  const isGuest = entry?.isGuest ?? false
-  const leaderboardQuery = api.stats.leaderboard.useQuery(undefined, {
-    enabled: open && Boolean(profileId),
-  })
+}: LeaderboardPlayerSheetProps) => {
+  const profileId = entry?.profileId ?? ''
+  const canShowRating = Boolean(communityId) && Boolean(profileId)
+  const profileQuery = api.profiles.byId.useQuery(
+    { profileId },
+    { enabled: open && Boolean(profileId) }
+  )
   const ratingQuery = api.stats.profileCommunityRating.useQuery(
-    { communityId: communityId ?? '', profileId: profileId ?? '' },
-    {
-      enabled: open && Boolean(profileId) && Boolean(communityId) && !isGuest,
-    }
+    { communityId: communityId ?? '', profileId },
+    { enabled: open && Boolean(profileId) && Boolean(communityId) }
   )
-  const leaderboardEntry = useMemo(() => {
-    if (!profileId) return null
-    return leaderboardQuery.data?.find((row) => row.profileId === profileId) ?? null
-  }, [leaderboardQuery.data, profileId])
-  const stats = useMemo(() => deriveStats(leaderboardEntry), [leaderboardEntry])
+  const stats = useMemo(() => deriveStats(entry), [entry])
+  const winRate = entry?.winRate ?? (stats.games ? stats.wins / stats.games : 0)
   const performance = useMemo(
-    () => buildPerformanceMetrics(stats, leaderboardEntry, leaderboardQuery.data),
-    [stats, leaderboardEntry, leaderboardQuery.data]
+    () => buildPerformanceMetrics(stats, entry, communitySize, winRate),
+    [communitySize, entry, stats, winRate]
   )
-  const recentForm = leaderboardEntry?.recent ?? []
-  const isStatsLoading = leaderboardQuery.isLoading
+  const recentForm = entry?.recent ?? []
   const [avatarOpen, setAvatarOpen] = useState(false)
 
   useEffect(() => {
@@ -57,32 +52,14 @@ export const RosterPlayerSheet = ({
 
   if (!entry) return null
 
-  const isCompleted = gameStatus === 'completed'
-  const canShowRating = !isGuest && Boolean(communityId) && Boolean(profileId)
-  const name = isGuest ? entry.guest?.name?.trim() || 'Guest' : entry.player.name ?? 'Player'
-  const avatarUrl = isGuest ? null : entry.player.avatarUrl ?? null
+  const name = entry.name ?? 'Member'
+  const avatarUrl = entry.avatarUrl ?? null
   const canPreviewAvatar = Boolean(avatarUrl)
-  const statusLabel = entry.noShowAt
-    ? 'No-show'
-    : entry.tardyAt
-      ? 'Tardy'
-      : entry.status === 'rostered'
-        ? isCompleted || entry.attendanceConfirmedAt
-          ? 'Confirmed'
-          : 'Rostered'
-        : entry.status === 'waitlisted'
-          ? 'Waitlisted'
-          : 'Dropped'
-  const statusColor = entry.noShowAt ? '$red10' : entry.tardyAt ? '$yellow10' : undefined
-  const guestAddedBy = isGuest ? entry.guest?.addedByName?.trim() : null
-  const guestNotes = isGuest ? entry.guest?.notes?.trim() : null
-  const nationalityLabel = !isGuest ? formatNationalityDisplay(entry.player.nationality) : ''
+  const nationalityLabel = formatNationalityDisplay(profileQuery.data?.nationality)
   const metaLine = nationalityLabel
-  const summary = isStatsLoading
-    ? 'Dialing in the record…'
-    : stats.games
-      ? `Winning ${formatPercent(stats.winRate)} of ${stats.games} runs`
-      : 'No games logged yet.'
+  const summary = stats.games
+    ? `Winning ${formatPercent(winRate)} of ${stats.games} games`
+    : 'No games logged yet.'
 
   return (
     <>
@@ -119,20 +96,15 @@ export const RosterPlayerSheet = ({
                   <UserAvatar size={64} name={name} avatarUrl={avatarUrl} />
                 )}
                 <YStack gap="$0.5" flex={1} minWidth={0}>
-                  <XStack ai="center" jc="space-between" gap="$2">
-                    <SizableText size="$6" fontWeight="700" numberOfLines={1} flex={1} minWidth={0}>
-                      {name}
-                    </SizableText>
-                    <Paragraph theme="alt2" size="$2" color={statusColor}>
-                      {statusLabel}
-                    </Paragraph>
-                  </XStack>
+                  <SizableText size="$6" fontWeight="700" numberOfLines={1} flex={1} minWidth={0}>
+                    {name}
+                  </SizableText>
                   {metaLine ? (
                     <Paragraph theme="alt2" size="$2">
                       {metaLine}
                     </Paragraph>
                   ) : null}
-                  {!isGuest ? <RecentFormChips recentForm={recentForm} /> : null}
+                  <RecentFormChips recentForm={recentForm} />
                 </YStack>
               </XStack>
             </XStack>
@@ -140,47 +112,39 @@ export const RosterPlayerSheet = ({
           </YStack>
           <Separator />
           <YStack px="$4" py="$3" gap="$3">
-            {isGuest ? (
-              <>
-                {guestAddedBy ? <InfoRow label="Added by" value={guestAddedBy} /> : null}
-                {guestNotes ? <InfoRow label="Notes" value={guestNotes} /> : null}
-              </>
-            ) : (
-              <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
-                <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-                  <YStack gap="$1" flex={1}>
-                    <SizableText size="$5" fontWeight="600" textTransform="uppercase">
-                      Performance
-                    </SizableText>
-                    <Paragraph theme="alt2">{summary}</Paragraph>
-                  </YStack>
-                  {canShowRating ? (
-                    <YStack alignSelf="flex-start">
-                      <RatingBlock
-                        rating={ratingQuery.data?.rating}
-                        ratedGames={ratingQuery.data?.ratedGames}
-                      />
-                    </YStack>
-                  ) : null}
-                </XStack>
-                <YStack gap="$3">
-                  {[performance.slice(0, 2), performance.slice(2, 5), performance.slice(5, 8)].map(
-                    (row, rowIndex) => (
-                      <XStack key={`performance-row-${rowIndex}`} gap="$3">
-                        {row.map((metric) => (
-                          <MetricCard
-                            key={metric.label}
-                            {...metric}
-                            isLoading={isStatsLoading}
-                            highlight={rowIndex === 0}
-                          />
-                        ))}
-                      </XStack>
-                    )
-                  )}
+            <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
+              <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
+                <YStack gap="$1" flex={1}>
+                  <SizableText size="$5" fontWeight="600" textTransform="uppercase">
+                    Performance
+                  </SizableText>
+                  <Paragraph theme="alt2">{summary}</Paragraph>
                 </YStack>
-              </Card>
-            )}
+                {canShowRating ? (
+                  <YStack alignSelf="flex-start">
+                    <RatingBlock
+                      rating={ratingQuery.data?.rating}
+                      ratedGames={ratingQuery.data?.ratedGames}
+                    />
+                  </YStack>
+                ) : null}
+              </XStack>
+              <YStack gap="$3">
+                {[performance.slice(0, 2), performance.slice(2, 5), performance.slice(5, 8)].map(
+                  (row, rowIndex) => (
+                    <XStack key={`performance-row-${rowIndex}`} gap="$3">
+                      {row.map((metric) => (
+                        <MetricCard
+                          key={metric.label}
+                          {...metric}
+                          highlight={rowIndex === 0}
+                        />
+                      ))}
+                    </XStack>
+                  )
+                )}
+              </YStack>
+            </Card>
           </YStack>
         </Sheet.Frame>
       </Sheet>
@@ -248,19 +212,16 @@ type MetricCardProps = {
   label: string
   value: string
   rankLabel?: string
-  isLoading?: boolean
 }
 
-type LeaderboardRow = RouterOutputs['stats']['leaderboard'][number]
-
-const deriveStats = (entry: LeaderboardRow | null): StatSnapshot => {
+const deriveStats = (entry: LeaderboardEntry | null): StatSnapshot => {
   const games = entry?.games ?? 0
   const wins = entry?.wins ?? 0
   const losses = entry?.losses ?? 0
   const goalsFor = entry?.goalsFor ?? 0
   const goalsAgainst = entry?.goalsAgainst ?? 0
   const goalDiff = entry?.goalDiff ?? goalsFor - goalsAgainst
-  const winRate = games ? wins / games : 0
+  const winRate = entry?.winRate ?? (games ? wins / games : 0)
   return {
     games,
     wins,
@@ -275,17 +236,17 @@ const deriveStats = (entry: LeaderboardRow | null): StatSnapshot => {
 
 const buildPerformanceMetrics = (
   stats: StatSnapshot,
-  entry: LeaderboardRow | null,
-  leaderboard: LeaderboardRow[] | undefined
+  entry: LeaderboardEntry | null,
+  communitySize: number,
+  winRate: number
 ) => {
-  const communitySize = leaderboard?.length ?? 0
   const rankLabel = (rank?: number | null) => {
     if (!rank || communitySize === 0) return undefined
     return `Rank #${rank}`
   }
 
   return [
-    { label: 'Win rate', value: formatPercent(stats.winRate), rankLabel: rankLabel(entry?.overallRank) },
+    { label: 'Win rate', value: formatPercent(winRate), rankLabel: rankLabel(entry?.overallRank) },
     { label: 'As captain', value: `${stats.gamesAsCaptain}`, rankLabel: rankLabel(entry?.captainRank) },
     { label: 'Games played', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
     { label: 'Wins', value: `${stats.wins}`, rankLabel: rankLabel(entry?.winsRank) },
@@ -296,13 +257,7 @@ const buildPerformanceMetrics = (
   ].filter(Boolean) as MetricCardProps[]
 }
 
-const MetricCard = ({
-  label,
-  value,
-  rankLabel,
-  isLoading,
-  highlight = false,
-}: MetricCardProps & { highlight?: boolean }) => (
+const MetricCard = ({ label, value, rankLabel, highlight = false }: MetricCardProps & { highlight?: boolean }) => (
   <YStack
     flex={1}
     gap="$1"
@@ -314,7 +269,7 @@ const MetricCard = ({
     backgroundColor={highlight ? '$color1' : 'transparent'}
   >
     <SizableText size="$6" fontWeight="700">
-      {isLoading ? '—' : value}
+      {value}
     </SizableText>
     <YStack gap="$0.75" ai="center">
       <SizableText size="$3" fontWeight="500" textAlign="center">
@@ -374,16 +329,4 @@ const FormChip = ({ result }: { result: string }) => {
   )
 }
 
-
 const formatPercent = (value: number) => `${Math.round((value || 0) * 100)}%`
-
-const InfoRow = ({ label, value }: { label: string; value: string }) => {
-  return (
-    <YStack gap="$0.5">
-      <Paragraph theme="alt2" size="$2">
-        {label}
-      </Paragraph>
-      <SizableText fontWeight="600">{value}</SizableText>
-    </YStack>
-  )
-}

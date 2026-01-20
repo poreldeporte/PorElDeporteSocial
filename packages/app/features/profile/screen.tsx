@@ -1,4 +1,4 @@
-import { Image, Share, StyleSheet, type ScrollViewProps } from 'react-native'
+import { Image, Share, StyleSheet, type ImageSourcePropType, type ScrollViewProps } from 'react-native'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Path, Svg } from 'react-native-svg'
 import { useLink } from 'solito/link'
@@ -17,10 +17,20 @@ import {
   useToastController,
 } from '@my/ui/public'
 import { ArrowRight, Check, ChevronDown, Shield, Star, Trophy } from '@tamagui/lucide-icons'
+import {
+  captainBadge,
+  ironmanBadge,
+  legendBadge,
+  memberBadge,
+  ownerBadge,
+  playerBadge,
+  rookeBadge,
+} from 'app/assets'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { getDockSpacer } from 'app/constants/dock'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
+import { RatingBlock } from 'app/components/RatingBlock'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
 import { UploadCommunityBanner } from 'app/features/settings/components/upload-community-banner'
@@ -78,6 +88,13 @@ type ScrollHeaderProps = {
 
 type PillTone = 'neutral' | 'active' | 'primary'
 
+type BadgeDefinition = {
+  label: string
+  icon: typeof Shield
+  tone?: PillTone
+  image?: ImageSourcePropType
+}
+
 export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const data = useProfileData()
   const editor = useProfileEditor({
@@ -108,6 +125,8 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
             avatarUrl={data.avatarUrl}
             phone={data.profile?.phone}
             stats={data.stats}
+            rating={data.rating}
+            ratedGames={data.ratedGames}
             coverImageUrl={data.communityBannerUrl}
             communityId={data.communityId}
             canEditAvatar
@@ -165,13 +184,17 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
 
 const useProfileData = () => {
   const { profile, avatarUrl, user, displayName, role, isAdmin } = useUser()
-  useStatsRealtime(Boolean(user))
   useGamesListRealtime(Boolean(user))
   const logout = useLogout()
   const historyLink = useLink({ href: '/games/history' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
   const historyQuery = api.games.list.useQuery({ scope: 'past' })
   const communityQuery = api.community.defaults.useQuery(undefined, { enabled: Boolean(user) })
+  useStatsRealtime(Boolean(user), communityQuery.data?.id ?? null)
+  const ratingQuery = api.stats.myCommunityRating.useQuery(
+    { communityId: communityQuery.data?.id ?? '' },
+    { enabled: Boolean(communityQuery.data?.id) }
+  )
 
   const leaderboardEntry = useMemo(() => {
     if (!user?.id) return null
@@ -212,6 +235,8 @@ const useProfileData = () => {
     attendanceStreak,
     isStatsLoading: leaderboardQuery.isLoading,
     isHistoryLoading: historyQuery.isLoading,
+    rating: ratingQuery.data?.rating ?? 1500,
+    ratedGames: ratingQuery.data?.ratedGames ?? 0,
     historyError: Boolean(historyQuery.error),
     onHistoryRetry: historyQuery.refetch,
     historyLink,
@@ -385,6 +410,8 @@ const ProfileHero = ({
   avatarUrl,
   phone,
   stats,
+  rating,
+  ratedGames,
   coverImageUrl,
   canEditAvatar,
   canEditBanner,
@@ -394,6 +421,8 @@ const ProfileHero = ({
   avatarUrl: string | null
   phone?: string | null
   stats: StatSnapshot
+  rating: number
+  ratedGames: number
   coverImageUrl?: string | null
   canEditAvatar?: boolean
   canEditBanner?: boolean
@@ -486,12 +515,15 @@ const ProfileHero = ({
             </Switch>
           </XStack>
         </XStack>
-        <XStack ai="center" gap="$4">
-          <StatBlock label="Games" value={stats.games} />
-          <YStack w={1} h={28} bg="$color4" />
-          <StatBlock label="Wins" value={stats.wins} />
-          <YStack w={1} h={28} bg="$color4" />
-          <StatBlock label="Losses" value={stats.losses} />
+        <XStack ai="center" jc="space-between" gap="$4">
+          <XStack ai="center" gap="$4">
+            <StatBlock label="Games" value={stats.games} />
+            <YStack w={1} h={28} bg="$color4" />
+            <StatBlock label="Wins" value={stats.wins} />
+            <YStack w={1} h={28} bg="$color4" />
+            <StatBlock label="Losses" value={stats.losses} />
+          </XStack>
+          <RatingBlock rating={rating} ratedGames={ratedGames} />
         </XStack>
       </YStack>
     </Card>
@@ -618,7 +650,7 @@ const PerformanceSection = ({
     <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
       <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
         <YStack gap="$1" flex={1}>
-          <SizableText size="$5" fontWeight="600">
+          <SizableText size="$5" fontWeight="600" textTransform="uppercase">
             Performance
           </SizableText>
           <Paragraph theme="alt2">{summary}</Paragraph>
@@ -654,7 +686,7 @@ const HistorySection = ({
   return (
     <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
       <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
-        <SizableText size="$5" fontWeight="600">
+        <SizableText size="$5" fontWeight="600" textTransform="uppercase">
           Recent games
         </SizableText>
         <Button
@@ -726,14 +758,20 @@ const BadgeSection = ({
   ]
   return (
     <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3" backgroundColor="$color2">
-      <SizableText size="$5" fontWeight="600">
+      <SizableText size="$5" fontWeight="600" textTransform="uppercase">
         Badges
       </SizableText>
       <Paragraph theme="alt2">Earn badges as you play and contribute to the club.</Paragraph>
       <BadgeProgressList progress={progressRows} />
       <XStack gap="$2" flexWrap="wrap">
         {badges.map((badge) => (
-          <BadgeTile key={badge.label} label={badge.label} icon={badge.icon} completed />
+          <BadgeTile
+            key={badge.label}
+            label={badge.label}
+            icon={badge.icon}
+            image={badge.image}
+            completed
+          />
         ))}
       </XStack>
     </Card>
@@ -802,10 +840,12 @@ const BadgeTile = ({
   label,
   icon: Icon,
   completed,
+  image,
 }: {
   label: string
   icon: typeof Shield
   completed: boolean
+  image?: ImageSourcePropType
 }) => {
   const theme = useTheme()
   const backgroundColor = completed ? theme.color1?.val : theme.color2?.val
@@ -814,41 +854,57 @@ const BadgeTile = ({
   const iconColor = completed ? BRAND_COLORS.primary : '$color10'
   const shieldFill = backgroundColor ?? theme.background?.val ?? 'transparent'
   const shieldStroke = borderColor ?? theme.borderColor?.val ?? 'transparent'
+  const hasImage = Boolean(image)
   return (
     <YStack
-      w={96}
-      h={112}
+      w="31%"
+      aspectRatio={192 / 224}
       ai="center"
       jc="center"
-      gap="$1"
       position="relative"
     >
-      <Svg width="100%" height="100%" viewBox="0 0 72 88" style={{ position: 'absolute' }}>
-        <Path
-          d={BADGE_SHIELD_PATH}
-          fill={shieldFill}
-          stroke={shieldStroke}
-          strokeWidth={2}
+      {hasImage ? (
+        <Image
+          source={image as ImageSourcePropType}
+          resizeMode="contain"
+          style={{ width: '100%', height: '100%' }}
         />
-      </Svg>
-      <YStack ai="center" jc="center" px="$2" position="absolute">
-        <Paragraph size="$2" color={labelColor} fontWeight="600" textAlign="center">
-          {label}
-        </Paragraph>
-      </YStack>
+      ) : (
+        <>
+          <Svg width="100%" height="100%" viewBox="0 0 72 88" style={{ position: 'absolute' }}>
+            <Path
+              d={BADGE_SHIELD_PATH}
+              fill={shieldFill}
+              stroke={shieldStroke}
+              strokeWidth={2}
+            />
+          </Svg>
+          <YStack ai="center" jc="center" px="$2" position="absolute">
+            <Paragraph size="$2" color={labelColor} fontWeight="600" textAlign="center">
+              {label}
+            </Paragraph>
+          </YStack>
+        </>
+      )}
       {completed ? (
         <XStack
           position="absolute"
-          top="$1.5"
-          right="$1.5"
-          w={20}
-          h={20}
-          br="$10"
-          backgroundColor={BRAND_COLORS.primary}
+          bottom="$2"
+          left={0}
+          right={0}
           ai="center"
           jc="center"
         >
-          <Check size={12} color="$background" />
+          <XStack
+            w={20}
+            h={20}
+            br="$10"
+            backgroundColor={BRAND_COLORS.primary}
+            ai="center"
+            jc="center"
+          >
+            <Check size={12} color="$background" />
+          </XStack>
         </XStack>
       ) : null}
     </YStack>
@@ -1038,22 +1094,35 @@ const buildBadges = (
   tier: BadgeTier | null,
   attendanceStreak: number
 ) => {
-  const badges: Array<{ label: string; icon: typeof Shield; tone?: PillTone }> = []
+  const badges: BadgeDefinition[] = []
 
   if (tier) {
-    badges.push({ label: tier.label, icon: Star, tone: 'active' })
+    badges.push({
+      label: tier.label,
+      icon: Star,
+      tone: 'active',
+      image:
+        tier.id === 'rookie'
+          ? rookeBadge
+          : tier.id === 'player'
+            ? playerBadge
+            : tier.id === 'legend'
+              ? legendBadge
+            : undefined,
+    })
   }
   badges.push({
     label: formatRole(role),
     icon: Shield,
     tone: role === 'admin' || role === 'owner' ? 'primary' : 'neutral',
+    image: role === 'member' ? memberBadge : role === 'owner' ? ownerBadge : undefined,
   })
 
   if (attendanceStreak >= IRONMAN_STREAK) {
-    badges.push({ label: 'Ironman', icon: Trophy })
+    badges.push({ label: 'Ironman', icon: Trophy, image: ironmanBadge })
   }
   if (stats.gamesAsCaptain > 0) {
-    badges.push({ label: 'Capitan', icon: Shield })
+    badges.push({ label: 'Capitan', icon: Shield, image: captainBadge })
   }
   return badges
 }

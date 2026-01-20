@@ -1,10 +1,10 @@
 import type { ThemeName } from '@tamagui/core'
 
 import { Button, XStack, submitButtonBaseProps } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { getGameCtaIcon } from 'app/features/games/cta-icons'
 
+import { ctaButtonStyles } from '../cta-styles'
 import type { GameActionBarProps } from './GameActionBar.types'
 
 export const GameActionBar = ({
@@ -16,32 +16,21 @@ export const GameActionBar = ({
   const isRateCta = view.ctaLabel === 'Rate the game'
   const isCompletedCta = view.ctaLabel === 'Game completed'
   const isDropCta = view.ctaState === 'drop'
-  const isClaimCta = view.ctaState === 'claim'
   const isJoinCta =
     view.ctaState === 'claim' || view.ctaState === 'join-waitlist' || view.ctaState === 'grab-open-spot'
   const primaryButtonStyle =
-    !view.isGamePending && !isRateCta && (isJoinCta || isCompletedCta || isDropCta)
-      ? {
-          backgroundColor: '$color',
-          borderColor: '$color',
-          color: '$background',
-        }
-      : {}
-  const rateButtonStyle = isRateCta
-    ? { backgroundColor: '$color', borderColor: '$color', color: '$background' }
-    : {}
+    isRateCta || isCompletedCta
+      ? ctaButtonStyles.neutralSolid
+      : !view.isGamePending && isDropCta
+        ? ctaButtonStyles.inkOutline
+        : !view.isGamePending && isJoinCta
+          ? ctaButtonStyles.brandSolid
+          : {}
   const buttonTheme =
     isRateCta || isJoinCta || isDropCta || isCompletedCta
       ? undefined
       : (view.ctaTheme as ThemeName | undefined)
-  const confirmStyle = { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary }
-  const claimButtonStyle =
-    !view.isGamePending && !isRateCta && isClaimCta
-      ? {
-          borderColor: BRAND_COLORS.primary,
-          color: BRAND_COLORS.primary,
-        }
-      : {}
+  const confirmStyle = ctaButtonStyles.brandSolid
   const showConfirmOnly = view.canConfirmAttendance
   const primaryIcon = getGameCtaIcon({
     isPending: view.isGamePending,
@@ -56,9 +45,7 @@ export const GameActionBar = ({
   const disabled = showConfirmOnly ? isConfirming : view.ctaDisabled
   const icon = showConfirmOnly && isConfirming ? undefined : primaryIcon
   const theme = showConfirmOnly ? undefined : buttonTheme
-  const buttonStyle = showConfirmOnly
-    ? confirmStyle
-    : { ...primaryButtonStyle, ...rateButtonStyle, ...claimButtonStyle }
+  const buttonStyle = showConfirmOnly ? confirmStyle : primaryButtonStyle
 
   return (
     <FloatingCtaDock transparent>
