@@ -21,7 +21,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.poreldeporte.app',
-      buildNumber: '36',
+      buildNumber: '37',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
