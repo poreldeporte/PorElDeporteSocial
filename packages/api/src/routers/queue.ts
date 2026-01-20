@@ -22,6 +22,7 @@ const addGuestInput = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
   phone: z.string().trim().min(1, 'Guest phone is required'),
+  rating: z.number().int().min(1).max(5),
   notes: z.string().nullable().optional(),
 })
 const confirmGuestInput = z.object({
@@ -95,6 +96,10 @@ const mapRpcError = (error: PostgrestError) => {
         code: 'BAD_REQUEST',
         message: 'Guest limit reached (max 4 per member).',
       })
+    case 'guest_rating_required':
+      return new TRPCError({ code: 'BAD_REQUEST', message: 'Guest rating is required.' })
+    case 'guest_rating_invalid':
+      return new TRPCError({ code: 'BAD_REQUEST', message: 'Guest rating must be between 1 and 5.' })
     case 'queue_not_found':
       return new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
     case 'unauthenticated':
@@ -345,6 +350,7 @@ export const queueRouter = createTRPCRouter({
       p_guest_name: guestName,
       p_guest_phone: input.phone.trim(),
       p_guest_notes: input.notes?.trim() || null,
+      p_guest_rating: input.rating,
     })
 
     if (error) throw mapRpcError(error)

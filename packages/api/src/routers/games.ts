@@ -40,6 +40,7 @@ type QueueWithProfile = QueueRow & {
   guest_name: string | null
   guest_phone: string | null
   guest_notes: string | null
+  guest_rating: number | null
   added_by_profile_id: string | null
   added_by: Pick<ProfileRow, 'id' | 'name' | 'first_name' | 'last_name'> | null
   profiles: Pick<
@@ -392,6 +393,7 @@ export const gamesRouter = createTRPCRouter({
             guest_name,
             guest_phone,
             guest_notes,
+            guest_rating,
             added_by_profile_id,
             added_by:profiles!game_queue_added_by_profile_id_fkey (
               id,
@@ -491,6 +493,7 @@ export const gamesRouter = createTRPCRouter({
                 name: entry.guest_name ?? 'Guest',
                 phone: entry.guest_phone ?? null,
                 notes: entry.guest_notes ?? null,
+                rating: entry.guest_rating ?? null,
                 addedByProfileId: entry.added_by_profile_id ?? null,
                 addedByName: formatProfileName(entry.added_by, null),
               }

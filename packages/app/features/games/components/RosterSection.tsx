@@ -1,7 +1,15 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Alert } from 'react-native'
 
-import { AlertTriangle, CheckCircle2, Clock, MoreHorizontal, Timer, Trash2 } from '@tamagui/lucide-icons'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  MoreHorizontal,
+  Star,
+  Timer,
+  Trash2,
+} from '@tamagui/lucide-icons'
 
 import {
   Button,
@@ -14,9 +22,11 @@ import {
   YStack,
 } from '@my/ui/public'
 import { UserAvatar } from 'app/components/UserAvatar'
-import { formatPhoneDisplay } from 'app/utils/phone'
+import { BRAND_COLORS } from 'app/constants/colors'
 import type { GameStatus, QueueEntry } from '../types'
 import { RosterPlayerSheet } from './RosterPlayerSheet'
+
+const STAR_VALUES = [1, 2, 3, 4, 5]
 
 type Props = {
   entries: QueueEntry[]
@@ -416,9 +426,8 @@ const PlayerRow = ({
       : '- - - - -'
     : null
   const guestName = entry.guest?.name?.trim() || 'Guest'
-  const guestPhone = isGuest ? formatPhoneDisplay(entry.guest?.phone) : null
-  const guestSubline = isGuest ? [guestName, guestPhone].filter(Boolean).join(' - ') : null
-  const guestNotes = isGuest ? entry.guest?.notes?.trim() : null
+  const guestSubline = isGuest ? guestName : null
+  const guestRating = isGuest ? entry.guest?.rating ?? null : null
   const displayName = isGuest
     ? `${entry.guest?.addedByName?.trim() || 'Member'} +${guestNumber ?? 1}`
     : entry.player.name ?? 'Anonymous Player'
@@ -433,7 +442,24 @@ const PlayerRow = ({
       <XStack ai="center" gap="$2" flex={1} pr="$2">
         <UserAvatar size={avatarSize} name={avatarName} avatarUrl={avatarUrl} />
         <YStack f={1} minHeight={avatarSize} jc="center" gap="$0.5">
-          <SizableText fontWeight="600">{displayName}</SizableText>
+          <XStack ai="center" gap="$2" flexWrap="wrap">
+            <SizableText fontWeight="600">{displayName}</SizableText>
+            {guestRating ? (
+              <XStack gap="$0.5" ai="center">
+                {STAR_VALUES.map((value) => {
+                  const active = value <= guestRating
+                  return (
+                    <Star
+                      key={value}
+                      size={14}
+                      color={active ? BRAND_COLORS.primary : '$color8'}
+                      fill={active ? BRAND_COLORS.primary : 'transparent'}
+                    />
+                  )
+                })}
+              </XStack>
+            ) : null}
+          </XStack>
           {isNoShow ? (
             <Paragraph size="$2" color="$red10">
               No-show
@@ -451,11 +477,6 @@ const PlayerRow = ({
           {recentLabel ? (
             <Paragraph theme="alt2" size="$2">
               Last 5: {recentLabel}
-            </Paragraph>
-          ) : null}
-          {guestNotes ? (
-            <Paragraph theme="alt2" size="$2">
-              {guestNotes}
             </Paragraph>
           ) : null}
         </YStack>

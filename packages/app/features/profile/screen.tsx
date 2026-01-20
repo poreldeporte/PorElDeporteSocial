@@ -127,6 +127,7 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
             stats={data.stats}
             rating={data.rating}
             ratedGames={data.ratedGames}
+            ratingDebug={data.ratingDebug}
             coverImageUrl={data.communityBannerUrl}
             communityId={data.communityId}
             canEditAvatar
@@ -195,6 +196,16 @@ const useProfileData = () => {
     { communityId: communityQuery.data?.id ?? '' },
     { enabled: Boolean(communityQuery.data?.id) }
   )
+  const ratingDebug = isAdmin
+    ? [
+        `community=${communityQuery.data?.id ?? 'none'}`,
+        `communityStatus=${communityQuery.status}`,
+        `ratingEnabled=${Boolean(communityQuery.data?.id)}`,
+        `ratingStatus=${ratingQuery.status}/${ratingQuery.fetchStatus}`,
+        `ratedGames=${ratingQuery.data?.ratedGames ?? 'n/a'}`,
+        `error=${ratingQuery.error?.message ?? 'none'}`,
+      ].join(' | ')
+    : null
 
   const leaderboardEntry = useMemo(() => {
     if (!user?.id) return null
@@ -237,6 +248,7 @@ const useProfileData = () => {
     isHistoryLoading: historyQuery.isLoading,
     rating: ratingQuery.data?.rating ?? 1500,
     ratedGames: ratingQuery.data?.ratedGames ?? 0,
+    ratingDebug,
     historyError: Boolean(historyQuery.error),
     onHistoryRetry: historyQuery.refetch,
     historyLink,
@@ -412,6 +424,7 @@ const ProfileHero = ({
   stats,
   rating,
   ratedGames,
+  ratingDebug,
   coverImageUrl,
   canEditAvatar,
   canEditBanner,
@@ -423,6 +436,7 @@ const ProfileHero = ({
   stats: StatSnapshot
   rating: number
   ratedGames: number
+  ratingDebug?: string | null
   coverImageUrl?: string | null
   canEditAvatar?: boolean
   canEditBanner?: boolean
@@ -525,6 +539,11 @@ const ProfileHero = ({
           </XStack>
           <RatingBlock rating={rating} ratedGames={ratedGames} />
         </XStack>
+        {ratingDebug ? (
+          <Paragraph theme="alt2" size="$1">
+            {ratingDebug}
+          </Paragraph>
+        ) : null}
       </YStack>
     </Card>
   )

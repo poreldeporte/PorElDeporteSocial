@@ -80,7 +80,7 @@ export const LeaderboardPlayerSheet = ({
           exitStyle={{ opacity: 0 }}
           zIndex={0}
         />
-        <Sheet.Frame backgroundColor="$background">
+        <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
           <YStack px="$4" pt="$4" pb="$3" gap="$3">
             <XStack ai="center" jc="space-between" gap="$3">
               <XStack ai="center" gap="$3" flex={1} minWidth={0}>
@@ -248,12 +248,12 @@ const buildPerformanceMetrics = (
   return [
     { label: 'Win rate', value: formatPercent(winRate), rankLabel: rankLabel(entry?.overallRank) },
     { label: 'As captain', value: `${stats.gamesAsCaptain}`, rankLabel: rankLabel(entry?.captainRank) },
-    { label: 'Games played', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
+    { label: 'Games', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
     { label: 'Wins', value: `${stats.wins}`, rankLabel: rankLabel(entry?.winsRank) },
     { label: 'Losses', value: `${stats.losses}` },
-    { label: 'Goal diff', value: `${stats.goalDiff}`, rankLabel: rankLabel(entry?.goalDiffRank) },
-    { label: 'Goals for', value: `${stats.goalsFor}` },
-    { label: 'Goals against', value: `${stats.goalsAgainst}` },
+    { label: 'GD', value: `${stats.goalDiff}`, rankLabel: rankLabel(entry?.goalDiffRank) },
+    { label: 'GF', value: `${stats.goalsFor}` },
+    { label: 'GA', value: `${stats.goalsAgainst}` },
   ].filter(Boolean) as MetricCardProps[]
 }
 

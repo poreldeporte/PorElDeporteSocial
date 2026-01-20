@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Image } from 'react-native'
 import { Dialog } from 'tamagui'
+import { Star } from '@tamagui/lucide-icons'
 
 import { Card, Paragraph, Separator, Sheet, SizableText, XStack, YStack } from '@my/ui/public'
 import { RatingBlock } from 'app/components/RatingBlock'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { BRAND_COLORS } from 'app/constants/colors'
 import { api, type RouterOutputs } from 'app/utils/api'
-import { formatNationalityDisplay } from 'app/utils/phone'
+import { formatNationalityDisplay, formatPhoneDisplay } from 'app/utils/phone'
 
 import type { GameStatus, QueueEntry } from '../types'
 import { RecentFormChips } from './RecentFormChips'
+
+const STAR_VALUES = [1, 2, 3, 4, 5]
 
 type RosterPlayerSheetProps = {
   open: boolean
@@ -76,6 +79,8 @@ export const RosterPlayerSheet = ({
   const statusColor = entry.noShowAt ? '$red10' : entry.tardyAt ? '$yellow10' : undefined
   const guestAddedBy = isGuest ? entry.guest?.addedByName?.trim() : null
   const guestNotes = isGuest ? entry.guest?.notes?.trim() : null
+  const guestPhone = isGuest ? formatPhoneDisplay(entry.guest?.phone) : null
+  const guestRating = isGuest ? entry.guest?.rating ?? null : null
   const nationalityLabel = !isGuest ? formatNationalityDisplay(entry.player.nationality) : ''
   const metaLine = nationalityLabel
   const summary = isStatsLoading
@@ -103,7 +108,7 @@ export const RosterPlayerSheet = ({
           exitStyle={{ opacity: 0 }}
           zIndex={0}
         />
-        <Sheet.Frame backgroundColor="$background">
+        <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
           <YStack px="$4" pt="$4" pb="$3" gap="$3">
             <XStack ai="center" jc="space-between" gap="$3">
               <XStack ai="center" gap="$3" flex={1} minWidth={0}>
@@ -132,7 +137,23 @@ export const RosterPlayerSheet = ({
                       {metaLine}
                     </Paragraph>
                   ) : null}
-                  {!isGuest ? <RecentFormChips recentForm={recentForm} /> : null}
+                  {isGuest && guestRating ? (
+                    <XStack gap="$0.5" ai="center">
+                      {STAR_VALUES.map((value) => {
+                        const active = value <= guestRating
+                        return (
+                          <Star
+                            key={value}
+                            size={16}
+                            color={active ? BRAND_COLORS.primary : '$color8'}
+                            fill={active ? BRAND_COLORS.primary : 'transparent'}
+                          />
+                        )
+                      })}
+                    </XStack>
+                  ) : !isGuest ? (
+                    <RecentFormChips recentForm={recentForm} />
+                  ) : null}
                 </YStack>
               </XStack>
             </XStack>
@@ -142,8 +163,9 @@ export const RosterPlayerSheet = ({
           <YStack px="$4" py="$3" gap="$3">
             {isGuest ? (
               <>
+                {guestPhone ? <InfoRow label="Phone" value={guestPhone} /> : null}
+                {guestNotes ? <InfoRow label="Style of play" value={guestNotes} /> : null}
                 {guestAddedBy ? <InfoRow label="Added by" value={guestAddedBy} /> : null}
-                {guestNotes ? <InfoRow label="Notes" value={guestNotes} /> : null}
               </>
             ) : (
               <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
@@ -287,12 +309,12 @@ const buildPerformanceMetrics = (
   return [
     { label: 'Win rate', value: formatPercent(stats.winRate), rankLabel: rankLabel(entry?.overallRank) },
     { label: 'As captain', value: `${stats.gamesAsCaptain}`, rankLabel: rankLabel(entry?.captainRank) },
-    { label: 'Games played', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
+    { label: 'Games', value: `${stats.games}`, rankLabel: rankLabel(entry?.overallRank) },
     { label: 'Wins', value: `${stats.wins}`, rankLabel: rankLabel(entry?.winsRank) },
     { label: 'Losses', value: `${stats.losses}` },
-    { label: 'Goal diff', value: `${stats.goalDiff}`, rankLabel: rankLabel(entry?.goalDiffRank) },
-    { label: 'Goals for', value: `${stats.goalsFor}` },
-    { label: 'Goals against', value: `${stats.goalsAgainst}` },
+    { label: 'GD', value: `${stats.goalDiff}`, rankLabel: rankLabel(entry?.goalDiffRank) },
+    { label: 'GF', value: `${stats.goalsFor}` },
+    { label: 'GA', value: `${stats.goalsAgainst}` },
   ].filter(Boolean) as MetricCardProps[]
 }
 

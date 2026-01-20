@@ -36,6 +36,7 @@ const fetchDefaultCommunity = async (supabase: SupabaseClient<Database>) => {
   const { data, error } = await supabase
     .from('communities')
     .select(communityFields)
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
