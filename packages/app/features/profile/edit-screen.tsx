@@ -18,15 +18,13 @@ import {
 } from '@my/ui/public'
 import { Alert, type ScrollViewProps } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BRAND_COLORS } from 'app/constants/colors'
-import { getDockSpacer } from 'app/constants/dock'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { CountryPicker } from 'app/components/CountryPicker'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { formatPhoneDisplay, getPhoneCountryOptions, parsePhoneToE164, type PhoneCountryOption } from 'app/utils/phone'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
@@ -78,6 +76,7 @@ export const ProfileFormScreen = ({
   headerSpacer,
   topInset,
 }: ProfileFormScreenProps & ScrollHeaderProps) => {
+  const { primaryColor } = useBrand()
   const { profile, user } = useUser()
 
   if (!profile || !user?.id) {
@@ -132,9 +131,7 @@ const EditProfileForm = ({
   topSection?: ReactNode
 }) => {
   const { params } = useParams()
-  const insets = useSafeAreaInsets()
   const showFloatingCta = floatingCta && !isWeb
-  const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
   const submitRef = useRef<(() => void) | null>(null)
   const supabase = useSupabase()
   const toast = useToastController()
@@ -273,12 +270,12 @@ const EditProfileForm = ({
                   Private club details for lineups and access.
                 </Paragraph>
                 {showBrandAccent ? (
-                  <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+                  <YStack h={2} w={56} br={999} bg={primaryColor} />
                 ) : null}
               </YStack>
               <YStack gap="$4">
                 {topSection}
-                <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+                <Card bordered bw={1} boc="$color12" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
                       <SizableText size="$5" fontWeight="700" textTransform="uppercase">
@@ -307,7 +304,7 @@ const EditProfileForm = ({
                     <NationalityField />
                   </YStack>
                 </Card>
-                <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+                <Card bordered bw={1} boc="$color12" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
                       <SizableText size="$5" fontWeight="700" textTransform="uppercase">
@@ -334,7 +331,7 @@ const EditProfileForm = ({
                     </XStack>
                   </YStack>
                 </Card>
-                <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+                <Card bordered bw={1} boc="$color12" br="$5" p="$4">
                   <YStack gap="$3">
                     <YStack gap="$1">
                       <SizableText size="$5" fontWeight="700" textTransform="uppercase">
@@ -348,7 +345,6 @@ const EditProfileForm = ({
                   </YStack>
                 </Card>
               </YStack>
-              {showFloatingCta ? <YStack h={dockSpacer} /> : null}
             </FormWrapper.Body>
             {showFloatingCta ? (
               <FloatingSubmitBar
@@ -592,7 +588,7 @@ export const AdminProfileEditScreen = ({
   }
 
   const roleSection = (
-    <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+    <Card bordered bw={1} boc="$color12" br="$5" p="$4">
       <YStack gap="$3">
         <YStack gap="$1">
           <SizableText size="$5" fontWeight="700">

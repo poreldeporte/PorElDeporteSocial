@@ -1,8 +1,11 @@
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { type ReactNode } from 'react'
 
-import { H1, Paragraph, ScrollView, SizableText, YStack, isWeb } from '@my/ui/public'
+import { Card, H1, Paragraph, ScrollView, SizableText, YStack, isWeb } from '@my/ui/public'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
+import { SolitoImage } from 'solito/image'
 
 const TERMS_SECTIONS = [
   {
@@ -68,7 +71,13 @@ const TERMS_SECTIONS = [
   },
   {
     title: '9. Termination',
-    body: 'You can stop using the app anytime. We may suspend or remove accounts for safety, violations, or admin decisions.',
+    body: [
+      'You can stop using the app anytime.',
+      'You can deactivate or delete your account in Settings → Account.',
+      'Deactivation disables login but keeps your name in historical records.',
+      'Deletion removes personal data and replaces your name with a generic placeholder in past records.',
+      'We may suspend or remove accounts for safety, violations, or admin decisions.',
+    ].join(' '),
   },
   {
     title: '10. Disclaimers and liability limits',
@@ -99,6 +108,7 @@ type ScrollHeaderProps = {
 }
 
 export const TermsOfServiceScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
+  const { logo } = useBrand()
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
@@ -112,23 +122,29 @@ export const TermsOfServiceScreen = ({ scrollProps, headerSpacer }: ScrollHeader
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
       {headerSpacer}
       <YStack gap="$4">
+        <YStack ai="center">
+          <SolitoImage src={logo} alt="Por El Deporte crest" width={144} height={144} />
+        </YStack>
         {/* only show title on web since mobile has navigator title */}
-        {isWeb && <H1>Terms of Service</H1>}
-        <Paragraph>Last Updated: December 10, 2025</Paragraph>
-        <Paragraph>These Terms govern your use of the Por El Deporte app.</Paragraph>
+        <Card bordered bw={1} boc="$color12" br="$5" p="$4" gap="$2">
+          {isWeb && <H1>Terms of Service</H1>}
+          <Paragraph>Last Updated: January 21, 2026</Paragraph>
+          <Paragraph>These Terms govern your use of the Por El Deporte app.</Paragraph>
+        </Card>
         {TERMS_SECTIONS.map((section) => (
           <Section key={section.title} title={section.title} body={section.body} />
         ))}
+        <BrandStamp />
       </YStack>
     </ScrollView>
   )
 }
 
 const Section = ({ title, body }: { title: string; body: string }) => (
-  <YStack gap="$2">
+  <Card bordered bw={1} boc="$color12" br="$5" p="$4" gap="$2">
     <SizableText size="$5" fontWeight="700">
       {title}
     </SizableText>
     <Paragraph>{body}</Paragraph>
-  </YStack>
+  </Card>
 )

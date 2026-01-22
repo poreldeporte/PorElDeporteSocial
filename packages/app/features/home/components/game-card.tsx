@@ -8,7 +8,7 @@ import {
   DEFAULT_CRUNCH_TIME_ENABLED,
   DEFAULT_CRUNCH_TIME_START_TIME_LOCAL,
 } from '@my/config/game'
-import { ctaButtonStyles } from 'app/features/games/cta-styles'
+import { useCtaButtonStyles } from 'app/features/games/cta-styles'
 import { CombinedStatusBadge, StatusNote } from 'app/features/games/components'
 import { getGameCtaIcon, type GameCtaState } from 'app/features/games/cta-icons'
 import { deriveCombinedStatus, getConfirmCountdownLabel } from 'app/features/games/status-helpers'
@@ -44,6 +44,7 @@ type Props = {
   isPending: boolean
   onConfirmAttendance?: (gameId: string) => void
   isConfirming?: boolean
+  variant?: 'card' | 'list'
 }
 
 export const GameCard = ({
@@ -54,7 +55,10 @@ export const GameCard = ({
   isPending,
   onConfirmAttendance,
   isConfirming,
+  variant = 'card',
 }: Props) => {
+  const isList = variant === 'list'
+  const ctaButtonStyles = useCtaButtonStyles()
   const startDate = useMemo(() => new Date(game.startTime), [game.startTime])
   const now = Date.now()
   const kickoffLabel = useMemo(() => formatGameKickoffLabel(startDate), [startDate])
@@ -231,13 +235,14 @@ export const GameCard = ({
 
   return (
     <Card
-      bordered
-      bw={1}
-      boc="$black1"
-      br="$5"
+      bordered={!isList}
+      bw={isList ? 0 : 1}
+      boc={isList ? 'transparent' : '$color12'}
+      br={isList ? 0 : '$5'}
       p="$4"
       gap="$4"
       opacity={isUnreleased ? 0.7 : 1}
+      backgroundColor={isList ? '$color1' : undefined}
       {...detailLink}
       onPress={handleCardPress}
       hoverStyle={{ backgroundColor: '$color2' }}

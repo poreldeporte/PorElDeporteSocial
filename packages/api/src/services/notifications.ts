@@ -136,8 +136,8 @@ export const notifyResultsConfirmed = async ({ supabaseAdmin, gameId }: NotifyOp
   const roster = await fetchRosteredProfileIds(supabaseAdmin, gameId)
   if (!roster.length) return
   await sendPushToUserIds(supabaseAdmin, roster, {
-    title: `Results are in for ${game.name}`,
-    body: 'Stats updated.',
+    title: `Results posted: ${game.name}`,
+    body: 'Ratings and stats are live. Rate your game.',
     data: { url: toGameUrl(gameId) },
   })
 }

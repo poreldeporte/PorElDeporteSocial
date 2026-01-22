@@ -4,11 +4,9 @@ import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { Star } from '@tamagui/lucide-icons'
 
 import { Button, Card, Paragraph, ScrollView, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
-import { getDockSpacer } from 'app/constants/dock'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 
 type ScrollHeaderProps = {
@@ -25,12 +23,11 @@ export const GameReviewsScreen = ({
   headerSpacer,
 }: { gameId: string } & ScrollHeaderProps) => {
   const { isAdmin, isLoading: isLoadingUser } = useUser()
-  const insets = useSafeAreaInsets()
+  const { primaryColor } = useBrand()
   const { data, isLoading, error, refetch } = api.reviews.listByGame.useQuery(
     { gameId },
     { enabled: isAdmin && !isLoadingUser && Boolean(gameId) }
   )
-  const dockSpacer = getDockSpacer(insets.bottom)
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
@@ -50,7 +47,7 @@ export const GameReviewsScreen = ({
             Game reviews
           </SizableText>
           <Paragraph theme="alt2">Player feedback after the run.</Paragraph>
-          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+          <YStack h={2} w={56} br={999} bg={primaryColor} />
         </YStack>
 
         {isLoadingUser ? (
@@ -91,7 +88,6 @@ export const GameReviewsScreen = ({
           </YStack>
         )}
       </YStack>
-      <YStack h={dockSpacer} />
     </ScrollView>
   )
 }
@@ -172,21 +168,24 @@ const ReviewCard = ({
   )
 }
 
-const StarRow = ({ rating }: { rating: number }) => (
-  <XStack gap="$1" ai="center">
-    {STAR_VALUES.map((value) => {
-      const active = value <= rating
-      return (
-        <Star
-          key={value}
-          size={16}
-          color={active ? BRAND_COLORS.primary : '$color8'}
-          fill={active ? BRAND_COLORS.primary : 'transparent'}
-        />
-      )
-    })}
-  </XStack>
-)
+const StarRow = ({ rating }: { rating: number }) => {
+  const { primaryColor } = useBrand()
+  return (
+    <XStack gap="$1" ai="center">
+      {STAR_VALUES.map((value) => {
+        const active = value <= rating
+        return (
+          <Star
+            key={value}
+            size={16}
+            color={active ? primaryColor : '$color8'}
+            fill={active ? primaryColor : 'transparent'}
+          />
+        )
+      })}
+    </XStack>
+  )
+}
 
 const formatReviewDate = (value: string) =>
   new Date(value).toLocaleString(undefined, {

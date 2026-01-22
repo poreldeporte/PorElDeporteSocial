@@ -2,13 +2,12 @@ import type { ReactNode } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { Button, Card, Paragraph, ScrollView, SizableText, Spinner, XStack, YStack } from '@my/ui/public'
-import { getDockSpacer } from 'app/constants/dock'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { HistoryGameCard } from 'app/features/games/components/HistoryGameCard'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { useGamesListRealtime } from 'app/utils/useRealtimeSync'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
 type ScrollHeaderProps = {
   scrollProps?: ScrollViewProps
@@ -17,11 +16,10 @@ type ScrollHeaderProps = {
 }
 
 export const GameHistoryScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
-  const insets = useSafeAreaInsets()
+  const { primaryColor } = useBrand()
   const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'past' })
   useGamesListRealtime(true)
   const games = data ?? []
-  const dockSpacer = getDockSpacer(insets.bottom)
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
@@ -45,7 +43,7 @@ export const GameHistoryScreen = ({ scrollProps, headerSpacer }: ScrollHeaderPro
               <Paragraph theme="alt2">Every run, every recap.</Paragraph>
             </YStack>
           </XStack>
-          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+          <YStack h={2} w={56} br={999} bg={primaryColor} />
         </YStack>
         {isLoading ? (
           <Card px="$4" py="$3" bordered $platform-native={{ borderWidth: 0 }}>
@@ -73,8 +71,8 @@ export const GameHistoryScreen = ({ scrollProps, headerSpacer }: ScrollHeaderPro
             ))}
           </YStack>
         )}
+        <BrandStamp />
       </YStack>
-      <YStack h={dockSpacer} />
     </ScrollView>
   )
 }

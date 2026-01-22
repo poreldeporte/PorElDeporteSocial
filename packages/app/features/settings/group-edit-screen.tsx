@@ -20,15 +20,14 @@ import {
   submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
-import { BRAND_COLORS } from 'app/constants/colors'
-import { getDockSpacer } from 'app/constants/dock'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { formatProfileName } from 'app/utils/profileName'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 
 type MemberProfile = {
@@ -55,15 +54,14 @@ export const GroupEditScreen = ({
   headerSpacer,
   topInset,
 }: { groupId?: string | null } & ScrollHeaderProps) => {
+  const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
   const router = useRouter()
   const supabase = useSupabase()
   const toast = useToastController()
   const utils = api.useContext()
   const isCreate = !groupId
-  const insets = useSafeAreaInsets()
   const showFloatingCta = !isWeb
-  const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
 
   const groupQuery = api.groups.byId.useQuery(
     { id: groupId ?? '' },
@@ -225,11 +223,11 @@ export const GroupEditScreen = ({
             <Paragraph theme="alt2">
               Groups control which members can see and join private games.
             </Paragraph>
-            <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+            <YStack h={2} w={56} br={999} bg={primaryColor} />
           </YStack>
 
           <YStack gap="$3">
-            <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+            <Card bordered bw={1} boc="$color12" br="$5" p="$4">
               <YStack gap="$1">
                 <SizableText size="$4" fontWeight="600">
                   Group name
@@ -249,7 +247,7 @@ export const GroupEditScreen = ({
               </YStack>
             </Card>
 
-            <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+            <Card bordered bw={1} boc="$color12" br="$5" p="$4">
               <YStack gap="$1">
                 <SizableText size="$4" fontWeight="600">
                   Members ({selectedCount})
@@ -276,7 +274,7 @@ export const GroupEditScreen = ({
                           key={member.id}
                           bordered
                           bw={1}
-                          boc="$black1"
+                          boc="$color12"
                           br="$5"
                           p="$3"
                           onPress={() => toggleMember(member.id)}
@@ -318,8 +316,8 @@ export const GroupEditScreen = ({
               </Button>
             )}
           </YStack>
+          <BrandStamp />
         </YStack>
-        {showFloatingCta ? <YStack h={dockSpacer} /> : null}
       </ScrollView>
       {showFloatingCta ? (
         <FloatingCtaDock transparent>

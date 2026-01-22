@@ -1,6 +1,5 @@
 import { Button, H2, Spinner, YStack, submitButtonBaseProps } from '@my/ui/public'
 import { maxGringoLanding } from 'app/assets'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { getPhoneCountryOptions } from 'app/utils/phone'
 import { usePathname } from 'app/utils/usePathname'

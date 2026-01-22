@@ -14,7 +14,7 @@ export default function Screen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         <FloatingHeaderLayout
           title={layout.title}
           leftIcon={ChevronLeft}

@@ -7,12 +7,12 @@ import { LinearGradient } from '@tamagui/linear-gradient'
 import {
   Avatar,
   Button,
-  getTokens,
   Input,
   Paragraph,
   SizableText,
   XStack,
   YStack,
+  useTheme,
   useToastController,
 } from '@my/ui/public'
 
@@ -46,18 +46,6 @@ const overlayLayout = {
   gradientHeight: 224,
 }
 
-export const DRAFT_CHAT_DOCK_HEIGHT =
-  overlayLayout.bottomOffset + Math.max(overlayLayout.inputHeight, overlayLayout.reactionButtonSize)
-
-export const getDraftChatDockInset = (bottomInset: number) =>
-  bottomInset + DRAFT_CHAT_DOCK_HEIGHT
-const overlayColors = {
-  messageBg: '$black025',
-  inputBorder: '$white025',
-  inputBg: '$white025',
-  actionBg: '$white025',
-  textPrimary: '$white1',
-} as const
 const avatarPalette = [
   '$blue9',
   '$green9',
@@ -90,7 +78,7 @@ export const DraftRoomLiveOverlay = ({
   collapsedMessageLimit,
   expandedMessageLimit,
 }: DraftRoomLiveOverlayProps) => {
-  const tokens = getTokens()
+  const theme = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToastController()
   const { user, displayName } = useUser()
@@ -267,12 +255,17 @@ export const DraftRoomLiveOverlay = ({
     inputBottomOffset + overlayLayout.inputHeight + overlayLayout.messageGap
   const inputRightOffset =
     overlayLayout.reactionButtonSize + overlayLayout.sideInset * 2
-  const placeholderColor =
-    tokens.color?.white075?.val ?? 'rgba(255,255,255,0.75)'
-  const gradientColors = [
-    tokens.color?.black0?.val ?? 'rgba(0,0,0,0)',
-    tokens.color?.black05?.val ?? 'rgba(0,0,0,0.8)',
-  ]
+  const overlayColors = {
+    messageBg: theme.color2?.val ?? 'rgba(0,0,0,0.6)',
+    inputBorder: theme.color5?.val ?? 'rgba(255,255,255,0.2)',
+    inputBg: theme.color1?.val ?? 'rgba(0,0,0,0.7)',
+    actionBg: theme.color1?.val ?? 'rgba(0,0,0,0.7)',
+    textPrimary: theme.color12?.val ?? '#fff',
+    placeholder: theme.color10?.val ?? 'rgba(255,255,255,0.7)',
+    gradientEnd: theme.color1?.val ?? 'rgba(0,0,0,0.85)',
+  }
+  const placeholderColor = overlayColors.placeholder
+  const gradientColors = ['rgba(0,0,0,0)', overlayColors.gradientEnd]
 
   return (
     <YStack position="absolute" top={0} left={0} right={0} bottom={0} pointerEvents="box-none">
@@ -305,6 +298,7 @@ export const DraftRoomLiveOverlay = ({
           bottomOffset={messageBottomOffset}
           stackOpacity={chatOpacity}
           onPress={expandChat}
+          overlayColors={overlayColors}
         />
 
         <FloatingReactionLayer
@@ -397,11 +391,16 @@ const MessageStack = ({
   bottomOffset,
   stackOpacity,
   onPress,
+  overlayColors,
 }: {
   messages: ChatMessage[]
   bottomOffset: number
   stackOpacity: number
   onPress?: () => void
+  overlayColors: {
+    messageBg: string
+    textPrimary: string
+  }
 }) => {
   if (!messages.length) return null
 

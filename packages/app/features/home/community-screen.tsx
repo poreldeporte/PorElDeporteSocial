@@ -5,8 +5,6 @@ import { type ReactNode } from 'react'
 
 import { YStack } from '@my/ui/public'
 import { COMMUNITY_CHAT_ROOM } from 'app/constants/chat'
-import { getDockSpacer } from 'app/constants/dock'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 import { WhatsAppStyleChat } from './components/WhatsAppStyleChat'
 
@@ -18,8 +16,6 @@ type ScrollHeaderProps = {
 
 export const CommunityScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
   const { user, displayName, isAdmin } = useUser()
-  const insets = useSafeAreaInsets()
-  const dockSpacer = getDockSpacer(insets.bottom)
 
   return (
     <YStack flex={1}>
@@ -31,7 +27,6 @@ export const CommunityScreen = ({ scrollProps, headerSpacer, topInset }: ScrollH
         isAdmin={isAdmin}
         scrollProps={scrollProps}
         topInset={topInset}
-        bottomInset={dockSpacer}
       />
     </YStack>
   )

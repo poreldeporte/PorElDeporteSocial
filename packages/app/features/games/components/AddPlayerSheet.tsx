@@ -7,15 +7,18 @@ import {
   Input,
   Paragraph,
   ScrollView,
+  Separator,
   Sheet,
   SizableText,
   XStack,
   YStack,
   useToastController,
 } from '@my/ui/public'
+import { X } from '@tamagui/lucide-icons'
 import { api } from 'app/utils/api'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { formatProfileName } from 'app/utils/profileName'
+import { useBrand } from 'app/provider/brand'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 
@@ -48,6 +51,7 @@ export const AddPlayerSheet = ({
   queue,
   audienceGroupId,
 }: AddPlayerSheetProps) => {
+  const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
@@ -143,73 +147,97 @@ export const AddPlayerSheet = ({
         exitStyle={{ opacity: 0 }}
         zIndex={0}
       />
-      <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
-        <YStack px="$4" pt="$4" pb="$3" gap="$3">
-          <XStack ai="center" jc="space-between">
-            <SizableText fontSize={20} fontWeight="700">
-              Add player
-            </SizableText>
-            <Button chromeless size="$2" onPress={() => onOpenChange(false)}>
-              Close
-            </Button>
-          </XStack>
-          <Input
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search members"
-            placeholderTextColor="$color10"
-            autoCapitalize="none"
-            autoCorrect={false}
-            inputMode="search"
-            borderRadius={12}
-            borderColor="$borderColor"
-            backgroundColor="$background"
-            color="$color"
-          />
-        </YStack>
-        <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-          <YStack px="$4" pb="$4" gap="$2">
-            {membersQuery.isLoading ? (
-              <Paragraph theme="alt2">Loading members…</Paragraph>
-            ) : membersQuery.isError ? (
-              <Paragraph theme="alt2">Unable to load members.</Paragraph>
-            ) : visibleMembers.length === 0 ? (
-              <Paragraph theme="alt2">No matches found.</Paragraph>
-            ) : (
-              visibleMembers.map((member) => {
-                const status = queueStatus.get(member.id) ?? 'none'
-                const canAdd = status === 'none' || status === 'dropped'
-                const label =
-                  status === 'dropped' ? 'Re-add' : status === 'waitlisted' ? 'Waitlisted' : 'Add'
-                const isAdding = addingId === member.id && addMutation.isPending
-                const phoneLabel = formatPhoneDisplay(member.phone)
-                return (
-                  <Card key={member.id} bordered $platform-native={{ borderWidth: 0 }} p="$3">
-                    <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-                      <YStack gap="$0.5" flex={1} minWidth={200}>
-                        <SizableText size="$4" fontWeight="600">
-                          {buildMemberName(member)}
-                        </SizableText>
-                        {phoneLabel ? (
-                          <Paragraph theme="alt2" size="$2">
-                            {phoneLabel}
-                          </Paragraph>
-                        ) : null}
-                      </YStack>
-                      <Button
-                        size="$2"
-                        disabled={!canAdd || addMutation.isPending}
-                        onPress={() => handleAdd(member.id)}
-                      >
-                        {isAdding ? 'Adding…' : label}
-                      </Button>
-                    </XStack>
-                  </Card>
-                )
-              })
-            )}
+      <Sheet.Frame backgroundColor="$background" borderColor="$color12" borderWidth={1}>
+        <YStack flex={1}>
+          <YStack px="$4" pt="$4" pb="$3" gap="$2.5">
+            <XStack ai="center" jc="space-between" gap="$2">
+              <YStack gap="$0.5" flex={1} minWidth={0}>
+                <SizableText size="$6" fontWeight="700">
+                  Add player
+                </SizableText>
+                <Paragraph theme="alt2" size="$2">
+                  Search approved members to add to this game.
+                </Paragraph>
+              </YStack>
+              <Button
+                chromeless
+                size="$2"
+                icon={X}
+                aria-label="Close"
+                pressStyle={{ opacity: 0.7 }}
+                onPress={() => onOpenChange(false)}
+              />
+            </XStack>
+            <YStack h={2} w={56} br={999} bg={primaryColor} />
           </YStack>
-        </ScrollView>
+          <Separator />
+          <ScrollView flex={1} showsVerticalScrollIndicator={false}>
+            <YStack px="$4" py="$3" gap="$3">
+              <Input
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search members"
+                placeholderTextColor="$color10"
+                autoCapitalize="none"
+                autoCorrect={false}
+                inputMode="search"
+                borderRadius={12}
+                borderColor="$color12"
+                borderWidth={1}
+                backgroundColor="$background"
+                color="$color"
+              />
+              <YStack gap="$2">
+                {membersQuery.isLoading ? (
+                  <Paragraph theme="alt2">Loading members…</Paragraph>
+                ) : membersQuery.isError ? (
+                  <Paragraph theme="alt2">Unable to load members.</Paragraph>
+                ) : visibleMembers.length === 0 ? (
+                  <Paragraph theme="alt2">No matches found.</Paragraph>
+                ) : (
+                  visibleMembers.map((member) => {
+                    const status = queueStatus.get(member.id) ?? 'none'
+                    const canAdd = status === 'none' || status === 'dropped'
+                    const label =
+                      status === 'dropped' ? 'Re-add' : status === 'waitlisted' ? 'Waitlisted' : 'Add'
+                    const isAdding = addingId === member.id && addMutation.isPending
+                    const buttonStyle = {
+                      backgroundColor: 'transparent',
+                      borderColor: '$color12',
+                      color: '$color12',
+                    }
+                    const phoneLabel = formatPhoneDisplay(member.phone)
+                    return (
+                      <Card key={member.id} bordered bw={1} boc="$color12" br="$5" p="$3">
+                        <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
+                          <YStack gap="$0.5" flex={1} minWidth={200}>
+                            <SizableText size="$4" fontWeight="600">
+                              {buildMemberName(member)}
+                            </SizableText>
+                            {phoneLabel ? (
+                              <Paragraph theme="alt2" size="$2">
+                                {phoneLabel}
+                              </Paragraph>
+                            ) : null}
+                          </YStack>
+                          <Button
+                            size="$2"
+                            disabled={!canAdd || addMutation.isPending}
+                            onPress={() => handleAdd(member.id)}
+                            {...buttonStyle}
+                            br="$10"
+                          >
+                            {isAdding ? 'Adding…' : label}
+                          </Button>
+                        </XStack>
+                      </Card>
+                    )
+                  })
+                )}
+              </YStack>
+            </YStack>
+          </ScrollView>
+        </YStack>
       </Sheet.Frame>
     </Sheet>
   )

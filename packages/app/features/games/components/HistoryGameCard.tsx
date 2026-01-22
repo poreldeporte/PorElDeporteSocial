@@ -2,12 +2,13 @@ import { useMemo } from 'react'
 
 import { Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 import { ArrowRight } from '@tamagui/lucide-icons'
-import { BRAND_COLORS } from 'app/constants/colors'
 import type { GameListItem } from 'app/features/games/types'
+import { useBrand } from 'app/provider/brand'
 import { useLink } from 'solito/link'
 import { useRouter } from 'solito/router'
 
 export const HistoryGameCard = ({ game }: { game: GameListItem }) => {
+  const { primaryColor } = useBrand()
   const router = useRouter()
   const detailHref = `/games/${game.id}`
   const detailLink = useLink({ href: detailHref })
@@ -28,7 +29,7 @@ export const HistoryGameCard = ({ game }: { game: GameListItem }) => {
     <Card
       bordered
       bw={1}
-      boc="$black1"
+      boc="$color12"
       br="$5"
       p="$4"
       gap="$2"
@@ -48,7 +49,7 @@ export const HistoryGameCard = ({ game }: { game: GameListItem }) => {
         </XStack>
         {rivalryLines ? (
           <YStack gap="$1.5">
-            <YStack h={2} w={36} br={999} bg={BRAND_COLORS.primary} />
+            <YStack h={2} w={36} br={999} bg={primaryColor} />
             {rivalryLines.map((line, index) => (
               <ScoreLine key={`${line.name}-${index}`} {...line} />
             ))}
@@ -124,7 +125,8 @@ const ScoreLine = ({
   isWinner: boolean
 }) => {
   const scoreLabel = score == null ? '-' : `${score}`
-  const scoreColor = isWinner ? BRAND_COLORS.primary : '$color11'
+  const { primaryColor } = useBrand()
+  const scoreColor = isWinner ? primaryColor : '$color11'
   return (
     <XStack ai="center" gap="$2">
       <SizableText size="$5" fontWeight="700" color={scoreColor}>

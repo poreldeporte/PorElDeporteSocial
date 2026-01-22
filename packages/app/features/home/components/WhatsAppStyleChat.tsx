@@ -7,8 +7,8 @@ import { Button, Input, Paragraph, Spinner, XStack, YStack, isWeb, useToastContr
 import { SolitoImage } from 'solito/image'
 
 import { CHAT_MESSAGE_MAX_LENGTH, CHAT_REACTION_EMOJIS, formatChatTimestamp } from 'app/constants/chat'
-import { pedLogo } from 'app/assets'
 import { WatermarkLogo } from 'app/components/WatermarkLogo'
+import { useBrand } from 'app/provider/brand'
 import { useThemeSetting } from 'app/provider/theme'
 import type { ChatMessage } from 'app/types/chat'
 import { useChatScroll } from 'app/utils/useChatScroll'
@@ -29,10 +29,6 @@ type WhatsAppStyleChatProps = {
 const logoSize = 35
 const wallpaperGap = logoSize
 const wallpaperTileSize = logoSize + wallpaperGap
-const wallpaperWebUri =
-  isWeb && typeof pedLogo === 'object' && pedLogo !== null && 'src' in pedLogo
-    ? (pedLogo.src as string)
-    : null
 export const WhatsAppStyleChat = ({
   roomId,
   currentUserId,
@@ -42,6 +38,7 @@ export const WhatsAppStyleChat = ({
   topInset,
   bottomInset,
 }: WhatsAppStyleChatProps) => {
+  const { logo } = useBrand()
   const chatEnabled = Boolean(roomId && currentUserId && currentUserName)
   const toast = useToastController()
   const { resolvedTheme } = useThemeSetting()
@@ -107,6 +104,14 @@ export const WhatsAppStyleChat = ({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const deleteConfirmTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [patternUri, setPatternUri] = useState<string | null>(null)
+  const wallpaperWebUri = useMemo(() => {
+    if (!isWeb) return null
+    if (typeof logo === 'string') return logo
+    if (logo && typeof logo === 'object' && 'src' in logo) {
+      return logo.src as string
+    }
+    return null
+  }, [logo])
 
   useEffect(() => {
     scrollToBottom()

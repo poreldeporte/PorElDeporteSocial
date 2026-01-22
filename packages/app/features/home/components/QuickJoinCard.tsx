@@ -1,7 +1,8 @@
-import { Paragraph, SizableText, YStack } from '@my/ui/public'
+import { Paragraph, YStack } from '@my/ui/public'
 import { useMemo } from 'react'
 
 import type { GameListItem } from 'app/features/games/types'
+import { SectionHeading } from 'app/components/SectionHeading'
 import { ScheduleTeaserCard } from './ScheduleTeaserCard'
 import { GameCard } from './game-card'
 import { formatGameKickoffLabel } from 'app/features/games/time-utils'
@@ -9,6 +10,7 @@ import { formatGameKickoffLabel } from 'app/features/games/time-utils'
 type QuickJoinCardProps = {
   game?: GameListItem | null
   variant?: 'schedule' | 'draft'
+  gameCardVariant?: 'card' | 'list'
   titleOverride?: string
   onJoin?: (gameId: string) => void
   onLeave?: (gameId: string) => void
@@ -22,6 +24,7 @@ type QuickJoinCardProps = {
 export const QuickJoinCard = ({
   game,
   variant = 'schedule',
+  gameCardVariant = 'card',
   titleOverride,
   onJoin,
   onLeave,
@@ -57,13 +60,12 @@ export const QuickJoinCard = ({
         onConfirmAttendance={onConfirmAttendance}
         isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
         isConfirming={isConfirming}
+        variant={gameCardVariant}
       />
     )
     return titleOverride ? (
-      <YStack gap="$1.5">
-        <SizableText size="$5" fontWeight="600">
-          {titleOverride}
-        </SizableText>
+      <YStack gap="$2">
+        <SectionHeading>{titleOverride}</SectionHeading>
         {card}
       </YStack>
     ) : (

@@ -14,7 +14,7 @@ export default function Screen() {
   return (
     <SafeAreaView
       style={{ flex: 1, paddingTop: headerHeight, backgroundColor }}
-      edges={['bottom', 'left', 'right']}
+      edges={['left', 'right']}
     >
       <Stack.Screen
         options={{

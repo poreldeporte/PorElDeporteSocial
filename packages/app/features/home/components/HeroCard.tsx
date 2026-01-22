@@ -1,5 +1,4 @@
 import { AnimatePresence, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
-import { pedLogo } from 'app/assets'
 import { SolitoImage } from 'solito/image'
 import { LinearGradient } from '@tamagui/linear-gradient'
 import { useEffect, useMemo, useState } from 'react'
@@ -7,6 +6,7 @@ import { useUser } from 'app/utils/useUser'
 import { Instagram } from '@tamagui/lucide-icons'
 import { Link } from 'solito/link'
 import { useThemeSetting } from 'app/provider/theme'
+import { useBrand } from 'app/provider/brand'
 
 const GREETING_TEMPLATES: Array<(name: string) => string> = [
   (name) => `Hello ${name}, ready to fuch?`,
@@ -30,6 +30,7 @@ type Particle = {
 }
 
 export const HeroCard = () => {
+  const { logo } = useBrand()
   const [crestVisible, setCrestVisible] = useState(false)
   const [copyVisible, setCopyVisible] = useState(false)
   const [glowShift, setGlowShift] = useState(0)
@@ -122,7 +123,7 @@ export const HeroCard = () => {
                   exitStyle={{ opacity: 0, scale: 1.05, y: -12 }}
                 >
                   <SolitoImage
-                    src={pedLogo}
+                    src={logo}
                     alt="Por El Deporte crest"
                     width={240}
                     height={240}

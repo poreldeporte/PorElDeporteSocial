@@ -18,8 +18,8 @@ import {
 import { Check, ChevronDown } from '@tamagui/lucide-icons'
 import { LinearGradient } from 'tamagui/linear-gradient'
 
-import { BRAND_COLORS } from 'app/constants/colors'
 import { DatePickerExample } from '@my/ui/src/components/elements/datepicker/DatePicker'
+import { useBrand } from 'app/provider/brand'
 
 const SECTION_LETTER_SPACING = 1.6
 
@@ -176,6 +176,7 @@ export const SettingRowToggle = ({
   error?: string
   onCheckedChange: (next: boolean) => void
 }) => {
+  const { primaryColor } = useBrand()
   return (
     <SettingRow label={label} error={error}>
       <Switch
@@ -184,8 +185,8 @@ export const SettingRowToggle = ({
         disabled={disabled}
         checked={checked}
         onCheckedChange={onCheckedChange}
-        backgroundColor={checked ? BRAND_COLORS.primary : '$color5'}
-        borderColor={checked ? BRAND_COLORS.primary : '$color6'}
+        backgroundColor={checked ? primaryColor : '$color5'}
+        borderColor={checked ? primaryColor : '$color6'}
         borderWidth={1}
         opacity={disabled ? 0.5 : 1}
       >
@@ -310,6 +311,7 @@ export const SettingRowTime = <T extends FieldValues>({
   width?: number
   disabled?: boolean
 }) => {
+  const { primaryColor } = useBrand()
   const { control, formState } = useFormContext<T>()
   const { field, fieldState } = useController({ control, name })
   const disabled = formState.isSubmitting || disabledOverride
@@ -366,8 +368,8 @@ export const SettingRowTime = <T extends FieldValues>({
           <Button
             size="$2"
             borderWidth={1}
-            backgroundColor={activePeriod === 'AM' ? BRAND_COLORS.primary : 'transparent'}
-            borderColor={activePeriod === 'AM' ? BRAND_COLORS.primary : '$color6'}
+            backgroundColor={activePeriod === 'AM' ? primaryColor : 'transparent'}
+            borderColor={activePeriod === 'AM' ? primaryColor : '$color6'}
             color={activePeriod === 'AM' ? '$color1' : '$color'}
             onPress={() => handlePeriodChange('AM')}
             disabled={disabled}
@@ -377,8 +379,8 @@ export const SettingRowTime = <T extends FieldValues>({
           <Button
             size="$2"
             borderWidth={1}
-            backgroundColor={activePeriod === 'PM' ? BRAND_COLORS.primary : 'transparent'}
-            borderColor={activePeriod === 'PM' ? BRAND_COLORS.primary : '$color6'}
+            backgroundColor={activePeriod === 'PM' ? primaryColor : 'transparent'}
+            borderColor={activePeriod === 'PM' ? primaryColor : '$color6'}
             color={activePeriod === 'PM' ? '$color1' : '$color'}
             onPress={() => handlePeriodChange('PM')}
             disabled={disabled}
@@ -516,7 +518,7 @@ const SelectSheetAdapter = ({
       snapPointsMode={snapPointsMode}
       snapPoints={snapPoints}
     >
-      <Sheet.Frame marginBottom="$12" borderColor="$black1" borderWidth={1}>
+      <Sheet.Frame marginBottom="$12" borderColor="$color12" borderWidth={1}>
         <Sheet.ScrollView>
           <Adapt.Contents />
         </Sheet.ScrollView>

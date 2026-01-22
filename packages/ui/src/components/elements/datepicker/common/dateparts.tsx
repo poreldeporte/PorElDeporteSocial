@@ -44,7 +44,7 @@ const DatePickerImpl = (props: DatePickerProps) => {
       {/* for mobile view */}
       <Adapt when="sm" platform="touch">
         <Popover.Sheet modal dismissOnSnapToBottom snapPointsMode="fit">
-          <Popover.Sheet.Frame padding="$2" alignItems="center" borderColor="$black1" borderWidth={1}>
+          <Popover.Sheet.Frame padding="$2" alignItems="center" borderColor="$color12" borderWidth={1}>
             <DatePickerProvider config={config}>
               <Adapt.Contents />
             </DatePickerProvider>

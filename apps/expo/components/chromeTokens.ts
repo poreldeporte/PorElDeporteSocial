@@ -1,7 +1,7 @@
-import { BRAND_COLORS } from '@my/app/constants/colors'
+import { useMemo } from 'react'
+import { useBrand } from '@my/app/provider/brand'
 
-export const chromeTokens = {
-  primary: BRAND_COLORS.primary,
+const baseTokens = {
   appBgStart: '#0c0f14',
   appBgEnd: '#161b24',
   surface: '#1b202a',
@@ -22,4 +22,9 @@ export const chromeTokens = {
   headerPadBottom: 6,
   headerPadX: 18,
   headerTitleSize: '$3',
+}
+
+export const useChromeTokens = () => {
+  const { primaryColor } = useBrand()
+  return useMemo(() => ({ ...baseTokens, primary: primaryColor }), [primaryColor])
 }

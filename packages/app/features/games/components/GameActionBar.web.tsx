@@ -3,7 +3,7 @@ import type { ThemeName } from '@tamagui/core'
 
 import { getGameCtaIcon } from 'app/features/games/cta-icons'
 
-import { ctaButtonStyles } from '../cta-styles'
+import { useCtaButtonStyles } from '../cta-styles'
 import type { GameActionBarProps } from './GameActionBar.types'
 
 export const GameActionBar = ({
@@ -13,6 +13,7 @@ export const GameActionBar = ({
   onConfirmAttendance,
   isConfirming,
 }: GameActionBarProps) => {
+  const ctaButtonStyles = useCtaButtonStyles()
   const isRateCta = view.ctaLabel === 'Rate the game'
   const isCompletedCta = view.ctaLabel === 'Game completed'
   const isJoinCta =

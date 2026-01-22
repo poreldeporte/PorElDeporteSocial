@@ -22,11 +22,10 @@ import {
   submitButtonBaseProps,
 } from '@my/ui/public'
 
-import { pedLogo } from 'app/assets'
 import { CountryPicker } from 'app/components/CountryPicker'
 import { UsPhoneMaskInput } from 'app/components/UsPhoneMaskInput'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
 import { PROFILE_COMPLETION_FIELDS, isProfileComplete } from 'app/utils/auth/profileCompletion'
 import {
@@ -43,7 +42,6 @@ import { useUser } from 'app/utils/useUser'
 
 const RESEND_SECONDS = 30
 const DEFAULT_COUNTRY: PhoneCountryOption['code'] = 'US'
-const PRIMARY_COLOR = BRAND_COLORS.primary
 
 type PhoneValues = {
   phone: string
@@ -62,6 +60,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const supabase = useSupabase()
   const router = useRouter()
   const { isLoadingSession } = useUser()
+  const { primaryColor } = useBrand()
   const pathname = usePathname()
   const [step, setStep] = useState<'phone' | 'code'>('phone')
   const [phone, setPhone] = useState<string | null>(null)
@@ -192,7 +191,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const submitDisabled = status !== 'idle' || (step === 'phone' && !termsAccepted)
   const submitButtonStyle = submitDisabled
     ? { backgroundColor: '$color4', borderColor: '$color4', color: '$color11' }
-    : { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary, color: '$background' }
+    : { backgroundColor: primaryColor, borderColor: primaryColor, color: '$background' }
 
   return (
     <YStack f={1} bg="$color1">
@@ -322,17 +321,20 @@ type AuthHeaderProps = {
   subtitle: string
 }
 
-const AuthHeader = ({ title, subtitle }: AuthHeaderProps) => (
-  <YStack gap="$3" ai="flex-start" w="100%">
-    <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={56} height={56} />
-    <H2 ta="left" fontWeight="700">
-      {title}
-    </H2>
-    <Paragraph fontSize={17} color="$color" textAlign="left">
-      {subtitle}
-    </Paragraph>
-  </YStack>
-)
+const AuthHeader = ({ title, subtitle }: AuthHeaderProps) => {
+  const { logo } = useBrand()
+  return (
+    <YStack gap="$3" ai="flex-start" w="100%">
+      <SolitoImage src={logo} alt="Por El Deporte crest" width={56} height={56} />
+      <H2 ta="left" fontWeight="700">
+        {title}
+      </H2>
+      <Paragraph fontSize={17} color="$color" textAlign="left">
+        {subtitle}
+      </Paragraph>
+    </YStack>
+  )
+}
 
 const TermsAgreement = ({
   checked,
@@ -341,6 +343,7 @@ const TermsAgreement = ({
   checked: boolean
   onCheckedChange: (next: boolean) => void
 }) => {
+  const { primaryColor } = useBrand()
   const toggle = () => onCheckedChange(!checked)
 
   return (
@@ -350,8 +353,8 @@ const TermsAgreement = ({
         size="$4"
         checked={checked}
         borderWidth={2}
-        borderColor={checked ? PRIMARY_COLOR : '$color11'}
-        backgroundColor={checked ? PRIMARY_COLOR : '$color2'}
+        borderColor={checked ? primaryColor : '$color11'}
+        backgroundColor={checked ? primaryColor : '$color2'}
         onCheckedChange={(next) => onCheckedChange(next === true)}
         aria-label="Agree to Terms and Privacy Policy"
       >
@@ -361,11 +364,11 @@ const TermsAgreement = ({
       </Checkbox>
       <Text size="$2" theme="alt2" textAlign="center" flexShrink={1}>
         <Text onPress={toggle}>I agree to the </Text>
-        <Link href="/terms-of-service" textDecorationLine="underline" color={PRIMARY_COLOR} fontSize={12}>
+        <Link href="/terms-of-service" textDecorationLine="underline" color={primaryColor} fontSize={12}>
           Terms
         </Link>
         <Text onPress={toggle}> and </Text>
-        <Link href="/privacy-policy" textDecorationLine="underline" color={PRIMARY_COLOR} fontSize={12}>
+        <Link href="/privacy-policy" textDecorationLine="underline" color={primaryColor} fontSize={12}>
           Privacy Policy.
         </Link>
       </Text>

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Image } from 'react-native'
-import { Dialog } from 'tamagui'
 
 import { Card, Paragraph, Separator, Sheet, SizableText, XStack, YStack } from '@my/ui/public'
+import { AvatarPreviewOverlay } from 'app/components/AvatarPreviewOverlay'
 import { RatingBlock } from 'app/components/RatingBlock'
 import { UserAvatar } from 'app/components/UserAvatar'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { RecentFormChips } from 'app/features/games/components/RecentFormChips'
+import { useBrand } from 'app/provider/brand'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { formatNationalityDisplay } from 'app/utils/phone'
 
@@ -27,6 +26,7 @@ export const LeaderboardPlayerSheet = ({
   communitySize,
   communityId,
 }: LeaderboardPlayerSheetProps) => {
+  const { primaryColor } = useBrand()
   const profileId = entry?.profileId ?? ''
   const canShowRating = Boolean(communityId) && Boolean(profileId)
   const profileQuery = api.profiles.byId.useQuery(
@@ -80,7 +80,7 @@ export const LeaderboardPlayerSheet = ({
           exitStyle={{ opacity: 0 }}
           zIndex={0}
         />
-        <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
+        <Sheet.Frame backgroundColor="$background" borderColor="$color12" borderWidth={1} position="relative">
           <YStack px="$4" pt="$4" pb="$3" gap="$3">
             <XStack ai="center" jc="space-between" gap="$3">
               <XStack ai="center" gap="$3" flex={1} minWidth={0}>
@@ -108,11 +108,11 @@ export const LeaderboardPlayerSheet = ({
                 </YStack>
               </XStack>
             </XStack>
-            <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+            <YStack h={2} w={56} br={999} bg={primaryColor} />
           </YStack>
           <Separator />
           <YStack px="$4" py="$3" gap="$3">
-            <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
+            <Card bordered bw={1} boc="$color12" br="$5" p="$4" gap="$3">
               <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
                 <YStack gap="$1" flex={1}>
                   <SizableText size="$5" fontWeight="600" textTransform="uppercase">
@@ -146,53 +146,13 @@ export const LeaderboardPlayerSheet = ({
               </YStack>
             </Card>
           </YStack>
+          <AvatarPreviewOverlay
+            open={canPreviewAvatar && avatarOpen}
+            uri={avatarUrl}
+            onClose={() => setAvatarOpen(false)}
+          />
         </Sheet.Frame>
       </Sheet>
-      {canPreviewAvatar ? (
-        <Dialog modal open={avatarOpen} onOpenChange={setAvatarOpen}>
-          <Dialog.Portal>
-            <Dialog.Overlay
-              key="overlay"
-              animation="quick"
-              o={0.5}
-              enterStyle={{ o: 0 }}
-              exitStyle={{ o: 0 }}
-              onPress={() => setAvatarOpen(false)}
-              zIndex={200000}
-            />
-            <Dialog.Content
-              key="content"
-              animation="quick"
-              enterStyle={{ opacity: 0, scale: 0.92 }}
-              exitStyle={{ opacity: 0, scale: 0.96 }}
-              backgroundColor="transparent"
-              borderWidth={0}
-              p={0}
-              ai="center"
-              jc="center"
-              zIndex={200001}
-            >
-              <YStack
-                w="80%"
-                maxWidth={320}
-                aspectRatio={1}
-                br={999}
-                overflow="hidden"
-                bg="$color2"
-                onPress={() => setAvatarOpen(false)}
-                pressStyle={{ opacity: 0.9 }}
-                accessibilityRole="button"
-              >
-                <Image
-                  source={{ uri: avatarUrl ?? '' }}
-                  resizeMode="cover"
-                  style={{ width: '100%', height: '100%' }}
-                />
-              </YStack>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog>
-      ) : null}
     </>
   )
 }
@@ -265,7 +225,7 @@ const MetricCard = ({ label, value, rankLabel, highlight = false }: MetricCardPr
     p="$2.5"
     br="$5"
     borderWidth={1}
-    borderColor="$black1"
+    borderColor="$color12"
     backgroundColor={highlight ? '$color1' : 'transparent'}
   >
     <SizableText size="$6" fontWeight="700">

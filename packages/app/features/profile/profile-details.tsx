@@ -16,13 +16,12 @@ import {
   type PhoneCountryOption,
 } from 'app/utils/phone'
 import { CountryPicker } from 'app/components/CountryPicker'
+import { useBrand } from 'app/provider/brand'
 
 import { profileFieldCopy } from './field-copy'
 import { POSITION_OPTIONS } from './profile-field-schema'
 
 export type ProfileEditSection = 'essentials' | 'background'
-
-const EDITING_SECTION_BORDER = '$color6'
 
 export type ProfileDraft = {
   firstName: string
@@ -157,8 +156,10 @@ const DetailsSection = ({
   onEdit?: () => void
   isEditing?: boolean
 }) => {
-  const cardBackground = isEditing ? '$color2' : '$background'
-  const cardBorder = isEditing ? EDITING_SECTION_BORDER : '$black1'
+  const { primaryColor } = useBrand()
+  const cardBorder = isEditing ? primaryColor : '$color12'
+  const sectionPadding = isEditing ? '$5' : '$4'
+  const sectionGap = isEditing ? '$4' : '$3'
 
   return (
     <Card
@@ -169,39 +170,44 @@ const DetailsSection = ({
       bw={1}
       boc={cardBorder}
       br="$5"
-      p={isEditing ? '$5' : '$4'}
-      gap={isEditing ? '$4' : '$3'}
-      backgroundColor={cardBackground}
+      p={0}
+      overflow="hidden"
+      backgroundColor="$color2"
     >
-      <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
-        <SizableText
-          size="$5"
-          fontWeight="600"
-          textTransform="uppercase"
-          flexShrink={1}
-          minWidth={0}
-        >
-          {title}
-        </SizableText>
-        {isEditing ? (
-          <Paragraph theme="alt2" size="$2">
-            Editing
-          </Paragraph>
-        ) : onEdit ? (
-          <Button
-            chromeless
-            size="$2"
-            circular
-            icon={PenSquare}
-            aria-label={`Edit ${title}`}
-            onPress={onEdit}
-            backgroundColor={isEditing ? '$color3' : 'transparent'}
-            pressStyle={{ opacity: 0.7 }}
-          />
-        ) : null}
-      </XStack>
-      <YStack animation="medium" y={isEditing ? 0 : 2}>
-        {children}
+      <YStack p={sectionPadding} gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
+        <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
+          <SizableText
+            size="$5"
+            fontWeight="600"
+            textTransform="uppercase"
+            letterSpacing={1.2}
+            flexShrink={1}
+            minWidth={0}
+          >
+            {title}
+          </SizableText>
+          {isEditing ? (
+            <Paragraph theme="alt2" size="$2">
+              Editing
+            </Paragraph>
+          ) : onEdit ? (
+            <Button
+              chromeless
+              size="$2"
+              circular
+              icon={PenSquare}
+              aria-label={`Edit ${title}`}
+              onPress={onEdit}
+              backgroundColor={isEditing ? '$color3' : 'transparent'}
+              pressStyle={{ opacity: 0.7 }}
+            />
+          ) : null}
+        </XStack>
+      </YStack>
+      <YStack p={sectionPadding} gap={sectionGap} backgroundColor="$color1">
+        <YStack animation="medium" y={isEditing ? 0 : 2}>
+          {children}
+        </YStack>
       </YStack>
     </Card>
   )
@@ -409,7 +415,7 @@ const BackgroundEditor = ({
 
 const inlineInputStyle = {
   borderWidth: 1,
-  borderColor: '$black1',
+  borderColor: '$color12',
   backgroundColor: '$white1',
   borderRadius: 0,
 }
@@ -441,7 +447,7 @@ const InlineInput = ({
     {...inlineInputStyle}
     textAlign="left"
     fontWeight="600"
-    color="$black1"
+    color="$color12"
     alignSelf="stretch"
     flex={1}
   />
@@ -476,7 +482,7 @@ const InlineBirthDateInputs = ({
         size="$3"
         {...inlineInputStyle}
         fontWeight="600"
-        color="$black1"
+        color="$color12"
       />
       <Input
         flex={1}
@@ -492,7 +498,7 @@ const InlineBirthDateInputs = ({
         size="$3"
         {...inlineInputStyle}
         fontWeight="600"
-        color="$black1"
+        color="$color12"
       />
       <Input
         flex={1.4}
@@ -508,7 +514,7 @@ const InlineBirthDateInputs = ({
         size="$3"
         {...inlineInputStyle}
         fontWeight="600"
-        color="$black1"
+        color="$color12"
       />
     </XStack>
   )
@@ -523,7 +529,7 @@ const InlineNationalityPicker = ({
 }) => {
   const options = getPhoneCountryOptions()
   const selected = value ? options.find((option) => option.code === value) ?? null : null
-  const triggerTextColor = selected ? '$black1' : '$black9'
+  const triggerTextColor = selected ? '$color12' : '$black9'
 
   return (
     <XStack {...inlineInputStyle} px="$2" py="$1.5" w="100%" alignSelf="stretch" ai="center">
@@ -537,7 +543,7 @@ const InlineNationalityPicker = ({
         placeholder={profileFieldCopy.nationality.placeholder}
         popularCountries={['US', 'AR', 'BR', 'GB', 'DE', 'ES']}
         triggerTextColor={triggerTextColor}
-        triggerIconColor="$black1"
+        triggerIconColor="$color12"
       />
     </XStack>
   )

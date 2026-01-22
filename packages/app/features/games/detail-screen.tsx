@@ -4,6 +4,7 @@ import { useCallback, useState, type ReactNode } from 'react'
 import {
   Button,
   Card,
+  ConfirmDialog,
   FullscreenSpinner,
   Paragraph,
   ScrollView,
@@ -24,8 +25,9 @@ import {
   ShieldCheck,
   Zap,
 } from '@tamagui/lucide-icons'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { isProfileApproved } from 'app/utils/auth/profileApproval'
 import { useRefreshOnFocus } from 'app/utils/react-query/useRefreshOnFocus'
@@ -34,8 +36,6 @@ import { useRouter } from 'solito/router'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
 import { useLink } from 'solito/link'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
-import { getDockSpacer } from 'app/constants/dock'
 
 import {
   AddGuestSheet,
@@ -47,7 +47,7 @@ import {
   SectionTitle,
 } from './components'
 import { getGameCtaIcon, type GameCtaState } from './cta-icons'
-import { ctaButtonStyles } from './cta-styles'
+import { useCtaButtonStyles } from './cta-styles'
 import { deriveCombinedStatus, deriveUserStateMessage, getConfirmCountdownLabel } from './status-helpers'
 import { useGameDetailState } from './useGameDetailState'
 import { canAdminAccessDraftRoom, canPlayerAccessDraftRoom, resolveDraftVisibility } from './draft-visibility'
@@ -109,11 +109,12 @@ export const GameDetailScreen = ({
   )
   const router = useRouter()
   const toast = useToastController()
+  const { primaryColor } = useBrand()
+  const ctaButtonStyles = useCtaButtonStyles()
   const utils = api.useUtils()
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
   const { isAdmin, user, profile } = useUser()
-  const insets = useSafeAreaInsets()
   const draftLink = useLink({ href: `/games/${gameId}/draft` })
   const resultLink = useLink({ href: `/games/${gameId}/result` })
   const [removingId, setRemovingId] = useState<string | null>(null)
@@ -125,6 +126,7 @@ export const GameDetailScreen = ({
   const [markingNoShowId, setMarkingNoShowId] = useState<string | null>(null)
   const [markingTardyId, setMarkingTardyId] = useState<string | null>(null)
   const [markingConfirmedId, setMarkingConfirmedId] = useState<string | null>(null)
+  const [dropConfirmOpen, setDropConfirmOpen] = useState(false)
   const [menuCloseTick, setMenuCloseTick] = useState(0)
   const closeMenus = useCallback(() => {
     setMenuCloseTick((prev) => prev + 1)
@@ -353,7 +355,7 @@ export const GameDetailScreen = ({
       return
     }
     if (view.ctaState === 'drop') {
-      leave(data.id)
+      setDropConfirmOpen(true)
     }
   }
 
@@ -376,7 +378,6 @@ export const GameDetailScreen = ({
 
   const showActionBar = !isWeb
   const basePaddingBottom = screenContentContainerStyle.paddingBottom ?? 0
-  const actionBarSpacer = showActionBar ? getDockSpacer(insets.bottom) : 0
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = {
     ...screenContentContainerStyle,
@@ -409,7 +410,7 @@ export const GameDetailScreen = ({
         contentContainerStyle={mergedContentStyle}
       >
         {headerSpacer}
-        <YStack gap="$3">
+        <YStack gap="$6">
           <GameHeader
             kickoffLabel={view.kickoffLabel}
             locationName={data.locationName}
@@ -451,7 +452,7 @@ export const GameDetailScreen = ({
             draftStatus: data.draftStatus,
             showEmptyState: canManage,
           }) ? (
-            <>
+            <YStack gap="$2">
               <SectionTitle
                 action={
                   resultActionLabel ? (
@@ -470,40 +471,42 @@ export const GameDetailScreen = ({
                 showEmptyState={canManage}
                 draftStatus={data.draftStatus}
               />
-            </>
+            </YStack>
           ) : null}
 
-          <SectionTitle
-            meta={`${view.rosteredCount}/${data.capacity}`}
-            action={rosterActions}
-          >
-            Roster
-          </SectionTitle>
-          <RosterSection
-            entries={view.rosteredPlayers}
-            canManage={canManage}
-            currentProfileId={user?.id ?? null}
-            communityId={data.communityId}
-            removingId={removingId}
-            confirmingId={confirmingId}
-            confirmingGuestId={confirmingGuestId}
-            markingNoShowId={markingNoShowId}
-            markingTardyId={markingTardyId}
-            markingConfirmedId={markingConfirmedId}
-            confirmationEnabled={data.confirmationEnabled}
-            isConfirmationOpen={view.isConfirmationOpen}
-            closeMenusSignal={menuCloseTick}
-            gameStatus={data.status}
-            onRemoveEntry={handleRemoveEntry}
-            onConfirmAttendance={handleConfirmMember}
-            onConfirmGuest={handleConfirmGuest}
-            onMarkNoShow={handleMarkNoShow}
-            onMarkTardy={handleMarkTardy}
-            onMarkConfirmed={handleMarkConfirmed}
-          />
+          <YStack gap="$2">
+            <SectionTitle
+              meta={`${view.rosteredCount}/${data.capacity}`}
+              action={rosterActions}
+            >
+              Roster
+            </SectionTitle>
+            <RosterSection
+              entries={view.rosteredPlayers}
+              canManage={canManage}
+              currentProfileId={user?.id ?? null}
+              communityId={data.communityId}
+              removingId={removingId}
+              confirmingId={confirmingId}
+              confirmingGuestId={confirmingGuestId}
+              markingNoShowId={markingNoShowId}
+              markingTardyId={markingTardyId}
+              markingConfirmedId={markingConfirmedId}
+              confirmationEnabled={data.confirmationEnabled}
+              isConfirmationOpen={view.isConfirmationOpen}
+              closeMenusSignal={menuCloseTick}
+              gameStatus={data.status}
+              onRemoveEntry={handleRemoveEntry}
+              onConfirmAttendance={handleConfirmMember}
+              onConfirmGuest={handleConfirmGuest}
+              onMarkNoShow={handleMarkNoShow}
+              onMarkTardy={handleMarkTardy}
+              onMarkConfirmed={handleMarkConfirmed}
+            />
+          </YStack>
 
           {view.waitlistedPlayers.length ? (
-            <>
+            <YStack gap="$2">
               <SectionTitle>Waitlist</SectionTitle>
               <RosterSection
                 entries={view.waitlistedPlayers}
@@ -516,13 +519,15 @@ export const GameDetailScreen = ({
                 gameStatus={data.status}
                 onRemoveEntry={handleRemoveEntry}
               />
-            </>
+            </YStack>
           ) : null}
 
-          <SectionTitle>Community guidelines</SectionTitle>
-          <CommunityGuidelinesSection />
+          <YStack gap="$2">
+            <SectionTitle>Community guidelines</SectionTitle>
+            <CommunityGuidelinesSection />
+          </YStack>
+          <BrandStamp />
         </YStack>
-        <YStack h={actionBarSpacer} />
       </ScrollView>
       {showActionBar ? (
         <GameActionBar
@@ -551,6 +556,18 @@ export const GameDetailScreen = ({
           audienceGroupId={data.audienceGroupId}
         />
       ) : null}
+      <ConfirmDialog
+        open={dropConfirmOpen}
+        onOpenChange={setDropConfirmOpen}
+        title="Drop from game?"
+        description="Dropping frees your spot."
+        confirmLabel="Drop"
+        confirmTone="destructive"
+        onConfirm={() => {
+          setDropConfirmOpen(false)
+          leave(data.id)
+        }}
+      />
     </YStack>
   )
 }
@@ -566,6 +583,8 @@ const GameHeader = ({
   dateLabel?: string
   status: ReturnType<typeof deriveCombinedStatus>
 }) => {
+  const { primaryColor } = useBrand()
+
   return (
     <YStack gap="$2">
       <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
@@ -587,7 +606,7 @@ const GameHeader = ({
       <Paragraph theme="alt2" size="$2">
         Arrive 15 minutes early to warm up.
       </Paragraph>
-      <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+      <YStack h={2} w={56} br={999} bg={primaryColor} />
     </YStack>
   )
 }
@@ -701,7 +720,7 @@ const DraftStatusCard = ({
     <Card
       bordered
       bw={1}
-      boc="$black1"
+      boc="$color12"
       px="$3"
       py="$3"
       {...draftLink}
@@ -737,7 +756,7 @@ const DraftStatusCard = ({
 }
 
 const DraftModeDisabledCard = () => (
-  <Card bordered bw={1} boc="$black1" px="$3" py="$3">
+  <Card bordered bw={1} boc="$color12" px="$3" py="$3">
     <YStack gap="$1.5">
       <SizableText fontWeight="600">Draft mode is off</SizableText>
       <Paragraph theme="alt2" size="$2">
@@ -884,9 +903,9 @@ const ResultSummary = ({
         : null
 
   return (
-    <Card bordered borderColor="$black1" p={0} gap={0} br="$4" overflow="hidden" backgroundColor="$color1">
+    <Card bordered borderColor="$color12" p={0} gap={0} br="$4" overflow="hidden" backgroundColor="$color1">
       {introText ? (
-        <YStack px="$3" py="$2" borderBottomWidth={decoratedTeams.length ? 1 : 0} borderColor="$black1">
+        <YStack px="$3" py="$2" borderBottomWidth={decoratedTeams.length ? 1 : 0} borderColor="$color12">
           <Paragraph theme="alt2">{introText}</Paragraph>
         </YStack>
       ) : null}
@@ -974,7 +993,7 @@ const ResultTeamSection = ({
       gap="$1.5"
       bg={tone.bg as any}
       borderTopWidth={index === 0 ? 0 : 1}
-      borderColor="$black1"
+      borderColor="$color12"
     >
       <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
         <SizableText size="$7" fontWeight="800" color={tone.scoreColor as any}>
@@ -1028,7 +1047,7 @@ const ResultTeamSection = ({
 }
 
 const CommunityGuidelinesSection = () => (
-  <Card bordered borderColor="$black1" p={0}>
+  <Card bordered borderColor="$color12" p={0}>
     <YStack gap={0}>
       {COMMUNITY_GUIDELINES.map(({ icon: Icon, title, description }, index) => {
         const GuidelineIcon = Icon ?? Heart
@@ -1041,7 +1060,7 @@ const CommunityGuidelinesSection = () => (
             px="$3"
             py="$2"
             borderTopWidth={index === 0 ? 0 : 1}
-            borderColor="$black1"
+            borderColor="$color12"
           >
             <IconBadge>
               <GuidelineIcon size={16} />

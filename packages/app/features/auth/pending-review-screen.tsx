@@ -1,6 +1,6 @@
 import { Button, H2, Paragraph, YStack, submitButtonBaseProps } from '@my/ui/public'
-import { pedLogo } from 'app/assets'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { useLogout } from 'app/utils/auth/logout'
 import { useUser } from 'app/utils/useUser'
 import { SolitoImage } from 'solito/image'
@@ -15,6 +15,7 @@ export const PendingReviewScreen = ({ topInset }: ScrollHeaderProps) => {
   const logout = useLogout()
   const { profile } = useUser()
   const isRejected = profile?.approval_status === 'rejected'
+  const { logo } = useBrand()
   const title = isRejected ? 'Application not approved' : 'Review in progress'
   const subtitle = isRejected
     ? 'Update your profile to reapply. We review each application carefully.'
@@ -40,7 +41,7 @@ export const PendingReviewScreen = ({ topInset }: ScrollHeaderProps) => {
       style={{ paddingTop: contentPaddingTop }}
     >
       <YStack gap="$4" ai="center">
-        <SolitoImage src={pedLogo} alt="Por El Deporte crest" width={72} height={72} />
+        <SolitoImage src={logo} alt="Por El Deporte crest" width={72} height={72} />
         <YStack gap="$2" maw={320}>
           <H2 ta="center" fontWeight="700">
             {title}

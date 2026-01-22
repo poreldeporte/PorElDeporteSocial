@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
-import { Paragraph, SizableText, XStack } from '@my/ui/public'
+import { Paragraph, XStack } from '@my/ui/public'
+import { SectionHeading } from 'app/components/SectionHeading'
 
 type SectionTitleProps = {
   children: ReactNode
@@ -10,9 +11,7 @@ type SectionTitleProps = {
 
 export const SectionTitle = ({ children, meta, action }: SectionTitleProps) => (
   <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-    <SizableText size="$5" fontWeight="600">
-      {children}
-    </SizableText>
+    <SectionHeading>{children}</SectionHeading>
     {meta || action ? (
       <XStack ai="center" gap="$2">
         {meta ? (

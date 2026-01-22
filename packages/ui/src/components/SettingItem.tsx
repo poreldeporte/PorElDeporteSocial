@@ -1,4 +1,5 @@
 import type { IconProps } from '@tamagui/helpers-icon'
+import type { ReactNode } from 'react'
 import {
   SizableText,
   type ThemeName,
@@ -12,6 +13,7 @@ import {
 export type SettingItemProps = YStackProps & {
   icon: React.FC<IconProps>
   rightLabel?: string
+  rightElement?: ReactNode
   accentTheme?: ThemeName
   isActive?: boolean
 }
@@ -20,6 +22,7 @@ export const SettingItem = ({
   icon: Icon,
   children,
   rightLabel,
+  rightElement,
   isActive,
   accentTheme,
   ...props
@@ -35,13 +38,15 @@ export const SettingItem = ({
           {children}
         </SizableText>
 
-        {!!rightLabel && (
+        {rightElement ? (
+          rightElement
+        ) : !!rightLabel ? (
           <XStack br="$10" bg="$backgroundPress" px="$3" py="$1.5">
             <SizableText size="$2" tt="capitalize">
               {rightLabel}
             </SizableText>
           </XStack>
-        )}
+        ) : null}
       </SettingItemFrame>
     </YGroup.Item>
   )

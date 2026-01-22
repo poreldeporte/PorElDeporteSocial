@@ -1,8 +1,11 @@
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { type ReactNode } from 'react'
 
-import { H1, Paragraph, ScrollView, SizableText, YStack, isWeb } from '@my/ui/public'
+import { Card, H1, Paragraph, ScrollView, SizableText, YStack, isWeb } from '@my/ui/public'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
+import { SolitoImage } from 'solito/image'
 
 const PRIVACY_SECTIONS = [
   {
@@ -52,6 +55,9 @@ const PRIVACY_SECTIONS = [
     title: '6. Your choices and rights',
     body: [
       'You can view or edit your profile in the app and control notifications in settings.',
+      'You can deactivate or delete your account in Settings → Account.',
+      'Deactivation disables login but keeps your name in historical records.',
+      'Deletion removes personal data, removes you from leaderboards, and replaces your name with a generic placeholder in past records.',
       'You can also request access, correction, or deletion by contacting us.',
     ].join(' '),
   },
@@ -76,6 +82,7 @@ type ScrollHeaderProps = {
 }
 
 export const PrivacyPolicyScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
+  const { logo } = useBrand()
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
@@ -89,23 +96,29 @@ export const PrivacyPolicyScreen = ({ scrollProps, headerSpacer }: ScrollHeaderP
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
       {headerSpacer}
       <YStack gap="$4">
+        <YStack ai="center">
+          <SolitoImage src={logo} alt="Por El Deporte crest" width={144} height={144} />
+        </YStack>
         {/* only show title on web since mobile has navigator title */}
-        {isWeb && <H1>Privacy Policy</H1>}
-        <Paragraph>Effective Date: January 1, 2026</Paragraph>
-        <Paragraph>This policy explains how Por El Deporte collects and uses your information.</Paragraph>
+        <Card bordered bw={1} boc="$color12" br="$5" p="$4" gap="$2">
+          {isWeb && <H1>Privacy Policy</H1>}
+          <Paragraph>Effective Date: January 21, 2026</Paragraph>
+          <Paragraph>This policy explains how Por El Deporte collects and uses your information.</Paragraph>
+        </Card>
         {PRIVACY_SECTIONS.map((section) => (
           <Section key={section.title} title={section.title} body={section.body} />
         ))}
+        <BrandStamp />
       </YStack>
     </ScrollView>
   )
 }
 
 const Section = ({ title, body }: { title: string; body: string }) => (
-  <YStack gap="$2">
+  <Card bordered bw={1} boc="$color12" br="$5" p="$4" gap="$2">
     <SizableText size="$5" fontWeight="700">
       {title}
     </SizableText>
     <Paragraph>{body}</Paragraph>
-  </YStack>
+  </Card>
 )

@@ -23,7 +23,7 @@ const StatsCardBody = ({ stats, isLoading }: StatsCardProps) => {
       py="$4"
       bordered
       bw={1}
-      boc="$black1"
+      boc="$color12"
       br="$5"
       onPress={() => router.push('/profile')}
       pressStyle={{ opacity: 0.9 }}
@@ -33,9 +33,9 @@ const StatsCardBody = ({ stats, isLoading }: StatsCardProps) => {
           All time
         </Paragraph>
         <XStack gap="$4">
-        <StatBlock label="Wins" value={stats.wins} loading={isLoading} />
-        <StatBlock label="Losses" value={stats.losses} loading={isLoading} />
-        <StatBlock label="Games" value={stats.games} loading={isLoading} />
+          <StatBlock label="Games" value={stats.games} loading={isLoading} />
+          <StatBlock label="Wins" value={stats.wins} loading={isLoading} />
+          <StatBlock label="Losses" value={stats.losses} loading={isLoading} />
         </XStack>
       </YStack>
     </Card>

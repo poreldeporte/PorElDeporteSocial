@@ -9,7 +9,7 @@ import { YStack } from '@my/ui/public'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
 import { AppTopBar, type HeaderAction } from './AppTopBar'
-import { chromeTokens } from './chromeTokens'
+import { useChromeTokens } from './chromeTokens'
 
 type IconComponent = (props: IconProps) => JSX.Element
 
@@ -39,11 +39,12 @@ export const FloatingHeaderLayout = ({
   onPressRight,
   leftIcon,
   rightIcon,
-  rightVariant = 'light',
+  rightVariant = 'dark',
   rightActions,
   children,
 }: FloatingHeaderLayoutProps) => {
   const insets = useSafeAreaInsets()
+  const chromeTokens = useChromeTokens()
   const headerHeight =
     insets.top + chromeTokens.buttonSize + chromeTokens.headerPadTop + chromeTokens.headerPadBottom
   const baseTop = SCREEN_CONTENT_PADDING.top

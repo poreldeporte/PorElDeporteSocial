@@ -13,10 +13,9 @@ import {
   type ColorTokens,
 } from '@my/ui/public'
 import { ChevronDown } from '@tamagui/lucide-icons'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { useBrand } from 'app/provider/brand'
 import { type PhoneCountryOption } from 'app/utils/phone'
 
-const PRIMARY_COLOR = BRAND_COLORS.primary
 const DEFAULT_POPULAR_COUNTRIES: PhoneCountryOption['code'][] = ['US', 'CA', 'MX']
 
 export type CountryPickerVariant = 'dial' | 'country'
@@ -52,6 +51,7 @@ export const CountryPicker = ({
   triggerTextColor,
   triggerIconColor,
 }: CountryPickerProps) => {
+  const { primaryColor } = useBrand()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const normalizedQuery = query.trim().toLowerCase()
@@ -144,13 +144,13 @@ export const CountryPicker = ({
           exitStyle={{ opacity: 0 }}
           zIndex={0}
         />
-        <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
+        <Sheet.Frame backgroundColor="$background" borderColor="$color12" borderWidth={1}>
           <YStack px="$4" pt="$4" pb="$3" gap="$3">
             <XStack ai="center" jc="space-between">
               <SizableText fontSize={20} fontWeight="700">
                 {title}
               </SizableText>
-              <Button chromeless size="$2" onPress={() => setOpen(false)} color={PRIMARY_COLOR}>
+              <Button chromeless size="$2" onPress={() => setOpen(false)} color={primaryColor}>
                 Close
               </Button>
             </XStack>
@@ -165,8 +165,8 @@ export const CountryPicker = ({
               borderRadius={12}
               borderColor="$borderColor"
               backgroundColor="$background"
-              selectionColor={PRIMARY_COLOR}
-              caretColor={PRIMARY_COLOR}
+              selectionColor={primaryColor}
+              caretColor={primaryColor}
               color="$color"
             />
           </YStack>

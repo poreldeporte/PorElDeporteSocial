@@ -19,15 +19,13 @@ import {
 import { useRouter } from 'solito/router'
 
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
-import { getDockSpacer } from 'app/constants/dock'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { formatProfileName } from 'app/utils/profileName'
 import { useTeamsState } from 'app/utils/useTeamsState'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
-import { ctaButtonStyles } from './cta-styles'
+import { useCtaButtonStyles } from './cta-styles'
 
 type Team = ReturnType<typeof useTeamsState>['teams'][number]
 
@@ -48,11 +46,12 @@ export const GameResultScreen = ({
   topInset,
 }: Props & ScrollHeaderProps) => {
   const router = useRouter()
+  const { primaryColor } = useBrand()
+  const ctaButtonStyles = useCtaButtonStyles()
   const utils = api.useUtils()
   const { teams, query, isAdmin } = useTeamsState({ gameId })
   const { data: gameDetail } = api.games.byId.useQuery({ id: gameId }, { enabled: !!gameId })
   const toast = useToastController()
-  const insets = useSafeAreaInsets()
   const [scoreByTeamId, setScoreByTeamId] = useState<Record<string, string>>({})
   const [hasPrefilledScores, setHasPrefilledScores] = useState(false)
   const draftStatus = query.data?.game?.draft_status ?? 'pending'
@@ -61,7 +60,6 @@ export const GameResultScreen = ({
   const scoreEntries = buildScoreEntries(teams, scoreByTeamId)
   const leaderTeamId = getLeaderTeamId(scoreEntries)
   const showFloatingCta = !isWeb
-  const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
 
   const mutation = api.teams.reportResult.useMutation({
     onSuccess: async () => {
@@ -181,12 +179,12 @@ export const GameResultScreen = ({
               Report result
             </SizableText>
             <Paragraph theme="alt2">{helperCopy}</Paragraph>
-            <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+            <YStack h={2} w={56} br={999} bg={primaryColor} />
           </YStack>
         <YStack gap="$3">
           <Card
             bordered
-            borderColor="$black1"
+            borderColor="$color12"
             p={0}
             gap={0}
             br="$4"
@@ -241,7 +239,6 @@ export const GameResultScreen = ({
               <Paragraph theme="alt2">Results can be submitted once teams are finalized.</Paragraph>
             </Card>
           ) : null}
-          {showFloatingCta ? <YStack h={dockSpacer} /> : null}
         </YStack>
       </ScrollView>
       {showFloatingCta ? (
@@ -352,7 +349,7 @@ const ResultScoreCard = ({
       gap="$1.5"
       bg={tone.bg as any}
       borderTopWidth={index === 0 ? 0 : 1}
-      borderColor="$black1"
+      borderColor="$color12"
     >
       <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
         <SizableText size="$7" fontWeight="800" color={tone.scoreColor as any}>
