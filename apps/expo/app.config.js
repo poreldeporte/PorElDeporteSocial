@@ -21,7 +21,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.poreldeporte.app',
-      buildNumber: '41',
+      buildNumber: '42',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
@@ -33,7 +33,6 @@ export default {
         backgroundColor: '#FFFFFF',
       },
       package: 'com.poreldeporte.app',
-      permissions: ['android.permission.RECORD_AUDIO'],
       versionCode: 7,
     },
     web: {
@@ -54,7 +53,6 @@ export default {
           photosPermission: 'The app accesses your photos to let you share them with your friends.',
         },
       ],
-      'expo-apple-authentication',
       'expo-router',
       'expo-build-properties',
       'expo-font',

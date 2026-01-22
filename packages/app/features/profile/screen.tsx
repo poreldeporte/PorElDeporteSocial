@@ -1,22 +1,38 @@
 import { Image, Share, StyleSheet, type ImageSourcePropType, type ScrollViewProps } from 'react-native'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ElementRef,
+  type ReactNode,
+} from 'react'
 import { Path, Svg } from 'react-native-svg'
 import { useLink } from 'solito/link'
 
 import {
   Button,
   Card,
-  ConfirmDialog,
   Paragraph,
   ScrollView,
   SizableText,
-  Switch,
   XStack,
   YStack,
   useTheme,
   useToastController,
 } from '@my/ui/public'
-import { ArrowRight, Check, ChevronDown, Shield, Star, Trophy } from '@tamagui/lucide-icons'
+import {
+  ArrowRight,
+  BarChart3,
+  Calendar,
+  Check,
+  ChevronDown,
+  HelpCircle,
+  Shield,
+  Star,
+  Trophy,
+} from '@tamagui/lucide-icons'
 import {
   captainBadge,
   ironmanBadge,
@@ -26,21 +42,19 @@ import {
   playerBadge,
   rookeBadge,
 } from 'app/assets'
-import { BRAND_COLORS } from 'app/constants/colors'
-import { getDockSpacer } from 'app/constants/dock'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
+import { InfoPopup } from 'app/components/InfoPopup'
 import { RatingBlock } from 'app/components/RatingBlock'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
 import { UploadCommunityBanner } from 'app/features/settings/components/upload-community-banner'
 import type { GameListItem } from 'app/features/games/types'
 import { HistoryGameCard } from 'app/features/games/components/HistoryGameCard'
-import { useThemeSetting } from 'app/provider/theme'
-import { useLogout } from 'app/utils/auth/logout'
+import { useBrand } from 'app/provider/brand'
 import { emptyBirthDateParts, formatBirthDateParts, parseBirthDateParts } from 'app/utils/birthDate'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { api } from 'app/utils/api'
@@ -102,9 +116,13 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
     user: data.user,
     userId: data.userId,
   })
-  const insets = useSafeAreaInsets()
   const showDock = editor.isDirty
-  const dockSpacer = showDock ? getDockSpacer(insets.bottom) : 0
+  const scrollRef = useRef<ElementRef<typeof ScrollView> | null>(null)
+  const [detailsOffset, setDetailsOffset] = useState(0)
+  const scrollToDetails = useCallback(() => {
+    if (!detailsOffset || !scrollRef.current) return
+    scrollRef.current.scrollTo({ y: Math.max(0, detailsOffset - 12), animated: true })
+  }, [detailsOffset])
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }
@@ -117,7 +135,7 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
 
   return (
     <YStack f={1}>
-      <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
+      <ScrollView ref={scrollRef} {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
         {headerSpacer}
         <YStack maw={900} mx="auto" w="100%" space="$4">
           <ProfileHero
@@ -127,16 +145,11 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
             stats={data.stats}
             rating={data.rating}
             ratedGames={data.ratedGames}
-            ratingDebug={data.ratingDebug}
             coverImageUrl={data.communityBannerUrl}
             communityId={data.communityId}
             canEditAvatar
             canEditBanner={data.isAdmin}
-          />
-          <BadgeSection
-            role={data.role}
-            stats={data.stats}
-            attendanceStreak={data.attendanceStreak}
+            onPressName={scrollToDetails}
           />
           <PerformanceSection
             stats={data.stats}
@@ -151,25 +164,31 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
             onRetry={data.onHistoryRetry}
             scheduleLink={data.historyLink}
           />
-          <ProfileDetails
-            firstName={data.profile?.first_name}
-            lastName={data.profile?.last_name}
-            email={data.profileEmail}
-            phone={data.profile?.phone}
-            address={data.profile?.address}
-            nationality={data.profile?.nationality}
-            birthDate={data.profile?.birth_date}
-            jerseyNumber={data.profile?.jersey_number}
-            position={data.profile?.position}
-            editor={{
-              draft: editor.draft,
-              activeSection: editor.activeSection,
-              onSectionToggle: editor.toggleSection,
-              onDraftChange: editor.updateDraft,
-            }}
+          <BadgeSection
+            role={data.role}
+            stats={data.stats}
+            attendanceStreak={data.attendanceStreak}
           />
-          {data.onLogout ? <LogoutSection onLogout={data.onLogout} /> : null}
-          {showDock ? <YStack h={dockSpacer} /> : null}
+          <YStack onLayout={(event) => setDetailsOffset(event.nativeEvent.layout.y)}>
+            <ProfileDetails
+              firstName={data.profile?.first_name}
+              lastName={data.profile?.last_name}
+              email={data.profileEmail}
+              phone={data.profile?.phone}
+              address={data.profile?.address}
+              nationality={data.profile?.nationality}
+              birthDate={data.profile?.birth_date}
+              jerseyNumber={data.profile?.jersey_number}
+              position={data.profile?.position}
+              editor={{
+                draft: editor.draft,
+                activeSection: editor.activeSection,
+                onSectionToggle: editor.toggleSection,
+                onDraftChange: editor.updateDraft,
+              }}
+            />
+          </YStack>
+          <BrandStamp />
         </YStack>
       </ScrollView>
       {showDock ? (
@@ -186,7 +205,6 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
 const useProfileData = () => {
   const { profile, avatarUrl, user, displayName, role, isAdmin } = useUser()
   useGamesListRealtime(Boolean(user))
-  const logout = useLogout()
   const historyLink = useLink({ href: '/games/history' })
   const leaderboardQuery = api.stats.leaderboard.useQuery()
   const historyQuery = api.games.list.useQuery({ scope: 'past' })
@@ -196,16 +214,6 @@ const useProfileData = () => {
     { communityId: communityQuery.data?.id ?? '' },
     { enabled: Boolean(communityQuery.data?.id) }
   )
-  const ratingDebug = isAdmin
-    ? [
-        `community=${communityQuery.data?.id ?? 'none'}`,
-        `communityStatus=${communityQuery.status}`,
-        `ratingEnabled=${Boolean(communityQuery.data?.id)}`,
-        `ratingStatus=${ratingQuery.status}/${ratingQuery.fetchStatus}`,
-        `ratedGames=${ratingQuery.data?.ratedGames ?? 'n/a'}`,
-        `error=${ratingQuery.error?.message ?? 'none'}`,
-      ].join(' | ')
-    : null
 
   const leaderboardEntry = useMemo(() => {
     if (!user?.id) return null
@@ -238,7 +246,6 @@ const useProfileData = () => {
     userId: user?.id ?? '',
     communityId: communityQuery.data?.id ?? null,
     communityBannerUrl: communityQuery.data?.bannerUrl ?? null,
-    onLogout: () => logout({ userId: user?.id ?? null }),
     stats,
     performance,
     recentForm,
@@ -248,7 +255,6 @@ const useProfileData = () => {
     isHistoryLoading: historyQuery.isLoading,
     rating: ratingQuery.data?.rating ?? 1500,
     ratedGames: ratingQuery.data?.ratedGames ?? 0,
-    ratingDebug,
     historyError: Boolean(historyQuery.error),
     onHistoryRetry: historyQuery.refetch,
     historyLink,
@@ -424,11 +430,11 @@ const ProfileHero = ({
   stats,
   rating,
   ratedGames,
-  ratingDebug,
   coverImageUrl,
   canEditAvatar,
   canEditBanner,
   communityId,
+  onPressName,
 }: {
   name: string
   avatarUrl: string | null
@@ -436,15 +442,13 @@ const ProfileHero = ({
   stats: StatSnapshot
   rating: number
   ratedGames: number
-  ratingDebug?: string | null
   coverImageUrl?: string | null
   canEditAvatar?: boolean
   canEditBanner?: boolean
   communityId?: string | null
+  onPressName?: () => void
 }) => {
-  const { set, resolvedTheme } = useThemeSetting()
-  const isDark = resolvedTheme === 'dark'
-  const themeLabel = isDark ? 'Dark' : 'Light'
+  const [ratingInfoOpen, setRatingInfoOpen] = useState(false)
   const phoneLabel = formatPhoneDisplay(phone) || 'Add phone'
   const coverSource = coverImageUrl ? { uri: coverImageUrl } : null
 
@@ -475,77 +479,107 @@ const ProfileHero = ({
       bannerContent
     )
 
+  const ratingBullets = [
+    'You start at 1500.',
+    'After 3 rated games, your rating becomes visible.',
+    "Your team's rating is compared to the other team's rating.",
+    'Wins move it up, losses move it down, draws keep it steady.',
+    'Big upsets or larger score margins move it a bit more.',
+  ]
+
   return (
-    <Card
-      bordered
-      bw={1}
-      boc="$black1"
-      br="$5"
-      borderStyle="solid"
-      overflow="hidden"
-    >
-      <YStack position="relative">
-        {bannerNode}
-        <YStack
-          position="absolute"
-          top={bannerHeight - avatarSize / 2}
-          left={avatarInset}
-          zIndex={2}
-          elevation={2}
-          bg="$background"
-          p="$1"
-          br={999}
-        >
-          {avatarNode}
-        </YStack>
-      </YStack>
-      <YStack px="$4" pt={contentTopPadding} pb="$4" gap="$3" bg="$background">
-        <XStack ai="flex-start" jc="space-between" gap="$3">
-          <YStack gap="$1">
-            <XStack ai="center" gap="$1.5">
-              <SizableText size="$6" fontWeight="700">
-                {name}
-              </SizableText>
-              <ChevronDown size={16} color="$color10" />
-            </XStack>
-            <Paragraph theme="alt2" size="$2">
-              {phoneLabel}
-            </Paragraph>
+    <>
+      <Card
+        bordered
+        bw={1}
+        boc="$color12"
+        br="$5"
+        borderStyle="solid"
+        overflow="hidden"
+      >
+        <YStack position="relative">
+          {bannerNode}
+          <YStack
+            position="absolute"
+            top={bannerHeight - avatarSize / 2}
+            left={avatarInset}
+            zIndex={2}
+            elevation={2}
+            bg="$background"
+            p="$1"
+            br={999}
+            bw={1}
+            boc="$color12"
+          >
+            {avatarNode}
           </YStack>
-          <XStack ai="center" gap="$2">
-            <Paragraph theme="alt2" size="$2">
-              {themeLabel}
-            </Paragraph>
-            <Switch
-              native
-              size="$2"
-              checked={isDark}
-              onCheckedChange={(next) => set(next ? 'dark' : 'light')}
-              backgroundColor={isDark ? BRAND_COLORS.primary : '$color5'}
-              borderColor={isDark ? BRAND_COLORS.primary : '$color6'}
-              borderWidth={1}
-            >
-              <Switch.Thumb animation="100ms" />
-            </Switch>
+        </YStack>
+        <YStack px="$4" pt={contentTopPadding} pb="$4" gap="$3" bg="$background">
+          <XStack ai="center" jc="space-between" gap="$4">
+            <YStack f={1} gap="$3">
+              <YStack gap="$1">
+                <XStack
+                  ai="center"
+                  gap="$1.5"
+                  onPress={onPressName}
+                  pressStyle={onPressName ? { opacity: 0.7 } : undefined}
+                  cur={onPressName ? 'pointer' : undefined}
+                >
+                  <SizableText size="$6" fontWeight="700">
+                    {name}
+                  </SizableText>
+                  <ChevronDown size={16} color="$color10" />
+                </XStack>
+                <Paragraph theme="alt2" size="$2">
+                  {phoneLabel}
+                </Paragraph>
+              </YStack>
+              <XStack ai="center" gap="$4">
+                <StatBlock label="Games" value={stats.games} />
+                <YStack w={1} h={28} bg="$color4" />
+                <StatBlock label="Wins" value={stats.wins} />
+                <YStack w={1} h={28} bg="$color4" />
+                <StatBlock label="Losses" value={stats.losses} />
+              </XStack>
+            </YStack>
+            <YStack ai="center" jc="center" gap="$1.5">
+              <YStack
+                w={88}
+                h={88}
+                br={44}
+                bw={1}
+                boc="$color12"
+                bg="$background"
+                theme="light"
+                ai="center"
+                jc="center"
+                onPress={() => setRatingInfoOpen(true)}
+                pressStyle={{ opacity: 0.85 }}
+                accessibilityRole="button"
+              >
+                <RatingBlock
+                  rating={rating}
+                  ratedGames={ratedGames}
+                  align="center"
+                  showLabel={false}
+                  insideLabel="rating"
+                  textColor="$color12"
+                  accentColor="$color12"
+                />
+              </YStack>
+            </YStack>
           </XStack>
-        </XStack>
-        <XStack ai="center" jc="space-between" gap="$4">
-          <XStack ai="center" gap="$4">
-            <StatBlock label="Games" value={stats.games} />
-            <YStack w={1} h={28} bg="$color4" />
-            <StatBlock label="Wins" value={stats.wins} />
-            <YStack w={1} h={28} bg="$color4" />
-            <StatBlock label="Losses" value={stats.losses} />
-          </XStack>
-          <RatingBlock rating={rating} ratedGames={ratedGames} />
-        </XStack>
-        {ratingDebug ? (
-          <Paragraph theme="alt2" size="$1">
-            {ratingDebug}
-          </Paragraph>
-        ) : null}
-      </YStack>
-    </Card>
+        </YStack>
+      </Card>
+      <InfoPopup
+        open={ratingInfoOpen}
+        onOpenChange={setRatingInfoOpen}
+        title="Community Rating"
+        description="This rating reflects how you're doing in this community and updates after every rated game."
+        bullets={ratingBullets}
+        footer="Play more games to sharpen your rating."
+      />
+    </>
   )
 }
 
@@ -559,38 +593,6 @@ const StatBlock = ({ label, value }: { label: string; value: number }) => {
         {label}
       </Paragraph>
     </YStack>
-  )
-}
-
-const LogoutSection = ({ onLogout }: { onLogout: () => void }) => {
-  const [confirmOpen, setConfirmOpen] = useState(false)
-
-  return (
-    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
-      <Paragraph
-        size="$2"
-        color="$color10"
-        textDecorationLine="underline"
-        alignSelf="center"
-        accessibilityRole="button"
-        onPress={() => setConfirmOpen(true)}
-        pressStyle={{ opacity: 0.6 }}
-      >
-        Log out
-      </Paragraph>
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="Log out?"
-        description="You will need to sign in again to access your account."
-        confirmLabel="Log out"
-        confirmTone="destructive"
-        onConfirm={() => {
-          setConfirmOpen(false)
-          onLogout()
-        }}
-      />
-    </Card>
   )
 }
 
@@ -659,33 +661,145 @@ const PerformanceSection = ({
   recentForm: string[]
   isLoading: boolean
 }) => {
+  const { primaryColor } = useBrand()
+  const [infoOpen, setInfoOpen] = useState(false)
   const summary = isLoading
     ? 'Dialing in your record…'
     : stats.games
-    ? `Winning ${formatPercent(stats.winRate)} of ${stats.games} runs`
-    : 'You have not played yet — join your first run.'
+    ? 'Tracking your impact over time.'
+    : ''
+
+  const hasGames = stats.games > 0
+  const infoBullets = [
+    'Only games you play are counted.',
+    'Stats update after each completed game.',
+    'Win rate is your wins divided by total games.',
+    'GD is goals for minus goals against.',
+    'Ranks show where you stand in the community.',
+  ]
 
   return (
-    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
-      <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-        <YStack gap="$1" flex={1}>
-          <SizableText size="$5" fontWeight="600" textTransform="uppercase">
-            Performance
-          </SizableText>
-          <Paragraph theme="alt2">{summary}</Paragraph>
-        </YStack>
-      </XStack>
-      <YStack gap="$3">
-        {[performance.slice(0, 2), performance.slice(2, 5), performance.slice(5, 8)].map((row, rowIndex) => (
-          <XStack key={`performance-row-${rowIndex}`} gap="$3">
-            {row.map((metric) => (
-              <MetricCard key={metric.label} {...metric} isLoading={isLoading} highlight={rowIndex === 0} />
-            ))}
+    <>
+      <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
+        <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
+          <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
+            <YStack gap="$1" flex={1}>
+              <XStack ai="center" jc="space-between" gap="$2">
+                <SizableText size="$5" fontWeight="600" textTransform="uppercase" letterSpacing={1.2}>
+                  Performance
+                </SizableText>
+                <Button
+                  chromeless
+                  size="$2"
+                  p="$1"
+                  onPress={() => setInfoOpen(true)}
+                  aria-label="Performance info"
+                  pressStyle={{ opacity: 0.7 }}
+                >
+                  <Button.Icon>
+                    <HelpCircle size={20} color="$color10" />
+                  </Button.Icon>
+                </Button>
+              </XStack>
+              {summary ? <Paragraph theme="alt2">{summary}</Paragraph> : null}
+            </YStack>
           </XStack>
-        ))}
-      </YStack>
-      <RecentForm recentForm={recentForm} />
-    </Card>
+        </YStack>
+        <YStack p="$4" gap="$3" backgroundColor="$color1" w="100%">
+          {hasGames ? (
+            <>
+              <YStack gap="$3">
+                {[performance.slice(0, 2), performance.slice(2, 5), performance.slice(5, 8)].map(
+                  (row, rowIndex) => (
+                    <XStack key={`performance-row-${rowIndex}`} gap="$3">
+                      {row.map((metric) => (
+                        <MetricCard
+                          key={metric.label}
+                          {...metric}
+                          isLoading={isLoading}
+                          highlight={rowIndex === 0}
+                        />
+                      ))}
+                    </XStack>
+                  )
+                )}
+              </YStack>
+              <RecentForm recentForm={recentForm} />
+            </>
+          ) : (
+            <YStack ai="center" jc="center" py="$6" position="relative" overflow="hidden">
+              <YStack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                opacity={0.2}
+                gap="$3"
+              >
+                {[0, 1].map((row) => (
+                  <XStack key={`ghost-row-${row}`} gap="$3">
+                    {[0, 1].map((col) => (
+                      <YStack
+                        key={`ghost-card-${row}-${col}`}
+                        f={1}
+                        h={64}
+                        br="$4"
+                        bg="$color2"
+                        borderWidth={1}
+                        borderColor="$color12"
+                      />
+                    ))}
+                  </XStack>
+                ))}
+              </YStack>
+              <Card
+                bordered
+                bw={1}
+                boc="$color12"
+                br="$5"
+                p="$4"
+                gap="$2"
+                alignItems="center"
+                maxWidth={280}
+                width="100%"
+              >
+                <YStack
+                  w={72}
+                  h={72}
+                  br={999}
+                  bg="$color2"
+                  ai="center"
+                  jc="center"
+                >
+                  <BarChart3 size={32} color={primaryColor} />
+                </YStack>
+                <SizableText
+                  size="$3"
+                  fontWeight="700"
+                  textTransform="uppercase"
+                  letterSpacing={1.2}
+                  textAlign="center"
+                >
+                  Play to unlock
+                </SizableText>
+                <Paragraph theme="alt2" textAlign="center">
+                  Performance stats appear after your first run.
+                </Paragraph>
+              </Card>
+            </YStack>
+          )}
+        </YStack>
+      </Card>
+      <InfoPopup
+        open={infoOpen}
+        onOpenChange={setInfoOpen}
+        title="Performance"
+        description="Performance tracks your results inside this community across your games."
+        bullets={infoBullets}
+        footer="We’re investing in richer stats, keep playing. Next-level analytics are coming."
+      />
+    </>
   )
 }
 
@@ -702,42 +816,109 @@ const HistorySection = ({
   onRetry: () => void
   scheduleLink: ReturnType<typeof useLink>
 }) => {
+  const { primaryColor } = useBrand()
   return (
-    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
-      <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
-        <SizableText size="$5" fontWeight="600" textTransform="uppercase">
-          Recent games
-        </SizableText>
-        <Button
-          chromeless
-          size="$2"
-          px={0}
-          py={0}
-          color="$color10"
-          pressStyle={{ opacity: 0.6 }}
-          {...scheduleLink}
-        >
-          View all
-        </Button>
-      </XStack>
-      {isLoading ? (
-        <Paragraph theme="alt2">Loading your matches…</Paragraph>
-      ) : isError ? (
-        <XStack gap="$2" ai="center">
-          <Paragraph theme="alt2">Unable to load match history.</Paragraph>
-          <Button size="$2" onPress={onRetry}>
-            Retry
-          </Button>
+    <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
+      <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
+        <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
+          <YStack gap="$1" f={1}>
+            <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
+              <SizableText size="$5" fontWeight="600" textTransform="uppercase" letterSpacing={1.2}>
+                Recent games
+              </SizableText>
+              <Button
+                chromeless
+                size="$2"
+                px={0}
+                py={0}
+                color="$color10"
+                pressStyle={{ opacity: 0.6 }}
+                {...scheduleLink}
+              >
+                View all
+              </Button>
+            </XStack>
+            <Paragraph theme="alt2">
+              Analyze each game and leave a quick review.
+            </Paragraph>
+          </YStack>
         </XStack>
-      ) : games.length === 0 ? (
-        <Paragraph theme="alt2">No games yet — claim your first run.</Paragraph>
-      ) : (
-        <YStack gap="$3">
-          {games.map((game) => (
-            <HistoryGameCard key={game.id} game={game} />
-          ))}
-        </YStack>
-      )}
+      </YStack>
+      <YStack p="$4" gap="$3" backgroundColor="$color1" w="100%">
+        {isLoading ? (
+          <Paragraph theme="alt2">Loading your matches…</Paragraph>
+        ) : isError ? (
+          <XStack gap="$2" ai="center">
+            <Paragraph theme="alt2">Unable to load match history.</Paragraph>
+            <Button size="$2" onPress={onRetry}>
+              Retry
+            </Button>
+          </XStack>
+        ) : games.length === 0 ? (
+          <YStack ai="center" jc="center" py="$6" position="relative" overflow="hidden">
+            <YStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              opacity={0.2}
+              gap="$3"
+            >
+              {[0, 1, 2].map((row) => (
+                <YStack
+                  key={`ghost-game-${row}`}
+                  h={72}
+                  br="$5"
+                  bg="$color2"
+                  borderWidth={1}
+                  borderColor="$color12"
+                />
+              ))}
+            </YStack>
+            <Card
+              bordered
+              bw={1}
+              boc="$color12"
+              br="$5"
+              p="$4"
+              gap="$2"
+              alignItems="center"
+              maxWidth={280}
+              width="100%"
+            >
+              <YStack
+                w={72}
+                h={72}
+                br={999}
+                bg="$color2"
+                ai="center"
+                jc="center"
+              >
+                <Calendar size={32} color={primaryColor} />
+              </YStack>
+              <SizableText
+                size="$3"
+                fontWeight="700"
+                textTransform="uppercase"
+                letterSpacing={1.2}
+                textAlign="center"
+              >
+                No games yet
+              </SizableText>
+              <Paragraph theme="alt2" textAlign="center">
+                Join your first run to start your history.
+              </Paragraph>
+            </Card>
+          </YStack>
+        ) : (
+          <YStack gap="$3">
+            {games.map((game) => (
+              <HistoryGameCard key={game.id} game={game} />
+            ))}
+          </YStack>
+        )}
+      </YStack>
     </Card>
   )
 }
@@ -751,6 +932,7 @@ const BadgeSection = ({
   stats: StatSnapshot
   attendanceStreak: number
 }) => {
+  const [infoOpen, setInfoOpen] = useState(false)
   const tierProgress = getTierProgress(stats.games)
   const badges = buildBadges(role, stats, tierProgress.current, attendanceStreak)
   const progressRows = [
@@ -768,32 +950,61 @@ const BadgeSection = ({
       valueLabel: `${Math.min(attendanceStreak, IRONMAN_STREAK)}/${IRONMAN_STREAK} in a row`,
       percent: Math.min(attendanceStreak / IRONMAN_STREAK, 1),
     },
-    {
-      id: 'community',
-      label: 'Community builder',
-      valueLabel: '0/3 referrals',
-      percent: 0,
-    },
   ]
+
+  const infoBullets = [
+    'Play games to unlock tier badges.',
+    'Show up consistently to earn streak badges.',
+    'Certain badges reflect your role or leadership.',
+    'More badges appear as you progress.',
+  ]
+
   return (
-    <Card bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3" backgroundColor="$color2">
-      <SizableText size="$5" fontWeight="600" textTransform="uppercase">
-        Badges
-      </SizableText>
-      <Paragraph theme="alt2">Earn badges as you play and contribute to the club.</Paragraph>
-      <BadgeProgressList progress={progressRows} />
-      <XStack gap="$2" flexWrap="wrap">
-        {badges.map((badge) => (
-          <BadgeTile
-            key={badge.label}
-            label={badge.label}
-            icon={badge.icon}
-            image={badge.image}
-            completed
-          />
-        ))}
-      </XStack>
-    </Card>
+    <>
+      <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
+        <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
+          <XStack ai="center" jc="space-between" gap="$2">
+            <SizableText size="$5" fontWeight="600" textTransform="uppercase" letterSpacing={1.2}>
+              Badges
+            </SizableText>
+            <Button
+              chromeless
+              size="$2"
+              p="$1"
+              onPress={() => setInfoOpen(true)}
+              aria-label="Badges info"
+              pressStyle={{ opacity: 0.7 }}
+            >
+              <Button.Icon>
+                <HelpCircle size={20} color="$color10" />
+              </Button.Icon>
+            </Button>
+          </XStack>
+          <Paragraph theme="alt2">Play, show up, and unlock milestones.</Paragraph>
+        </YStack>
+        <YStack p="$4" gap="$3" backgroundColor="$color1" w="100%">
+          <BadgeProgressList progress={progressRows} />
+          <XStack gap="$2" flexWrap="wrap">
+            {badges.map((badge) => (
+              <BadgeTile
+                key={badge.label}
+                label={badge.label}
+                icon={badge.icon}
+                image={badge.image}
+                completed
+              />
+            ))}
+          </XStack>
+        </YStack>
+      </Card>
+      <InfoPopup
+        open={infoOpen}
+        onOpenChange={setInfoOpen}
+        title="Badges"
+        description="Badges highlight your milestones and impact inside the community."
+        bullets={infoBullets}
+      />
+    </>
   )
 }
 
@@ -802,8 +1013,12 @@ const BadgeProgressList = ({
 }: {
   progress: Array<{ id: string; label: string; valueLabel: string; percent: number }>
 }) => {
+  const { primaryColor } = useBrand()
   return (
     <YStack gap="$2">
+      <Paragraph theme="alt2" size="$1" textTransform="uppercase" letterSpacing={1.5} textAlign="right">
+        Progress
+      </Paragraph>
       {progress.map(({ id, label, valueLabel, percent }) => (
         <YStack key={id} gap="$1">
           <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
@@ -812,8 +1027,8 @@ const BadgeProgressList = ({
               {percent >= 1 ? 'Completed' : valueLabel}
             </Paragraph>
           </XStack>
-          <YStack h={6} br="$10" backgroundColor="$color3" overflow="hidden">
-            <YStack h="100%" w={`${Math.round(percent * 100)}%`} backgroundColor={BRAND_COLORS.primary} />
+          <YStack h={4} br="$10" backgroundColor="$color3" overflow="hidden">
+            <YStack h="100%" w={`${Math.round(percent * 100)}%`} backgroundColor={primaryColor} />
           </YStack>
         </YStack>
       ))}
@@ -832,8 +1047,9 @@ const BadgeStatusPill = ({
   tone?: PillTone
   completed?: boolean
 }) => {
+  const { primaryColor } = useBrand()
   const backgroundColor =
-    tone === 'primary' ? BRAND_COLORS.primary : tone === 'active' ? '$color9' : '$color3'
+    tone === 'primary' ? primaryColor : tone === 'active' ? '$color9' : '$color3'
   const color = tone === 'primary' ? '$background' : tone === 'active' ? '$color1' : '$color11'
   return (
     <XStack
@@ -842,10 +1058,16 @@ const BadgeStatusPill = ({
       px="$2.5"
       py="$1"
       br="$10"
-      backgroundColor={completed ? BRAND_COLORS.primary : backgroundColor}
+      backgroundColor={completed ? primaryColor : backgroundColor}
     >
       {Icon ? <Icon size={14} color={completed ? '$background' : color} /> : null}
-      <Paragraph size="$2" color={completed ? '$background' : color} fontWeight="600">
+      <Paragraph
+        size="$1"
+        color={completed ? '$background' : color}
+        fontWeight="600"
+        textTransform="uppercase"
+        letterSpacing={1.1}
+      >
         {label}
       </Paragraph>
     </XStack>
@@ -866,11 +1088,12 @@ const BadgeTile = ({
   completed: boolean
   image?: ImageSourcePropType
 }) => {
+  const { primaryColor } = useBrand()
   const theme = useTheme()
   const backgroundColor = completed ? theme.color1?.val : theme.color2?.val
-  const borderColor = completed ? BRAND_COLORS.primary : theme.color4?.val
+  const borderColor = completed ? primaryColor : theme.color4?.val
   const labelColor = completed ? '$color12' : '$color10'
-  const iconColor = completed ? BRAND_COLORS.primary : '$color10'
+  const iconColor = completed ? primaryColor : '$color10'
   const shieldFill = backgroundColor ?? theme.background?.val ?? 'transparent'
   const shieldStroke = borderColor ?? theme.borderColor?.val ?? 'transparent'
   const hasImage = Boolean(image)
@@ -899,7 +1122,14 @@ const BadgeTile = ({
             />
           </Svg>
           <YStack ai="center" jc="center" px="$2" position="absolute">
-            <Paragraph size="$2" color={labelColor} fontWeight="600" textAlign="center">
+            <Paragraph
+              size="$1"
+              color={labelColor}
+              fontWeight="600"
+              textAlign="center"
+              textTransform="uppercase"
+              letterSpacing={1.1}
+            >
               {label}
             </Paragraph>
           </YStack>
@@ -918,7 +1148,7 @@ const BadgeTile = ({
             w={20}
             h={20}
             br="$10"
-            backgroundColor={BRAND_COLORS.primary}
+            backgroundColor={primaryColor}
             ai="center"
             jc="center"
           >
@@ -944,7 +1174,7 @@ const MetricCard = ({
     p="$2.5"
     br="$5"
     borderWidth={1}
-    borderColor="$black1"
+    borderColor="$color12"
     backgroundColor={highlight ? '$color1' : 'transparent'}
   >
     <SizableText size="$6" fontWeight="700">
@@ -975,14 +1205,15 @@ const MetricCard = ({
 )
 
 const RecentForm = ({ recentForm }: { recentForm: string[] }) => {
-  if (!recentForm.length) return null
+  const results = [...recentForm].reverse()
+  if (!results.length) return null
   return (
     <YStack gap="$1">
       <Paragraph theme="alt2" size="$2">
         Recent form
       </Paragraph>
       <XStack gap="$1.5">
-        {recentForm.map((result, index) => (
+        {results.map((result, index) => (
           <FormChip key={`${result}-${index}`} result={result} />
         ))}
       </XStack>

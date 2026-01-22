@@ -14,8 +14,9 @@ import {
   XStack,
   YStack,
 } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { useUser } from 'app/utils/useUser'
 
@@ -26,6 +27,7 @@ type ScrollHeaderProps = {
 }
 
 export const GroupListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
+  const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
   const router = useRouter()
   const groupsQuery = api.groups.list.useQuery(undefined, { enabled: isAdmin && !isLoading })
@@ -85,10 +87,10 @@ export const GroupListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollH
             Groups
           </SizableText>
           <Paragraph theme="alt2">Create private audiences for games.</Paragraph>
-          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+          <YStack h={2} w={56} br={999} bg={primaryColor} />
         </YStack>
         {groupsQuery.isError ? (
-          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+          <Card bordered bw={1} boc="$color12" br="$5" p="$4">
             <Paragraph theme="alt2">Unable to load groups.</Paragraph>
             <Button
               mt="$3"
@@ -99,13 +101,13 @@ export const GroupListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollH
             </Button>
           </Card>
         ) : groups.length === 0 ? (
-          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+          <Card bordered bw={1} boc="$color12" br="$5" p="$4">
             <Paragraph theme="alt2">No groups yet.</Paragraph>
           </Card>
         ) : (
           <YStack gap="$2">
             {groups.map((group) => (
-              <Card key={group.id} bordered bw={1} boc="$black1" br="$5" p="$4" gap="$3">
+              <Card key={group.id} bordered bw={1} boc="$color12" br="$5" p="$4" gap="$3">
                 <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
                   <YStack gap="$0.5" flex={1} minWidth={200}>
                     <SizableText size="$5" fontWeight="600">
@@ -128,6 +130,7 @@ export const GroupListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollH
             ))}
           </YStack>
         )}
+        <BrandStamp />
       </YStack>
     </ScrollView>
   )

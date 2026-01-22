@@ -12,12 +12,11 @@ import {
   XStack,
   YStack,
 } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
-import { getDockSpacer } from 'app/constants/dock'
+import { useBrand } from 'app/provider/brand'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { useStatsRealtime } from 'app/utils/useRealtimeSync'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 import { LeaderboardPlayerSheet } from './components/LeaderboardPlayerSheet'
 
@@ -32,12 +31,6 @@ const normalizeEntry = (entry: RawEntry): Entry => ({
   recent: entry.recent ?? [],
 })
 
-const PODIUM_COLORS = {
-  1: BRAND_COLORS.primary,
-  2: '#6CACE4',
-  3: '#4b5320',
-} as const
-
 type ScrollHeaderProps = {
   scrollProps?: ScrollViewProps
   headerSpacer?: ReactNode
@@ -45,7 +38,6 @@ type ScrollHeaderProps = {
 }
 
 export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
-  const insets = useSafeAreaInsets()
   const { user } = useUser()
   const communityQuery = api.community.defaults.useQuery(undefined, { enabled: Boolean(user) })
   useStatsRealtime(Boolean(user), communityQuery.data?.id ?? null)
@@ -97,7 +89,6 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
       </YStack>
     )
   }
-  const dockSpacer = getDockSpacer(insets.bottom)
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const basePaddingBottom = screenContentContainerStyle.paddingBottom ?? 0
   const baseContentStyle = headerSpacer
@@ -121,11 +112,11 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
 
         <YStack gap="$2">
           {sorted.length ? (
-            <Card bordered borderColor="$black1" p={0} gap={0} overflow="hidden">
+            <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden">
               <TableHeader sortMetric={sortMetric} onSort={setSortMetric} />
             </Card>
           ) : null}
-          <Card bordered borderColor="$black1" p={0} gap={0} overflow="hidden">
+          <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden">
             {sorted.length === 0 ? (
               <Paragraph theme="alt2" px="$3" py="$3">
                 No players to rank yet.
@@ -138,7 +129,7 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
                   px="$3"
                   py="$3"
                   borderTopWidth={index === 0 ? 0 : 1}
-                  borderColor="$black1"
+                  borderColor="$color12"
                   borderWidth={1}
                   transform={[{ scale: 0.97 }]}
                   pressStyle={{ backgroundColor: '$color2' }}
@@ -154,7 +145,7 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
           </Card>
         </YStack>
       </YStack>
-      <YStack h={dockSpacer} />
+      <BrandStamp />
       <LeaderboardPlayerSheet
         open={Boolean(sheetEntry)}
         onOpenChange={(open) => {
@@ -214,7 +205,7 @@ const TableHeader = ({
     gap="$2"
     flexWrap="nowrap"
     borderBottomWidth={1}
-    borderColor="$black1"
+    borderColor="$color12"
     transform={[{ scale: 0.97 }]}
   >
     <Paragraph fontWeight="700" size="$2" minWidth={24} theme="alt2">
@@ -244,27 +235,30 @@ const HeaderColumn = ({
   metric: Metric
   isActive: boolean
   onPress: (metric: Metric) => void
-}) => (
-  <XStack
-    minWidth={columnWidth}
-    ai="center"
-    jc="flex-end"
-    cursor="pointer"
-    pressStyle={{ opacity: 0.6 }}
-    onPress={() => onPress(metric)}
-    accessibilityRole="button"
-  >
-    <Paragraph
-      fontWeight="700"
-      size="$2"
-      ta="right"
-      color={isActive ? '$color12' : '$color10'}
-      {...(isActive ? { textDecorationLine: 'underline', textDecorationColor: BRAND_COLORS.primary } : {})}
+}) => {
+  const { primaryColor } = useBrand()
+  return (
+    <XStack
+      minWidth={columnWidth}
+      ai="center"
+      jc="flex-end"
+      cursor="pointer"
+      pressStyle={{ opacity: 0.6 }}
+      onPress={() => onPress(metric)}
+      accessibilityRole="button"
     >
-      {label}
-    </Paragraph>
-  </XStack>
-)
+      <Paragraph
+        fontWeight="700"
+        size="$2"
+        ta="right"
+        color={isActive ? '$color12' : '$color10'}
+        {...(isActive ? { textDecorationLine: 'underline', textDecorationColor: primaryColor } : {})}
+      >
+        {label}
+      </Paragraph>
+    </XStack>
+  )
+}
 
 const initials = (name: string | null | undefined) => {
   if (!name) return '?'
@@ -292,10 +286,16 @@ const InitialsBadge = ({ name }: { name: string }) => (
 )
 
 const GlowRow = ({ entries }: { entries: Entry[] }) => {
+  const { primaryColor } = useBrand()
+  const podiumColors = {
+    1: primaryColor,
+    2: '#6CACE4',
+    3: '#4b5320',
+  } as const
   const slots = [
-    { rank: 2, entry: entries[1], glow: PODIUM_COLORS[2], scale: 0.9, trend: 'up' as const },
-    { rank: 1, entry: entries[0], glow: PODIUM_COLORS[1], scale: 1.5, crown: true },
-    { rank: 3, entry: entries[2], glow: PODIUM_COLORS[3], scale: 0.9, trend: 'down' as const },
+    { rank: 2, entry: entries[1], glow: podiumColors[2], scale: 0.9, trend: 'up' as const },
+    { rank: 1, entry: entries[0], glow: podiumColors[1], scale: 1.5, crown: true },
+    { rank: 3, entry: entries[2], glow: podiumColors[3], scale: 0.9, trend: 'down' as const },
   ]
 
   return (
@@ -314,14 +314,14 @@ const GlowRow = ({ entries }: { entries: Entry[] }) => {
                     width={140}
                     height={140}
                     br={70}
-                    backgroundColor="rgba(241,95,34,0.08)"
-                    shadowColor={BRAND_COLORS.primary}
+                    backgroundColor={toRgba(primaryColor, 0.08)}
+                    shadowColor={primaryColor}
                     shadowRadius={14}
                   />
                 ) : null}
                 {slot.crown ? (
                   <YStack position="absolute" top={-18}>
-                    <CrownIcon size={20} color={BRAND_COLORS.primary} />
+                    <CrownIcon size={20} color={primaryColor} />
                   </YStack>
                 ) : null}
                 {slot.rank !== 1 ? (
@@ -378,4 +378,13 @@ const GlowCircle = ({ name, glowColor, scale = 1, rank }: { name: string; glowCo
       </Paragraph>
     </YStack>
   )
+}
+
+const toRgba = (hex: string, alpha: number) => {
+  const normalized = hex.replace('#', '')
+  if (normalized.length !== 6) return hex
+  const r = parseInt(normalized.slice(0, 2), 16)
+  const g = parseInt(normalized.slice(2, 4), 16)
+  const b = parseInt(normalized.slice(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
 }

@@ -1,5 +1,5 @@
 import { Paragraph, XStack, YStack } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { useBrand } from 'app/provider/brand'
 
 type RecentFormChipsProps = {
   recentForm: string[]
@@ -10,7 +10,8 @@ type RecentFormChipsProps = {
 const normalizeResult = (result: string) => (result.toUpperCase() === 'W' ? 'W' : 'L')
 
 export const RecentFormChips = ({ recentForm, label, max = 5 }: RecentFormChipsProps) => {
-  const results = recentForm.filter(Boolean).slice(0, max)
+  const { primaryColor } = useBrand()
+  const results = recentForm.filter(Boolean).slice(0, max).reverse()
   if (!results.length) return null
   return (
     <YStack gap="$1" mt="$1">
@@ -21,15 +22,19 @@ export const RecentFormChips = ({ recentForm, label, max = 5 }: RecentFormChipsP
           </Paragraph>
         ) : null}
         {results.map((result, index) => (
-          <FormChip key={`${result}-${index}`} result={normalizeResult(result)} />
+          <FormChip
+            key={`${result}-${index}`}
+            result={normalizeResult(result)}
+            primaryColor={primaryColor}
+          />
         ))}
       </XStack>
     </YStack>
   )
 }
 
-const FormChip = ({ result }: { result: string }) => {
-  const tone = result === 'W' ? BRAND_COLORS.primary : '$color5'
+const FormChip = ({ result, primaryColor }: { result: string; primaryColor: string }) => {
+  const tone = result === 'W' ? primaryColor : '$color5'
   return (
     <YStack
       px="$1.5"

@@ -1,16 +1,25 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
-import { ScrollView, View, XStack, YStack, Card, Paragraph, Spinner, Button, SizableText } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
+import {
+  Button,
+  Card,
+  ConfirmDialog,
+  Paragraph,
+  ScrollView,
+  SizableText,
+  Spinner,
+  View,
+  XStack,
+  YStack,
+} from '@my/ui/public'
 import { screenContentContainerStyle } from 'app/constants/layout'
-import { getDockSpacer } from 'app/constants/dock'
 import { api } from 'app/utils/api'
+import { useBrand } from 'app/provider/brand'
 import { useGamesListRealtime } from 'app/utils/useRealtimeSync'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import type { GameListItem } from 'app/features/games/types'
 import { WatermarkLogo } from 'app/components/WatermarkLogo'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 
 import { GameCard } from './components/game-card'
@@ -29,12 +38,13 @@ const TIMELINE = {
 } as const
 
 export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
-  const insets = useSafeAreaInsets()
+  const { primaryColor } = useBrand()
   const { isAdmin } = useUser()
   const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'upcoming' })
   useGamesListRealtime(true)
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
+  const [dropGameId, setDropGameId] = useState<string | null>(null)
   const games = ((data ?? []).filter((game) => {
     if (game.status === 'completed') return false
     if (isAdmin) return true
@@ -46,8 +56,13 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
   }).length
   const openLabel = `${openCount} open`
   const subtitle = games.length ? 'Claim your spot. Tap to join.' : 'No runs yet. Next drop soon.'
+  const handleDropRequest = (gameId: string) => setDropGameId(gameId)
+  const handleDropConfirm = () => {
+    if (!dropGameId) return
+    leave(dropGameId)
+    setDropGameId(null)
+  }
 
-  const dockSpacer = getDockSpacer(insets.bottom)
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const basePaddingBottom = screenContentContainerStyle.paddingBottom ?? 0
   const baseContentStyle = {
@@ -80,15 +95,15 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
                 py="$1"
                 br="$10"
                 borderWidth={1}
-                borderColor={BRAND_COLORS.primary}
+                borderColor={primaryColor}
                 backgroundColor="transparent"
               >
-                <Paragraph size="$1" fontWeight="700" color={BRAND_COLORS.primary}>
+                <Paragraph size="$1" fontWeight="700" color={primaryColor}>
                   {openLabel}
                 </Paragraph>
               </XStack>
             </XStack>
-            <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+            <YStack h={2} w={56} br={999} bg={primaryColor} />
           </YStack>
           <GameListSection
             games={games}
@@ -96,7 +111,7 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
             error={Boolean(error)}
             onRetry={refetch}
             join={join}
-            leave={leave}
+            leave={handleDropRequest}
             grabOpenSpot={grabOpenSpot}
             confirmAttendance={confirmAttendance}
             pendingGameId={pendingGameId}
@@ -104,9 +119,19 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
             isConfirming={isConfirming}
           />
         </YStack>
-        <YStack h={dockSpacer} />
       </ScrollView>
       <WatermarkLogo style={{ bottom: 36, right: 20, pointerEvents: 'none' }} />
+      <ConfirmDialog
+        open={Boolean(dropGameId)}
+        onOpenChange={(open) => {
+          if (!open) setDropGameId(null)
+        }}
+        title="Drop from game?"
+        description="Dropping frees your spot."
+        confirmLabel="Drop"
+        confirmTone="destructive"
+        onConfirm={handleDropConfirm}
+      />
     </View>
   )
 }
@@ -136,6 +161,7 @@ const GameListSection = ({
   isPending: boolean
   isConfirming: boolean
 }) => {
+  const { primaryColor } = useBrand()
   if (isLoading) {
     return (
       <Card bordered px="$4" py="$6" ai="center" jc="center" $platform-native={{ borderWidth: 0 }}>
@@ -186,7 +212,7 @@ const GameListSection = ({
               w={TIMELINE.dotSize}
               h={TIMELINE.dotSize}
               br={999}
-              bg={BRAND_COLORS.primary}
+              bg={primaryColor}
               pointerEvents="none"
             />
           </YStack>

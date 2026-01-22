@@ -12,7 +12,7 @@ const layout = getScreenLayout('settingsGeneral')
 export default function Screen() {
   const router = useRouter()
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
       <Stack.Screen options={{ headerShown: false }} />
       <FloatingHeaderLayout
         title={layout.title}

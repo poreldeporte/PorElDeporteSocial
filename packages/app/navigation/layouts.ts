@@ -15,6 +15,7 @@ export type ScreenLayoutId =
   | 'settings'
   | 'settingsGeneral'
   | 'settingsCommunity'
+  | 'settingsAccount'
   | 'settingsGroups'
   | 'settingsGroupCreate'
   | 'settingsGroupEdit'
@@ -55,6 +56,7 @@ const screenLayouts: Record<ScreenLayoutId, ScreenLayout> = {
   settings: { id: 'settings', title: 'Settings' },
   settingsGeneral: { id: 'settingsGeneral', title: 'General' },
   settingsCommunity: { id: 'settingsCommunity', title: 'Community settings' },
+  settingsAccount: { id: 'settingsAccount', title: 'Account' },
   settingsGroups: { id: 'settingsGroups', title: 'Groups' },
   settingsGroupCreate: { id: 'settingsGroupCreate', title: 'Create group' },
   settingsGroupEdit: { id: 'settingsGroupEdit', title: 'Edit group' },

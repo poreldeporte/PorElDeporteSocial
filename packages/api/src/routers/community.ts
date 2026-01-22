@@ -3,11 +3,18 @@ import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
 import type { Database } from '@my/supabase/types'
-import { createTRPCRouter, protectedProcedure } from '../trpc'
+import { createTRPCRouter, protectedProcedure, publicProcedure } from '../trpc'
 import { supabaseAdmin } from '../supabase-admin'
 import { ensureAdmin } from '../utils/ensureAdmin'
 
-type CommunityRow = Database['public']['Tables']['communities']['Row']
+type CommunityRow = Database['public']['Tables']['communities']['Row'] & {
+  community_logo_url?: string | null
+  community_primary_color?: string | null
+}
+type CommunityUpdate = Database['public']['Tables']['communities']['Update'] & {
+  community_logo_url?: string | null
+  community_primary_color?: string | null
+}
 
 const communityFields = `
   id,
@@ -18,7 +25,15 @@ const communityFields = `
   crunch_time_enabled,
   crunch_time_start_time_local,
   game_notification_times_local,
-  community_banner_url
+  community_banner_url,
+  community_logo_url,
+  community_primary_color
+`
+
+const communityBrandingFields = `
+  id,
+  community_logo_url,
+  community_primary_color
 `
 
 const updateDefaultsInput = z.object({
@@ -29,13 +44,33 @@ const updateDefaultsInput = z.object({
   crunchTimeEnabled: z.boolean().optional(),
   crunchTimeStartTimeLocal: z.string().min(1).optional(),
   gameNotificationTimesLocal: z.array(z.string()).optional(),
-  communityBannerUrl: z.string().min(1).optional(),
+  communityBannerUrl: z.string().min(1).nullable().optional(),
+  communityLogoUrl: z.string().min(1).nullable().optional(),
+  communityPrimaryColor: z.string().min(1).nullable().optional(),
 })
 
 const fetchDefaultCommunity = async (supabase: SupabaseClient<Database>) => {
   const { data, error } = await supabase
     .from('communities')
     .select(communityFields)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+  if (!data) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Community defaults not found' })
+  }
+
+  return data as CommunityRow
+}
+
+const fetchCommunityBranding = async () => {
+  const { data, error } = await supabaseAdmin
+    .from('communities')
+    .select(communityBrandingFields)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
@@ -63,6 +98,16 @@ export const communityRouter = createTRPCRouter({
       crunchTimeStartTimeLocal: row.crunch_time_start_time_local,
       gameNotificationTimesLocal: row.game_notification_times_local,
       bannerUrl: row.community_banner_url,
+      logoUrl: row.community_logo_url,
+      primaryColor: row.community_primary_color,
+    }
+  }),
+
+  branding: publicProcedure.query(async () => {
+    const row = await fetchCommunityBranding()
+    return {
+      logoUrl: row.community_logo_url,
+      primaryColor: row.community_primary_color,
     }
   }),
 
@@ -86,7 +131,7 @@ export const communityRouter = createTRPCRouter({
       input.crunchTimeStartTimeLocal !== undefined &&
       communityRow.crunch_time_start_time_local !== input.crunchTimeStartTimeLocal
 
-    const payload: Database['public']['Tables']['communities']['Update'] = {}
+    const payload: CommunityUpdate = {}
     if (input.communityTimezone !== undefined) payload.community_timezone = input.communityTimezone
     if (input.communityPriorityEnabled !== undefined) {
       payload.community_priority_enabled = input.communityPriorityEnabled
@@ -106,6 +151,12 @@ export const communityRouter = createTRPCRouter({
     }
     if (input.communityBannerUrl !== undefined) {
       payload.community_banner_url = input.communityBannerUrl
+    }
+    if (input.communityLogoUrl !== undefined) {
+      payload.community_logo_url = input.communityLogoUrl
+    }
+    if (input.communityPrimaryColor !== undefined) {
+      payload.community_primary_color = input.communityPrimaryColor
     }
 
     const { data, error } = await supabaseAdmin
@@ -148,6 +199,8 @@ export const communityRouter = createTRPCRouter({
       crunchTimeStartTimeLocal: data.crunch_time_start_time_local,
       gameNotificationTimesLocal: data.game_notification_times_local,
       bannerUrl: data.community_banner_url,
+      logoUrl: data.community_logo_url,
+      primaryColor: data.community_primary_color,
     }
   }),
 })

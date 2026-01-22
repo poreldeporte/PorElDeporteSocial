@@ -15,10 +15,10 @@ import {
   submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { api } from 'app/utils/api'
+import { useBrand } from 'app/provider/brand'
 
-import { ctaButtonStyles } from '../cta-styles'
+import { useCtaButtonStyles } from '../cta-styles'
 
 const STAR_VALUES = [1, 2, 3, 4, 5]
 
@@ -30,6 +30,8 @@ type RateGameSheetProps = {
 }
 
 export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGameSheetProps) => {
+  const { primaryColor } = useBrand()
+  const ctaButtonStyles = useCtaButtonStyles()
   const toast = useToastController()
   const utils = api.useUtils()
   const [rating, setRating] = useState(0)
@@ -85,7 +87,7 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
         exitStyle={{ opacity: 0 }}
         zIndex={0}
       />
-      <Sheet.Frame backgroundColor="$background" borderColor="$black1" borderWidth={1}>
+      <Sheet.Frame backgroundColor="$background" borderColor="$color12" borderWidth={1}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <YStack flex={1}>
             <YStack px="$4" pt="$4" pb="$3" gap="$2.5">
@@ -112,7 +114,7 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
               <Paragraph theme="alt2" size="$2">
                 How was the run? Your feedback helps us keep the vibe sharp.
               </Paragraph>
-              <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+              <YStack h={2} w={56} br={999} bg={primaryColor} />
             </YStack>
             <Separator />
             <YStack px="$4" py="$3" gap="$3">
@@ -132,8 +134,8 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
                       >
                         <Star
                           size={26}
-                          color={active ? BRAND_COLORS.primary : '$color8'}
-                          fill={active ? BRAND_COLORS.primary : 'transparent'}
+                          color={active ? primaryColor : '$color8'}
+                          fill={active ? primaryColor : 'transparent'}
                         />
                       </Button>
                     )

@@ -18,8 +18,8 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { formatProfileName } from 'app/utils/profileName'
@@ -57,6 +57,7 @@ type ScrollHeaderProps = {
 }
 
 export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
+  const { primaryColor } = useBrand()
   const { isAdmin, isOwner, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
@@ -172,7 +173,7 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
             Members
           </SizableText>
           <Paragraph theme="alt2">Manage active members and update their profiles.</Paragraph>
-          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+          <YStack h={2} w={56} br={999} bg={primaryColor} />
         </YStack>
         {membersQuery.isError ? (
           <Card bordered $platform-native={{ borderWidth: 0 }} p="$4">
@@ -199,7 +200,7 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
               const detailLine = [roleLabel, phoneLabel].filter(Boolean).join(' · ')
               const canRemove = isOwner
               return (
-                <Card key={member.id} bordered bw={1} boc="$black1" p="$4" gap="$3">
+                <Card key={member.id} bordered bw={1} boc="$color12" p="$4" gap="$3">
                   <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
                     <XStack ai="center" gap="$3" flex={1} minWidth={220}>
                       <Avatar circular size="$3" bg="$color3">

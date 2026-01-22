@@ -4,7 +4,7 @@ import type { LayoutChangeEvent } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 
 import { SizableText, XStack, YStack, useTheme } from '@my/ui/public'
-import { BRAND_COLORS } from '@my/app/constants/colors'
+import { useBrand } from '@my/app/provider/brand'
 import { navRoutes } from '@my/app/navigation/routes'
 import { DOCK, DOCK_CHROME, getDockBottomOffset } from '@my/app/constants/dock'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
@@ -29,12 +29,13 @@ const navRoutesBySegment = Object.values(navRoutes).reduce(
 export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets()
   const theme = useTheme()
+  const { primaryColor } = useBrand()
   const [dockWidth, setDockWidth] = useState(0)
   const [itemWidths, setItemWidths] = useState<Record<string, number>>({})
   const translateX = useSharedValue(0)
   const pillWidth = useSharedValue(0)
   const activeColor = theme.color1?.val ?? '#fff'
-  const pillBackground = toRgba(BRAND_COLORS.primary, 0.12)
+  const pillBackground = toRgba(primaryColor, 0.12)
 
   const visibleRoutes = useMemo(
     () => state.routes.filter((route) => navRoutesBySegment[route.name]),

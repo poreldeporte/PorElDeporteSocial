@@ -53,7 +53,6 @@ export const ConfirmDialog = ({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           o={0.5}
-          backgroundColor="$color5"
         />
         <AlertDialog.Content
           key="content"
@@ -64,7 +63,7 @@ export const ConfirmDialog = ({
           backgroundColor="$color2"
           br="$4"
           borderWidth={1}
-          borderColor="$black1"
+          borderColor="$color12"
           p="$4"
           gap="$3"
           w="90%"

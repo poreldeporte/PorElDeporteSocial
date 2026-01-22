@@ -1,9 +1,9 @@
-import { AnimatePresence, Button, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
+import { AnimatePresence, Button, Card, Paragraph, XStack, YStack } from '@my/ui/public'
 import { ArrowRight } from '@tamagui/lucide-icons'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'solito/router'
 
-import { BRAND_COLORS } from 'app/constants/colors'
+import { SectionHeading } from 'app/components/SectionHeading'
 
 type Props = {
   gameId?: string
@@ -63,7 +63,7 @@ export const ScheduleTeaserCard = ({
         p="$4"
         bordered
         bw={showBorder ? 1 : 0}
-        boc={showBorder ? '$black1' : undefined}
+        boc={showBorder ? '$color12' : undefined}
         br="$5"
         gap="$4"
         hoverStyle={{ backgroundColor: '$color2' }}
@@ -76,9 +76,7 @@ export const ScheduleTeaserCard = ({
           <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
             <XStack ai="center" gap="$1.5">
               {liveIndicator ? <BlinkDot /> : null}
-              <SizableText size="$6" fontWeight="600">
-                {title}
-              </SizableText>
+              <SectionHeading>{title}</SectionHeading>
             </XStack>
             {badgeContent || showArrowFinal ? (
               <XStack ai="center" gap="$2">

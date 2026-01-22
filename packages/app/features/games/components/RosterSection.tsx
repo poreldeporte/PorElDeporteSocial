@@ -22,7 +22,7 @@ import {
   YStack,
 } from '@my/ui/public'
 import { UserAvatar } from 'app/components/UserAvatar'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { useBrand } from 'app/provider/brand'
 import type { GameStatus, QueueEntry } from '../types'
 import { RosterPlayerSheet } from './RosterPlayerSheet'
 
@@ -94,7 +94,7 @@ export const RosterSection = ({
 
   return (
     <>
-      <Card bordered borderColor="$black1" p={0} gap={0} overflow="hidden">
+      <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden">
         {entries.length === 0 ? (
           <YStack px="$3" py="$2">
             <Paragraph theme="alt2">{emptyLabel}</Paragraph>
@@ -117,7 +117,7 @@ export const RosterSection = ({
                     px="$3"
                     py="$2"
                     borderTopWidth={index === 0 ? 0 : 1}
-                    borderColor="$black1"
+                    borderColor="$color12"
                     borderWidth={1}
                     transform={[{ scale: 0.97 }]}
                     pressStyle={{
@@ -219,6 +219,7 @@ const PlayerRow = ({
   isConfirmationOpen?: boolean
   gameStatus?: GameStatus
 }) => {
+  const { primaryColor } = useBrand()
   const isCompleted = gameStatus === 'completed'
   const isNoShow = Boolean(entry.noShowAt)
   const isTardy = Boolean(entry.tardyAt)
@@ -422,7 +423,7 @@ const PlayerRow = ({
   const record = entry.record
   const recentLabel = !isGuest
     ? record?.recent?.length
-      ? record.recent.join(' ')
+      ? [...record.recent].reverse().join(' ')
       : '- - - - -'
     : null
   const guestName = entry.guest?.name?.trim() || 'Guest'
@@ -444,21 +445,6 @@ const PlayerRow = ({
         <YStack f={1} minHeight={avatarSize} jc="center" gap="$0.5">
           <XStack ai="center" gap="$2" flexWrap="wrap">
             <SizableText fontWeight="600">{displayName}</SizableText>
-            {guestRating ? (
-              <XStack gap="$0.5" ai="center">
-                {STAR_VALUES.map((value) => {
-                  const active = value <= guestRating
-                  return (
-                    <Star
-                      key={value}
-                      size={14}
-                      color={active ? BRAND_COLORS.primary : '$color8'}
-                      fill={active ? BRAND_COLORS.primary : 'transparent'}
-                    />
-                  )
-                })}
-              </XStack>
-            ) : null}
           </XStack>
           {isNoShow ? (
             <Paragraph size="$2" color="$red10">
@@ -470,9 +456,26 @@ const PlayerRow = ({
             </Paragraph>
           ) : null}
           {guestSubline ? (
-            <Paragraph theme="alt2" size="$2">
-              {guestSubline}
-            </Paragraph>
+            <XStack ai="center" gap="$1.5" flexWrap="wrap">
+              <Paragraph theme="alt2" size="$2">
+                {guestSubline}
+              </Paragraph>
+              {guestRating ? (
+                <XStack gap="$0.5" ai="center">
+                  {STAR_VALUES.map((value) => {
+                    const active = value <= guestRating
+                    return (
+                      <Star
+                        key={value}
+                        size={14}
+                        color={active ? primaryColor : '$color8'}
+                        fill={active ? primaryColor : 'transparent'}
+                      />
+                    )
+                  })}
+                </XStack>
+              ) : null}
+            </XStack>
           ) : null}
           {recentLabel ? (
             <Paragraph theme="alt2" size="$2">

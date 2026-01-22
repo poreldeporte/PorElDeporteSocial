@@ -1,9 +1,9 @@
-import { H2, Separator, XStack, YGroup, YStack, withStaticProperties, styled } from 'tamagui'
+import { H2, Separator, YGroup, YStack, withStaticProperties, styled } from 'tamagui'
 
 import { SettingItem } from './SettingItem'
 
 const SettingsFrame = styled(YStack, {
-  boc: '$color4',
+  boc: '$color12',
   gap: '$5',
   f: 1,
 })
@@ -20,16 +20,12 @@ const SettingsItems = styled(YStack, {
 })
 
 const SettingsGroup = styled(YGroup, {
-  bg: 'transparent',
-
-  '$platform-native': {
-    separator: (
-      <XStack>
-        <YStack w={20} bg="$color2" />
-        <Separator boc="$color4" bw="$0.25" />
-      </XStack>
-    ),
-  },
+  bg: '$background',
+  bw: 1,
+  boc: '$color12',
+  br: '$6',
+  overflow: 'hidden',
+  separator: <Separator boc="$color12" bw="$0.25" />,
 })
 
 const SettingsTitle = styled(H2, {

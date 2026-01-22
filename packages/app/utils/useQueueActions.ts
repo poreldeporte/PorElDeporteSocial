@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Alert, Platform } from 'react-native'
 
 import { useToastController } from '@my/ui/public'
 
@@ -69,30 +68,6 @@ const useConfirmAttendanceMutation = (
     onError: (error) => notify.show('Unable to confirm', { message: error.message }),
   })
 
-const confirmDrop = (): Promise<boolean> => {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined') {
-      return Promise.resolve(window.confirm('Drop? You could lose your spot.'))
-    }
-    return Promise.resolve(true)
-  }
-
-  return new Promise<boolean>((resolve) => {
-    Alert.alert('Drop?', 'Dropping frees your spot.', [
-      {
-        text: 'Keep spot',
-        style: 'cancel',
-        onPress: () => resolve(false),
-      },
-      {
-        text: 'Drop out',
-        style: 'destructive',
-        onPress: () => resolve(true),
-      },
-    ])
-  })
-}
-
 export const useQueueActions = () => {
   const toast = useToastController()
   const invalidate = useGameInvalidator()
@@ -109,9 +84,7 @@ export const useQueueActions = () => {
     joinMutation.mutate({ gameId })
   }
 
-  const leave = async (gameId: string) => {
-    const confirmed = await confirmDrop()
-    if (!confirmed) return
+  const leave = (gameId: string) => {
     setPendingGameId(gameId)
     leaveMutation.mutate({ gameId })
   }

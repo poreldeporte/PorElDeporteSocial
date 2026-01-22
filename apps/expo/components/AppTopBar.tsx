@@ -3,7 +3,7 @@ import { Platform } from 'react-native'
 import { SizableText, XStack, YStack, useTheme } from '@my/ui/public'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
-import { chromeTokens } from './chromeTokens'
+import { useChromeTokens } from './chromeTokens'
 
 type IconComponent = (props: IconProps) => JSX.Element
 
@@ -24,12 +24,15 @@ type AppTopBarProps = {
   rightActions?: HeaderAction[]
 }
 
+type ChromeTokens = ReturnType<typeof useChromeTokens>
+
 type CircleButtonProps = {
   icon?: IconComponent
   onPress?: () => void
   variant?: 'light' | 'dark'
   accessibilityLabel?: string
   title?: string
+  tokens: ChromeTokens
 }
 
 const CircleButton = ({
@@ -38,18 +41,19 @@ const CircleButton = ({
   variant = 'dark',
   accessibilityLabel,
   title,
+  tokens,
 }: CircleButtonProps) => {
   if (!Icon) {
-    return <YStack w={chromeTokens.buttonSize} h={chromeTokens.buttonSize} />
+    return <YStack w={tokens.buttonSize} h={tokens.buttonSize} />
   }
   const isLight = variant === 'light'
-  const bg = isLight ? chromeTokens.primary : chromeTokens.surface
-  const iconColor = chromeTokens.textPrimary
+  const bg = isLight ? tokens.primary : tokens.surface
+  const iconColor = tokens.textPrimary
   return (
     <YStack
-      w={chromeTokens.buttonSize}
-      h={chromeTokens.buttonSize}
-      br={chromeTokens.buttonSize / 2}
+      w={tokens.buttonSize}
+      h={tokens.buttonSize}
+      br={tokens.buttonSize / 2}
       ai="center"
       jc="center"
       bg={bg}
@@ -57,11 +61,11 @@ const CircleButton = ({
       accessibilityLabel={accessibilityLabel}
       title={title}
       pressStyle={{ opacity: 0.86, scale: 0.98 }}
-      shadowColor={chromeTokens.shadowColor}
-      shadowOpacity={chromeTokens.shadowOpacity}
-      shadowRadius={chromeTokens.shadowRadius}
-      shadowOffset={chromeTokens.shadowOffset}
-      elevation={chromeTokens.elevation}
+      shadowColor={tokens.shadowColor}
+      shadowOpacity={tokens.shadowOpacity}
+      shadowRadius={tokens.shadowRadius}
+      shadowOffset={tokens.shadowOffset}
+      elevation={tokens.elevation}
     >
       <Icon size={20} color={iconColor} />
     </YStack>
@@ -74,10 +78,11 @@ export const AppTopBar = ({
   onPressRight,
   leftIcon,
   rightIcon,
-  rightVariant = 'light',
+  rightVariant = 'dark',
   rightActions,
 }: AppTopBarProps) => {
   const insets = useSafeAreaInsets()
+  const chromeTokens = useChromeTokens()
   const theme = useTheme()
   const titleColor = theme.color?.val ?? chromeTokens.textPrimary
   return (
@@ -89,7 +94,7 @@ export const AppTopBar = ({
       bg="$background"
     >
       <XStack ai="center" jc="space-between" position="relative">
-        <CircleButton icon={leftIcon} onPress={onPressLeft} variant="dark" />
+        <CircleButton icon={leftIcon} onPress={onPressLeft} variant="dark" tokens={chromeTokens} />
         <XStack position="absolute" left={0} right={0} jc="center" pointerEvents="none">
           <SizableText size={chromeTokens.headerTitleSize} fontWeight="600" color={titleColor}>
             {title}
@@ -105,11 +110,17 @@ export const AppTopBar = ({
                 variant={action.variant ?? rightVariant}
                 accessibilityLabel={action.label}
                 title={Platform.OS === 'web' ? action.label : undefined}
+                tokens={chromeTokens}
               />
             ))}
           </XStack>
         ) : (
-          <CircleButton icon={rightIcon} onPress={onPressRight} variant={rightVariant} />
+          <CircleButton
+            icon={rightIcon}
+            onPress={onPressRight}
+            variant={rightVariant}
+            tokens={chromeTokens}
+          />
         )}
       </XStack>
     </YStack>

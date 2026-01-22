@@ -18,19 +18,19 @@ import {
   submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { UserAvatar } from 'app/components/UserAvatar'
-import { BRAND_COLORS } from 'app/constants/colors'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { formatProfileName } from 'app/utils/profileName'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useTeamsState } from 'app/utils/useTeamsState'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useUser } from 'app/utils/useUser'
 
 import { Heart, Undo2 } from '@tamagui/lucide-icons'
 import { useRouter } from 'solito/router'
-import { DraftRoomLiveOverlay, SectionTitle, StatusBadge, getDraftChatDockInset } from './components'
+import { DraftRoomLiveOverlay, SectionTitle, StatusBadge } from './components'
 import { RecentFormChips } from './components/RecentFormChips'
 import { deriveDraftViewModel } from './state/deriveDraftViewModel'
 import {
@@ -69,9 +69,9 @@ export const GameDraftScreen = ({
   onResetConfirmOpenChange,
 }: DraftScreenProps & ScrollHeaderProps & DraftResetControlProps) => {
   const toast = useToastController()
+  const { primaryColor } = useBrand()
   const utils = api.useUtils()
   const router = useRouter()
-  const insets = useSafeAreaInsets()
   const { user } = useUser()
   const [localResetConfirmOpen, setLocalResetConfirmOpen] = useState(false)
   const resetConfirmOpen = resetConfirmOpenProp ?? localResetConfirmOpen
@@ -391,7 +391,7 @@ export const GameDraftScreen = ({
   const primaryButtonStyle = (disabled: boolean) =>
     disabled
       ? { backgroundColor: '$color4', borderColor: '$color4', color: '$color11' }
-      : { backgroundColor: BRAND_COLORS.primary, borderColor: BRAND_COLORS.primary, color: '$background' }
+      : { backgroundColor: primaryColor, borderColor: primaryColor, color: '$background' }
 
   useEffect(() => {
     if (draftStatus !== 'pending' && draftStatus !== 'ready') return
@@ -452,13 +452,7 @@ export const GameDraftScreen = ({
   )
   const hideChatDuringPick = draftStatus === 'in_progress' && isCaptain && isCaptainTurn
   const showChatOverlay = draftChatEnabled && !hideChatDuringPick
-  const chatDockInset = showChatOverlay ? getDraftChatDockInset(insets.bottom ?? 0) : 0
-  const paddedContentStyle = chatDockInset
-    ? {
-        ...mergedContentStyle,
-        paddingBottom: Math.max(mergedContentStyle?.paddingBottom ?? 0, chatDockInset),
-      }
-    : mergedContentStyle
+  const paddedContentStyle = mergedContentStyle
 
   const kickoffLabel = formatGameKickoffLabel(new Date(gameDetail.startTime)) || 'Kickoff TBD'
 
@@ -600,6 +594,7 @@ export const GameDraftScreen = ({
           {showSpectatorNotice && draftStatus !== 'completed' && draftStatus !== 'ready' ? (
             <SpectatorNotice draftStatus={draftStatus} />
           ) : null}
+          <BrandStamp />
         </YStack>
 
         <ConfirmDialog
@@ -656,7 +651,7 @@ const DraftBanner = ({
       px="$4"
       py="$3"
       borderWidth={1}
-      borderColor="$black1"
+      borderColor="$color12"
       br="$4"
       backgroundColor="$color2"
       $platform-web={{ position: 'sticky', top: 0, zIndex: 10 }}
@@ -700,13 +695,14 @@ const DraftStyleSelector = ({
   canUseOriginal: boolean
   disabled?: boolean
 }) => {
+  const { primaryColor } = useBrand()
   const [showRules, setShowRules] = useState(false)
   const buildCardStyle = (active: boolean) => ({
     backgroundColor: active ? '$color2' : '$background',
-    borderColor: active ? BRAND_COLORS.primary : '$color4',
+    borderColor: active ? primaryColor : '$color4',
   })
   const buildIndicatorStyle = (active: boolean) => ({
-    borderColor: active ? BRAND_COLORS.primary : '$color4',
+    borderColor: active ? primaryColor : '$color4',
     backgroundColor: 'transparent',
   })
   const options: {
@@ -809,7 +805,7 @@ const DraftStyleSelector = ({
                   {...buildIndicatorStyle(isActive)}
                 >
                   {isActive ? (
-                    <YStack w={8} h={8} br={999} backgroundColor={BRAND_COLORS.primary} />
+                    <YStack w={8} h={8} br={999} backgroundColor={primaryColor} />
                   ) : null}
                 </YStack>
               </XStack>
@@ -843,7 +839,7 @@ const TeamsSection = ({
   isAdmin: boolean
 }) => {
   return (
-    <Card bordered borderColor="$black1" p="$4" gap="$3" overflow="hidden">
+    <Card bordered borderColor="$color12" p="$4" gap="$3" overflow="hidden">
       <SectionTitle meta={`${totalDrafted}/${totalPlayers} drafted · ${availableCount} available`}>
         Teams
       </SectionTitle>
@@ -1024,6 +1020,7 @@ const AvailablePlayersSection = ({
   votePending?: boolean
   currentUserId?: string | null
 }) => {
+  const { primaryColor } = useBrand()
   const isCaptainSelectionMode = isAdmin && draftStatus === 'pending'
   const votesEnabled = showCaptainVotes && draftStatus === 'pending'
   const voteCountsById = voteCounts ?? {}
@@ -1067,16 +1064,16 @@ const AvailablePlayersSection = ({
           px="$4"
           py="$3"
           bordered
-          borderColor="$black1"
+          borderColor="$color12"
           backgroundColor="$color2"
           $platform-native={{ borderWidth: 1 }}
         >
           <YStack gap="$1.5">
             <SizableText size="$4" fontWeight="600">
-              Vote for captains
+              Vote for 2 captains
             </SizableText>
             <Paragraph theme="alt2" size="$2">
-              Choose {voteLimit} lads you'd trust to lead a team.
+              Choose who you would trust to lead your team.
             </Paragraph>
             <Paragraph size="$2" fontWeight="600">
               {voteSummary}
@@ -1084,7 +1081,7 @@ const AvailablePlayersSection = ({
           </YStack>
         </Card>
       ) : null}
-      <Card bordered borderColor="$black1" p={0} gap={0} overflow="hidden">
+      <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden">
         <YStack gap={0}>
           {isSyncing ? (
             <XStack
@@ -1093,7 +1090,7 @@ const AvailablePlayersSection = ({
               px="$3"
               py="$2"
               borderBottomWidth={hasAvailablePlayers ? 1 : 0}
-              borderColor="$black1"
+              borderColor="$color12"
             >
               <Spinner size="small" />
               <Paragraph theme="alt2" size="$2">
@@ -1127,7 +1124,7 @@ const AvailablePlayersSection = ({
                 const isSelected = isCaptainSelectionMode
                   ? isCaptainSelected
                   : (canDraftPlayer && isPendingPick) || hasVoted
-                const rowBorderColor = isSelected ? '$color12' : '$black1'
+                const rowBorderColor = '$color12'
                 const rowScale = isSelected ? 1 : 0.97
                 const rowBackground = rowPending
                   ? '$color3'
@@ -1211,8 +1208,8 @@ const AvailablePlayersSection = ({
                               <Button.Icon>
                                 <Heart
                                   size={20}
-                                  color={hasVoted ? BRAND_COLORS.primary : '$color12'}
-                                  fill={hasVoted ? BRAND_COLORS.primary : 'transparent'}
+                                  color={hasVoted ? primaryColor : '$color12'}
+                                  fill={hasVoted ? primaryColor : 'transparent'}
                                 />
                               </Button.Icon>
                             </Button>
@@ -1223,7 +1220,7 @@ const AvailablePlayersSection = ({
                           <SizableText
                             size="$3"
                             fontWeight="600"
-                            color={hasVoted ? BRAND_COLORS.primary : '$color'}
+                            color={hasVoted ? primaryColor : '$color'}
                           >
                             {voteCount}
                           </SizableText>

@@ -16,12 +16,11 @@ import {
   isWeb,
   useToastController,
 } from '@my/ui/public'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
-import { getDockSpacer } from 'app/constants/dock'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { SchemaForm, formFields } from 'app/utils/SchemaForm'
-import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
 import {
   extendGameFormSchema,
@@ -66,9 +65,7 @@ export const EditGameForm = ({
 }) => {
   const toast = useToastController()
   const utils = api.useContext()
-  const insets = useSafeAreaInsets()
   const showFloatingCta = !isWeb
-  const dockSpacer = showFloatingCta ? getDockSpacer(insets.bottom) : 0
   const submitRef = useRef<(() => void) | null>(null)
   const groupsQuery = api.groups.list.useQuery(undefined, { enabled: true })
   const groupOptions = useMemo(
@@ -287,7 +284,7 @@ export const EditGameForm = ({
                 width={150}
               />
             </SettingSection>
-            {showFloatingCta ? <YStack h={dockSpacer} /> : null}
+            <BrandStamp />
           </FormWrapper.Body>
           {showFloatingCta ? (
             <FloatingCtaDock transparent>

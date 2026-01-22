@@ -16,8 +16,9 @@ import {
 } from '@my/ui/public'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, MoreHorizontal, PenSquare, X } from '@tamagui/lucide-icons'
-import { BRAND_COLORS } from 'app/constants/colors'
+import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { useBrand } from 'app/provider/brand'
 import { formatProfileName } from 'app/utils/profileName'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
@@ -53,6 +54,7 @@ export const MemberApprovalsScreen = ({
   headerSpacer,
   topInset,
 }: ScrollHeaderProps = {}) => {
+  const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
   const supabase = useSupabase()
   const toast = useToastController()
@@ -203,10 +205,10 @@ export const MemberApprovalsScreen = ({
             Applications
           </SizableText>
           <Paragraph theme="alt2">Review profiles and approve access when the details look right.</Paragraph>
-          <YStack h={2} w={56} br={999} bg={BRAND_COLORS.primary} />
+          <YStack h={2} w={56} br={999} bg={primaryColor} />
         </YStack>
         {pendingQuery.isError ? (
-          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+          <Card bordered bw={1} boc="$color12" br="$5" p="$4">
             <Paragraph theme="alt2">Unable to load pending members.</Paragraph>
             <Button
               mt="$3"
@@ -217,7 +219,7 @@ export const MemberApprovalsScreen = ({
             </Button>
           </Card>
         ) : pendingMembers.length === 0 ? (
-          <Card bordered bw={1} boc="$black1" br="$5" p="$4">
+          <Card bordered bw={1} boc="$color12" br="$5" p="$4">
             <Paragraph theme="alt2">No pending members right now.</Paragraph>
           </Card>
         ) : (
@@ -249,7 +251,7 @@ export const MemberApprovalsScreen = ({
                   key={member.id}
                   bordered
                   bw={1}
-                  boc="$black1"
+                  boc="$color12"
                   br="$5"
                   p="$4"
                   gap="$3"
@@ -379,6 +381,7 @@ export const MemberApprovalsScreen = ({
             })}
           </YStack>
         )}
+        <BrandStamp />
       </YStack>
     </ScrollView>
   )
