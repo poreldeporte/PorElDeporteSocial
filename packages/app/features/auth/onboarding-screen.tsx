@@ -4,15 +4,15 @@ import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { getPhoneCountryOptions } from 'app/utils/phone'
 import { usePathname } from 'app/utils/usePathname'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
+import { useAppRouter } from 'app/utils/useAppRouter'
 import { useEffect, useState } from 'react'
 import { ImageBackground } from 'react-native'
-import { useRouter } from 'solito/router'
 
 /**
  * note: this screen is used as a standalone page on native and as a sidebar on auth layout on web
  */
 export const OnboardingScreen = () => {
-  const router = useRouter()
+  const router = useAppRouter()
   const insets = useSafeAreaInsets()
   const pathname = usePathname()
   const [isNavigating, setIsNavigating] = useState(false)

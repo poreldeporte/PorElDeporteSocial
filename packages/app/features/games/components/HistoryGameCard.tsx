@@ -4,12 +4,12 @@ import { Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 import { ArrowRight } from '@tamagui/lucide-icons'
 import type { GameListItem } from 'app/features/games/types'
 import { useBrand } from 'app/provider/brand'
+import { useAppRouter } from 'app/utils/useAppRouter'
 import { useLink } from 'solito/link'
-import { useRouter } from 'solito/router'
 
 export const HistoryGameCard = ({ game }: { game: GameListItem }) => {
   const { primaryColor } = useBrand()
-  const router = useRouter()
+  const router = useAppRouter()
   const detailHref = `/games/${game.id}`
   const detailLink = useLink({ href: detailHref })
   const kickoff = useMemo(() => new Date(game.startTime), [game.startTime])

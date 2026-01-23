@@ -2,15 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Device from 'expo-device'
 import * as Notifications from 'expo-notifications'
 import Constants from 'expo-constants'
-import { router } from 'expo-router'
-import { useEffect } from 'react'
+import { useContext, useEffect } from 'react'
 import { Platform } from 'react-native'
 
 import { api } from 'app/utils/api'
-import { isProfileApproved } from 'app/utils/auth/profileApproval'
+import { CommunityContext } from 'app/provider/community'
 import { storePushToken } from 'app/utils/notifications/pushToken'
+import { useSessionContext } from 'app/utils/supabase/useSessionContext'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
-import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 const PROMPT_KEY_PREFIX = '@push_prompted:'
 
@@ -62,10 +62,16 @@ const getExpoToken = async () => {
 }
 
 export const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
-  const { user, profile } = useUser()
+  const { session } = useSessionContext()
+  const userId = session?.user?.id ?? null
+  const community = useContext(CommunityContext)
+  const router = useAppRouter()
+  const memberships = community?.memberships ?? []
+  const isCommunityLoading = community?.isLoading ?? true
+  const setActiveCommunityId = community?.setActiveCommunityId
+  const setPendingRoute = community?.setPendingRoute
   const supabase = useSupabase()
   const { mutateAsync: registerDevice } = api.notifications.registerDevice.useMutation()
-  const isApproved = isProfileApproved(profile)
 
   useEffect(() => {
     ensureAndroidChannel()
@@ -75,7 +81,29 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     const handleResponse = (response: Notifications.NotificationResponse | null) => {
       if (!response) return
       const url = response.notification.request.content.data?.url
+      const dataCommunityId = response.notification.request.content.data?.communityId
+      const communityId =
+        typeof dataCommunityId === 'string'
+          ? dataCommunityId
+          : typeof url === 'string'
+            ? extractCommunityId(url)
+            : null
       if (typeof url === 'string' && url.startsWith('/')) {
+        if (communityId) {
+          if (!community) {
+            router.push('/communities/join')
+            return
+          }
+          const membership = memberships.find((item) => item.communityId === communityId)
+          if (!isCommunityLoading && membership?.status === 'approved') {
+            setActiveCommunityId?.(communityId)
+            router.push(url)
+            return
+          }
+          setPendingRoute?.({ url, communityId })
+          router.push('/communities/join')
+          return
+        }
         router.push(url)
       }
     }
@@ -89,20 +117,20 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
   }, [])
 
   useEffect(() => {
-    if (!user?.id || !isApproved) return
+    if (!userId) return
     let active = true
 
     const register = async () => {
       if (!Device.isDevice) return
-      const allowed = await ensurePermission(user.id)
+      const allowed = await ensurePermission(userId)
       if (!allowed || !active) return
       const token = await getExpoToken()
       if (!token || !active) return
-      await storePushToken(user.id, token)
+      await storePushToken(userId, token)
       const platform = Platform.OS === 'ios' ? 'ios' : 'android'
       const appVersion = Constants.expoConfig?.version ?? null
       const payload = {
-        user_id: user.id,
+        user_id: userId,
         expo_push_token: token,
         platform,
         app_version: appVersion,
@@ -124,7 +152,12 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     return () => {
       active = false
     }
-  }, [user?.id, isApproved, registerDevice, supabase])
+  }, [userId, registerDevice, supabase])
 
   return children
+}
+
+const extractCommunityId = (url: string) => {
+  const match = url.match(/[?&]communityId=([^&]+)/)
+  return match ? decodeURIComponent(match[1]) : null
 }

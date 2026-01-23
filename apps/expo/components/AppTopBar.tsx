@@ -22,6 +22,7 @@ type AppTopBarProps = {
   rightIcon?: IconComponent
   rightVariant?: 'light' | 'dark'
   rightActions?: HeaderAction[]
+  backgroundColor?: string
 }
 
 type ChromeTokens = ReturnType<typeof useChromeTokens>
@@ -80,6 +81,7 @@ export const AppTopBar = ({
   rightIcon,
   rightVariant = 'dark',
   rightActions,
+  backgroundColor,
 }: AppTopBarProps) => {
   const insets = useSafeAreaInsets()
   const chromeTokens = useChromeTokens()
@@ -91,7 +93,7 @@ export const AppTopBar = ({
       px={chromeTokens.headerPadX}
       pb={chromeTokens.headerPadBottom}
       position="relative"
-      bg="$background"
+      bg={backgroundColor ?? '$background'}
     >
       <XStack ai="center" jc="space-between" position="relative">
         <CircleButton icon={leftIcon} onPress={onPressLeft} variant="dark" tokens={chromeTokens} />

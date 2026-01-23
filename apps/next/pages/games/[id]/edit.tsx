@@ -7,6 +7,7 @@ import { GameEditScreen } from 'app/features/games/edit-screen'
 import { HomeLayout } from 'app/features/home/layout.web'
 import { getScreenLayout } from 'app/navigation/layouts'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useUser } from 'app/utils/useUser'
 
 import type { NextPageWithLayout } from '../../_app'
@@ -15,12 +16,18 @@ const layout = getScreenLayout('gameEdit')
 
 const GameEditHeaderRight = () => {
   const { isAdmin } = useUser()
+  const { activeCommunityId } = useActiveCommunity()
   const router = useRouter()
   const toast = useToastController()
   const utils = api.useUtils()
   const deleteMutation = api.games.delete.useMutation({
     onSuccess: async () => {
-      await utils.games.list.invalidate()
+      if (activeCommunityId) {
+        await Promise.all([
+          utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+          utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+        ])
+      }
       toast.show('Game deleted')
       router.replace('/games')
     },

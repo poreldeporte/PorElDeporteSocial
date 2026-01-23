@@ -5,7 +5,7 @@ import { Button, Paragraph, Spinner, YStack } from '@my/ui/public'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { useUser } from 'app/utils/useUser'
-import { useRouter } from 'solito/router'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 import { EditGameForm } from './edit-form'
 
@@ -22,7 +22,7 @@ export const GameEditScreen = ({
   topInset,
 }: { gameId: string } & ScrollHeaderProps) => {
   const { isAdmin } = useUser()
-  const router = useRouter()
+  const router = useAppRouter()
   const { data, isLoading, error } = api.games.byId.useQuery(
     { id: gameId },
     { enabled: !!gameId }

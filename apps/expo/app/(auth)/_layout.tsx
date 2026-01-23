@@ -1,14 +1,15 @@
 import { Redirect, Stack } from 'expo-router'
 
-import { isProfileApproved } from '@my/app/utils/auth/profileApproval'
 import { isProfileComplete } from '@my/app/utils/auth/profileCompletion'
+import { useActiveCommunity } from '@my/app/utils/useActiveCommunity'
 import { useUser } from '@my/app/utils/useUser'
 import { Spinner, YStack } from '@my/ui/public'
 
 export default function Layout() {
   const { user, profile, isLoading } = useUser()
+  const { hasApprovedMembership, isLoading: isCommunityLoading } = useActiveCommunity()
 
-  if (isLoading) {
+  if (isLoading || isCommunityLoading) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
@@ -20,7 +21,7 @@ export default function Layout() {
   }
   if (user) {
     if (!isProfileComplete(profile)) return <Redirect href="/onboarding/profile" />
-    if (!isProfileApproved(profile)) return <Redirect href="/onboarding/review" />
+    if (!hasApprovedMembership) return <Redirect href="/communities/join" />
     return <Redirect href="/" />
   }
 

@@ -5,6 +5,7 @@ import { Adapt, Fieldset, Label, Select, type SelectProps, Sheet, Theme, YStack 
 import { LinearGradient } from 'tamagui/linear-gradient'
 
 import { FieldError } from '../FieldError'
+import { formInputStyle } from './formInputStyle'
 
 type SelectItem = {
   value: string
@@ -33,7 +34,7 @@ export const SelectField = ({
   return (
     <Theme name={error ? 'red' : null} forceClassName>
       {label ? (
-        <Label theme="alt1" size={props.size || '$3'} htmlFor={id}>
+        <Label color="$color12" size={props.size || '$3'} htmlFor={id}>
           {label} {isOptional && `(Optional)`}
         </Label>
       ) : null}
@@ -45,7 +46,12 @@ export const SelectField = ({
           {...props}
           native={!!native}
         >
-          <Select.Trigger minWidth="100%" disabled={isSubmitting} $md={{ maxWidth: 220 }}>
+          <Select.Trigger
+            minWidth="100%"
+            disabled={isSubmitting}
+            $md={{ maxWidth: 220 }}
+            {...formInputStyle}
+          >
             <Select.Value placeholder={placeholder} />
           </Select.Trigger>
 

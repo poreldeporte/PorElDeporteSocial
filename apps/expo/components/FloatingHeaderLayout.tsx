@@ -27,6 +27,7 @@ type FloatingHeaderLayoutProps = {
   rightIcon?: IconComponent
   rightVariant?: 'light' | 'dark'
   rightActions?: HeaderAction[]
+  headerBackground?: string
   children: (props: FloatingHeaderRenderProps) => JSX.Element
 }
 
@@ -41,6 +42,7 @@ export const FloatingHeaderLayout = ({
   rightIcon,
   rightVariant = 'dark',
   rightActions,
+  headerBackground,
   children,
 }: FloatingHeaderLayoutProps) => {
   const insets = useSafeAreaInsets()
@@ -125,6 +127,7 @@ export const FloatingHeaderLayout = ({
           onPressRight={onPressRight}
           rightVariant={rightVariant}
           rightActions={rightActions}
+          backgroundColor={headerBackground}
         />
       </Animated.View>
       {children({

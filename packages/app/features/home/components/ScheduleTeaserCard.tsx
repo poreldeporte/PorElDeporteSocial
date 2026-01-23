@@ -1,9 +1,9 @@
 import { AnimatePresence, Button, Card, Paragraph, XStack, YStack } from '@my/ui/public'
 import { ArrowRight } from '@tamagui/lucide-icons'
 import { useEffect, useState, type ReactNode } from 'react'
-import { useRouter } from 'solito/router'
 
 import { SectionHeading } from 'app/components/SectionHeading'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 type Props = {
   gameId?: string
@@ -32,7 +32,7 @@ export const ScheduleTeaserCard = ({
   liveIndicator,
   showArrow,
 }: Props) => {
-  const router = useRouter()
+  const router = useAppRouter()
   const href =
     variant === 'draft'
       ? gameId

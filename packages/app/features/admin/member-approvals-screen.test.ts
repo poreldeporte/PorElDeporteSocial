@@ -7,8 +7,8 @@ describe('shouldInvalidatePendingApprovals', () => {
     expect(
       shouldInvalidatePendingApprovals({
         eventType: 'UPDATE',
-        new: { approval_status: 'pending' },
-        old: { approval_status: 'draft' },
+        new: { status: 'pending' },
+        old: { status: 'rejected' },
       })
     ).toBe(true)
   })
@@ -17,8 +17,8 @@ describe('shouldInvalidatePendingApprovals', () => {
     expect(
       shouldInvalidatePendingApprovals({
         eventType: 'UPDATE',
-        new: { approval_status: 'approved' },
-        old: { approval_status: 'pending' },
+        new: { status: 'approved' },
+        old: { status: 'pending' },
       })
     ).toBe(true)
   })
@@ -27,9 +27,22 @@ describe('shouldInvalidatePendingApprovals', () => {
     expect(
       shouldInvalidatePendingApprovals({
         eventType: 'UPDATE',
-        new: { approval_status: 'approved' },
-        old: { approval_status: 'draft' },
+        new: { status: 'approved' },
+        old: { status: 'rejected' },
       })
+    ).toBe(false)
+  })
+
+  it('returns false when the community does not match', () => {
+    expect(
+      shouldInvalidatePendingApprovals(
+        {
+          eventType: 'UPDATE',
+          new: { status: 'pending', community_id: 'other' },
+          old: { status: 'approved', community_id: 'other' },
+        },
+        'active'
+      )
     ).toBe(false)
   })
 })

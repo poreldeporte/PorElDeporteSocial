@@ -1,6 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
+import type { Database } from '@my/supabase/types'
 import { supabaseAdmin } from '../supabase-admin'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { ensureAdmin } from '../utils/ensureAdmin'
@@ -18,7 +20,8 @@ const listInput = z.object({
 
 export const reviewsRouter = createTRPCRouter({
   listByGame: protectedProcedure.input(listInput).query(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    const communityId = await fetchGameCommunityId(ctx.supabase, input.gameId)
+    await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
     const { data, error } = await supabaseAdmin
       .from('game_reviews')
@@ -125,3 +128,20 @@ export const reviewsRouter = createTRPCRouter({
     return { ok: true }
   }),
 })
+
+const fetchGameCommunityId = async (supabase: SupabaseClient<Database>, gameId: string) => {
+  const { data, error } = await supabase
+    .from('games')
+    .select('community_id')
+    .eq('id', gameId)
+    .maybeSingle()
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+  if (!data?.community_id) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+  }
+
+  return data.community_id
+}

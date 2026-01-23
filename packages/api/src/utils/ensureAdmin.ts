@@ -3,11 +3,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@my/supabase/types'
 
-export const ensureAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
+export const ensureAdmin = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  communityId: string
+) => {
   const { data, error } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
+    .from('memberships')
+    .select('role, status')
+    .eq('profile_id', userId)
+    .eq('community_id', communityId)
     .maybeSingle()
 
   if (error) {
@@ -18,7 +23,8 @@ export const ensureAdmin = async (supabase: SupabaseClient<Database>, userId: st
     })
   }
 
-  const isAdmin = data?.role === 'admin' || data?.role === 'owner'
+  const isAdmin =
+    data?.status === 'approved' && (data?.role === 'admin' || data?.role === 'owner')
   if (!isAdmin) {
     throw new TRPCError({
       code: 'FORBIDDEN',

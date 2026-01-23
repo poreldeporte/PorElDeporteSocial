@@ -29,11 +29,15 @@ export const UploadCommunityLogo = ({
 
   const mutation = api.community.updateDefaults.useMutation({
     onSuccess: (data) => {
-      apiUtils.community.defaults.setData(undefined, data)
-      apiUtils.community.branding.setData(undefined, {
-        logoUrl: data.logoUrl ?? null,
-        primaryColor: data.primaryColor ?? null,
-      })
+      if (!communityId) return
+      apiUtils.community.defaults.setData({ communityId }, data)
+      apiUtils.community.branding.setData(
+        { communityId },
+        {
+          logoUrl: data.logoUrl ?? null,
+          primaryColor: data.primaryColor ?? null,
+        }
+      )
       onComplete?.()
     },
   })
@@ -117,7 +121,7 @@ export const UploadCommunityLogo = ({
       const publicUrl = publicUrlRes.data.publicUrl
       const cacheBustedUrl = `${publicUrl}?v=${Date.now()}`
 
-      await mutation.mutateAsync({ communityLogoUrl: cacheBustedUrl })
+      await mutation.mutateAsync({ communityId, communityLogoUrl: cacheBustedUrl })
     } catch (e) {
       console.error(e)
       notifyError('Upload failed.')

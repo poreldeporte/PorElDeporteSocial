@@ -3,6 +3,7 @@ import { useId } from 'react'
 import { Fieldset, Input, InputProps, Label, Theme } from 'tamagui'
 
 import { FieldError } from '../FieldError'
+import { formInputStyle } from './formInputStyle'
 import { Shake } from '../Shake'
 
 export const NumberField = (props: Pick<InputProps, 'size' | 'autoFocus'>) => {
@@ -14,12 +15,11 @@ export const NumberField = (props: Pick<InputProps, 'size' | 'autoFocus'>) => {
   const { label, defaultValue, isOptional, placeholder } = useNumberFieldInfo()
   const id = useId()
   const disabled = isSubmitting
-
   return (
     <Theme name={error ? 'red' : null} forceClassName>
       <Fieldset>
         {!!label && (
-          <Label theme="alt1" size={props.size || '$3'} htmlFor={id}>
+          <Label color="$color12" size={props.size || '$3'} htmlFor={id}>
             {label} {isOptional && `(Optional)`}
           </Label>
         )}
@@ -42,6 +42,7 @@ export const NumberField = (props: Pick<InputProps, 'size' | 'autoFocus'>) => {
             ref={field.ref}
             placeholder={placeholder}
             id={id}
+            {...formInputStyle}
             {...props}
           />
         </Shake>

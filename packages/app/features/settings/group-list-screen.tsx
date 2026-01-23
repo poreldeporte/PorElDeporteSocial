@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { PenSquare } from '@tamagui/lucide-icons'
-import { useRouter } from 'solito/router'
 
 import {
   Button,
@@ -18,7 +17,9 @@ import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 type ScrollHeaderProps = {
   scrollProps?: ScrollViewProps
@@ -29,8 +30,12 @@ type ScrollHeaderProps = {
 export const GroupListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
   const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
-  const router = useRouter()
-  const groupsQuery = api.groups.list.useQuery(undefined, { enabled: isAdmin && !isLoading })
+  const { activeCommunityId } = useActiveCommunity()
+  const router = useAppRouter()
+  const groupsQuery = api.groups.list.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: isAdmin && !isLoading && Boolean(activeCommunityId) }
+  )
   const groups = useMemo(() => groupsQuery.data ?? [], [groupsQuery.data])
 
   if (isLoading) {

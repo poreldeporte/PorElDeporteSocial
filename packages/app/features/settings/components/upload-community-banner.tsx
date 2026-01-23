@@ -30,7 +30,8 @@ export const UploadCommunityBanner = ({
 
   const mutation = api.community.updateDefaults.useMutation({
     onSuccess: (data) => {
-      apiUtils.community.defaults.setData(undefined, data)
+      if (!communityId) return
+      apiUtils.community.defaults.setData({ communityId }, data)
       onComplete?.()
     },
   })
@@ -114,7 +115,7 @@ export const UploadCommunityBanner = ({
       const publicUrl = publicUrlRes.data.publicUrl
       const cacheBustedUrl = `${publicUrl}?v=${Date.now()}`
 
-      await mutation.mutateAsync({ communityBannerUrl: cacheBustedUrl })
+      await mutation.mutateAsync({ communityId, communityBannerUrl: cacheBustedUrl })
     } catch (e) {
       console.error(e)
       notifyError('Upload failed.')

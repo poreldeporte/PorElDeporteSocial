@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
-import { useQuery } from '@tanstack/react-query'
 import { Check, Plus } from '@tamagui/lucide-icons'
-import { useRouter } from 'solito/router'
 
 import {
   Button,
@@ -25,10 +23,11 @@ import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { formatProfileName } from 'app/utils/profileName'
-import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 type MemberProfile = {
   id: string
@@ -56,32 +55,22 @@ export const GroupEditScreen = ({
 }: { groupId?: string | null } & ScrollHeaderProps) => {
   const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
-  const router = useRouter()
-  const supabase = useSupabase()
+  const { activeCommunityId } = useActiveCommunity()
+  const router = useAppRouter()
   const toast = useToastController()
   const utils = api.useContext()
   const isCreate = !groupId
   const showFloatingCta = !isWeb
 
   const groupQuery = api.groups.byId.useQuery(
-    { id: groupId ?? '' },
-    { enabled: Boolean(groupId) && isAdmin && !isLoading }
+    { id: groupId ?? '', communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(groupId) && isAdmin && !isLoading && Boolean(activeCommunityId) }
   )
 
-  const membersQuery = useQuery({
-    queryKey: ['members', 'approved', 'groups'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name, first_name, last_name, phone')
-        .eq('approval_status', 'approved')
-        .order('first_name', { ascending: true })
-        .order('last_name', { ascending: true })
-      if (error) throw new Error(error.message)
-      return data ?? []
-    },
-    enabled: isAdmin && !isLoading,
-  })
+  const membersQuery = api.members.list.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: isAdmin && !isLoading && Boolean(activeCommunityId) }
+  )
 
   const [name, setName] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -108,7 +97,9 @@ export const GroupEditScreen = ({
 
   const createMutation = api.groups.create.useMutation({
     onSuccess: async () => {
-      await utils.groups.list.invalidate()
+      if (activeCommunityId) {
+        await utils.groups.list.invalidate({ communityId: activeCommunityId })
+      }
       toast.show('Group created')
       router.replace('/settings/groups')
     },
@@ -119,7 +110,9 @@ export const GroupEditScreen = ({
 
   const updateMutation = api.groups.update.useMutation({
     onSuccess: async () => {
-      await utils.groups.list.invalidate()
+      if (activeCommunityId) {
+        await utils.groups.list.invalidate({ communityId: activeCommunityId })
+      }
       toast.show('Group updated')
       router.back()
     },
@@ -146,7 +139,9 @@ export const GroupEditScreen = ({
   }
 
   const handleSave = () => {
+    if (!activeCommunityId) return
     const payload = {
+      communityId: activeCommunityId,
       name: name.trim(),
       memberIds: Array.from(selectedIds),
     }

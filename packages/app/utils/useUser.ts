@@ -5,6 +5,7 @@ import { formatProfileName } from './profileName'
 import { formatPhoneDisplay } from './phone'
 import { useSessionContext } from './supabase/useSessionContext'
 import { useSupabase } from './supabase/useSupabase'
+import { useActiveCommunity } from './useActiveCommunity'
 
 function useProfile() {
   const { session } = useSessionContext()
@@ -35,6 +36,7 @@ export const useUser = () => {
   const { session, isLoading: isLoadingSession } = useSessionContext()
   const user = session?.user
   const { data: profile, refetch, isPending: isLoadingProfile } = useProfile()
+  const { activeMembership } = useActiveCommunity()
 
   const displayName = (() => {
     const profileName = formatProfileName(profile, null)
@@ -55,7 +57,8 @@ export const useUser = () => {
     return null
   })()
 
-  const role = profile?.role ?? 'member'
+  const role = activeMembership?.role ?? 'member'
+  const membershipStatus = activeMembership?.status ?? null
   const isOwner = role === 'owner'
   const isAdmin = role === 'admin' || role === 'owner'
 
@@ -64,6 +67,7 @@ export const useUser = () => {
     user,
     profile,
     role,
+    membershipStatus,
     isOwner,
     isAdmin,
     avatarUrl,

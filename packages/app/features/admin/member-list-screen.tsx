@@ -2,9 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { Alert } from 'react-native'
 
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PenSquare, Trash2 } from '@tamagui/lucide-icons'
-import { useRouter } from 'solito/router'
 
 import {
   Avatar,
@@ -21,10 +19,11 @@ import {
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { formatProfileName } from 'app/utils/profileName'
-import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 type MemberProfile = {
   id: string
@@ -59,35 +58,25 @@ type ScrollHeaderProps = {
 export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
   const { primaryColor } = useBrand()
   const { isAdmin, isOwner, isLoading } = useUser()
-  const supabase = useSupabase()
+  const { activeCommunityId } = useActiveCommunity()
   const toast = useToastController()
-  const queryClient = useQueryClient()
-  const router = useRouter()
+  const utils = api.useUtils()
+  const router = useAppRouter()
 
-  const membersQuery = useQuery({
-    queryKey: ['members', 'approved'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(
-          'id, avatar_url, name, first_name, last_name, email, phone, position, jersey_number, role'
-        )
-        .eq('approval_status', 'approved')
-        .order('first_name', { ascending: true })
-        .order('last_name', { ascending: true })
-      if (error) throw new Error(error.message)
-      return data ?? []
-    },
-    enabled: isAdmin && !isLoading,
-  })
+  const membersQuery = api.members.list.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: isAdmin && !isLoading && Boolean(activeCommunityId) }
+  )
 
   const removeMutation = api.members.remove.useMutation({
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['members', 'approved'] }),
-        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] }),
-        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending-count'] }),
-      ])
+      if (activeCommunityId) {
+        await Promise.all([
+          utils.members.list.invalidate({ communityId: activeCommunityId }),
+          utils.members.pending.invalidate({ communityId: activeCommunityId }),
+          utils.members.pendingCount.invalidate({ communityId: activeCommunityId }),
+        ])
+      }
       toast.show('Member removed')
     },
     onError: (error) => {
@@ -148,7 +137,10 @@ export const MemberListScreen = ({ scrollProps, headerSpacer, topInset }: Scroll
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => removeMutation.mutate({ profileId: member.id }),
+          onPress: () => {
+            if (!activeCommunityId) return
+            removeMutation.mutate({ communityId: activeCommunityId, profileId: member.id })
+          },
         },
       ]
     )

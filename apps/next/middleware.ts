@@ -1,5 +1,4 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
 import { PROFILE_COMPLETION_FIELDS, isProfileComplete } from 'app/utils/auth/profileCompletion'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -7,11 +6,12 @@ import type { NextRequest } from 'next/server'
 // by default, all routes are protected
 
 // put the public routes here - these will be accessed by both guests and users
-const publicRoutes = ['/terms-of-service', '/privacy-policy']
+const publicRoutes = ['/terms-of-service', '/privacy-policy', '/communities/join']
 // put the authentication routes here - these will only be accessed by guests
 const authRoutes = ['/sign-in', '/sign-up']
 const profileOnboardingRoute = '/onboarding/profile'
 const profileReviewRoute = '/onboarding/review'
+const communityJoinRoute = '/communities/join'
 
 const withCookies = (source: NextResponse, target: NextResponse) => {
   source.cookies.getAll().forEach((cookie) => target.cookies.set(cookie))
@@ -35,20 +35,28 @@ export async function middleware(req: NextRequest) {
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
   const isProfileOnboarding = pathname.startsWith(profileOnboardingRoute)
   const isProfileReview = pathname.startsWith(profileReviewRoute)
+  const isCommunityJoin = pathname.startsWith(communityJoinRoute)
   if (user) {
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select(`${PROFILE_COMPLETION_FIELDS},${PROFILE_APPROVAL_FIELDS}`)
+      .select(PROFILE_COMPLETION_FIELDS)
       .eq('id', user.id)
       .maybeSingle()
     const profileComplete = !error && isProfileComplete(profile)
-    const profileApproved = !error && isProfileApproved(profile)
+    const { data: approvedMembership, error: membershipError } = await supabase
+      .from('memberships')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'approved')
+      .limit(1)
+      .maybeSingle()
+    const hasApprovedMembership = !membershipError && Boolean(approvedMembership)
     if (isAuthRoute) {
       const redirectUrl = req.nextUrl.clone()
       if (!profileComplete) {
         redirectUrl.pathname = profileOnboardingRoute
-      } else if (!profileApproved) {
-        redirectUrl.pathname = profileReviewRoute
+      } else if (!hasApprovedMembership) {
+        redirectUrl.pathname = communityJoinRoute
       } else {
         redirectUrl.pathname = '/'
       }
@@ -59,12 +67,12 @@ export async function middleware(req: NextRequest) {
       redirectUrl.pathname = profileOnboardingRoute
       return withCookies(res, NextResponse.redirect(redirectUrl))
     }
-    if (profileComplete && !profileApproved && !isProfileReview && !isProfileOnboarding) {
+    if (profileComplete && !hasApprovedMembership && !isCommunityJoin) {
       const redirectUrl = req.nextUrl.clone()
-      redirectUrl.pathname = profileReviewRoute
+      redirectUrl.pathname = communityJoinRoute
       return withCookies(res, NextResponse.redirect(redirectUrl))
     }
-    if (profileComplete && profileApproved && (isProfileOnboarding || isProfileReview)) {
+    if (profileComplete && hasApprovedMembership && (isProfileOnboarding || isProfileReview)) {
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = '/'
       return withCookies(res, NextResponse.redirect(redirectUrl))

@@ -1,45 +1,47 @@
-import type { Database } from '@my/supabase/types'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { useCallback } from 'react'
 
 import { useRealtimeChannel } from 'app/utils/useRealtimeChannel'
 
-type ProfileRow = Database['public']['Tables']['profiles']['Row']
-
 type PendingApprovalsRealtimePayload = {
   eventType: 'INSERT' | 'UPDATE' | 'DELETE'
-  new: Partial<ProfileRow> | null
-  old: Partial<ProfileRow> | null
+  new: { status?: string | null; community_id?: string | null } | null
+  old: { status?: string | null; community_id?: string | null } | null
 }
 
 export const shouldInvalidatePendingApprovals = (
-  payload: PendingApprovalsRealtimePayload
+  payload: PendingApprovalsRealtimePayload,
+  communityId?: string | null
 ) => {
-  const nextStatus = payload.new?.approval_status ?? null
-  const previousStatus = payload.old?.approval_status ?? null
+  const nextStatus = payload.new?.status ?? null
+  const previousStatus = payload.old?.status ?? null
+  const nextCommunity = payload.new?.community_id ?? payload.old?.community_id ?? null
+  if (communityId && nextCommunity && nextCommunity !== communityId) return false
   return nextStatus === 'pending' || previousStatus === 'pending'
 }
 
 export const useMemberApprovalsRealtime = (
   enabled: boolean,
+  communityId: string | null | undefined,
   onInvalidate: () => void
 ) => {
   const channelHandler = useCallback(
     (channel: RealtimeChannel) => {
+      const filter = communityId ? `community_id=eq.${communityId}` : undefined
       channel.on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
+        { event: '*', schema: 'public', table: 'memberships', ...(filter ? { filter } : {}) },
         (payload) => {
-          if (!shouldInvalidatePendingApprovals(payload as PendingApprovalsRealtimePayload)) return
+          if (!shouldInvalidatePendingApprovals(payload as PendingApprovalsRealtimePayload, communityId)) return
           onInvalidate()
         }
       )
     },
-    [onInvalidate]
+    [communityId, onInvalidate]
   )
 
-  useRealtimeChannel('profiles:pending-approvals', channelHandler, {
-    enabled,
+  useRealtimeChannel(communityId ? `memberships:pending-approvals:${communityId}` : null, channelHandler, {
+    enabled: enabled && Boolean(communityId),
     onError: onInvalidate,
   })
 }

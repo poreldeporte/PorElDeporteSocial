@@ -34,6 +34,60 @@ const disableDevices = async (userId: string, now: string) => {
   }
 }
 
+const archiveOwnedCommunitiesIfSolo = async (userId: string, now: string) => {
+  const { data: owned, error: ownedError } = await supabaseAdmin
+    .from('memberships')
+    .select('community_id')
+    .eq('profile_id', userId)
+    .eq('status', 'approved')
+    .eq('role', 'owner')
+
+  if (ownedError) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: ownedError.message })
+  }
+
+  const communityIds = Array.from(
+    new Set((owned ?? []).map((row) => row.community_id).filter(Boolean))
+  )
+
+  for (const communityId of communityIds) {
+    const { count, error: countError } = await supabaseAdmin
+      .from('memberships')
+      .select('id', { count: 'exact', head: true })
+      .eq('community_id', communityId)
+      .eq('status', 'approved')
+      .neq('profile_id', userId)
+
+    if (countError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: countError.message })
+    }
+
+    if ((count ?? 0) > 0) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Transfer ownership before deleting your account.',
+      })
+    }
+
+    const { error: archiveError } = await supabaseAdmin
+      .from('communities')
+      .update({ archived_at: now })
+      .eq('id', communityId)
+      .is('archived_at', null)
+
+    if (archiveError) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: archiveError.message })
+    }
+  }
+}
+
+const removeMembershipsForUser = async (userId: string) => {
+  const { error } = await supabaseAdmin.from('memberships').delete().eq('profile_id', userId)
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+}
+
 const banUser = async (
   userId: string,
   payload?: { email?: string | null; phone?: string | null; clearMetadata?: boolean }
@@ -66,6 +120,9 @@ export const accountRouter = createTRPCRouter({
   deactivate: protectedProcedure.mutation(async ({ ctx }) => {
     const now = toIsoNow()
 
+    await archiveOwnedCommunitiesIfSolo(ctx.user.id, now)
+    await removeMembershipsForUser(ctx.user.id)
+
     const { error } = await supabaseAdmin
       .from('profiles')
       .update({ deactivated_at: now })
@@ -86,6 +143,9 @@ export const accountRouter = createTRPCRouter({
     const deletedEmail = buildDeletedEmail(ctx.user.id)
     const deletedPhone = buildDeletedPhone(ctx.user.id)
 
+    await archiveOwnedCommunitiesIfSolo(ctx.user.id, now)
+    await removeMembershipsForUser(ctx.user.id)
+
     const { error } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -95,6 +155,8 @@ export const accountRouter = createTRPCRouter({
         email: null,
         phone: null,
         address: null,
+        city: null,
+        state: null,
         nationality: null,
         birth_date: null,
         jersey_number: null,

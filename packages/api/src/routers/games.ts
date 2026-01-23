@@ -189,6 +189,7 @@ const listHistorySelect = `
 
 const listInput = z.object({
   scope: z.enum(['upcoming', 'past']).default('upcoming'),
+  communityId: z.string().uuid(),
 })
 
 const draftStyleEnum = z.enum(['snake', 'original', 'auction'])
@@ -230,7 +231,11 @@ const createGameBase = z.object({
   crunchTimeStartTimeLocal: z.string().nullable().optional(),
 })
 
-const createGameInput = createGameBase.superRefine(validateReleaseBeforeKickoff)
+const createGameInput = createGameBase
+  .extend({
+    communityId: z.string().uuid(),
+  })
+  .superRefine(validateReleaseBeforeKickoff)
 
 const updateGameInput = createGameBase
   .partial()
@@ -248,11 +253,17 @@ const updateGameInput = createGameBase
 
 export const gamesRouter = createTRPCRouter({
   list: protectedProcedure.input(listInput).query(async ({ ctx, input }) => {
-    const isAdmin = await isUserAdmin(ctx.supabase, ctx.user.id)
+    const membership = await requireApprovedMembership(
+      ctx.supabase,
+      ctx.user.id,
+      input.communityId
+    )
+    const isAdmin = membership.role === 'admin' || membership.role === 'owner'
     const nowIso = new Date().toISOString()
     const query = ctx.supabase
       .from('games')
       .select(input.scope === 'past' ? listHistorySelect : listSelect)
+      .eq('community_id', input.communityId)
       .limit(50)
     if (input.scope === 'past') {
       query.lte('start_time', nowIso).order('start_time', { ascending: false })
@@ -261,7 +272,7 @@ export const gamesRouter = createTRPCRouter({
     }
     if (!isAdmin) {
       query.or('release_at.is.null,released_at.not.is.null')
-      const groupIds = await fetchUserGroupIds(ctx.supabase, ctx.user.id)
+      const groupIds = await fetchUserGroupIds(ctx.supabase, ctx.user.id, input.communityId)
       if (groupIds.length === 0) {
         query.is('audience_group_id', null)
       } else {
@@ -371,7 +382,6 @@ export const gamesRouter = createTRPCRouter({
   byId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const isAdmin = await isUserAdmin(ctx.supabase, ctx.user.id)
       const { data, error } = await ctx.supabase
         .from('games')
         .select(
@@ -474,6 +484,8 @@ export const gamesRouter = createTRPCRouter({
       }
 
       const game = data as GameDetailRow
+      const membership = await requireApprovedMembership(ctx.supabase, ctx.user.id, game.community_id)
+      const isAdmin = membership.role === 'admin' || membership.role === 'owner'
       if (!isAdmin && game.release_at && !game.released_at) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
       }
@@ -805,12 +817,12 @@ export const gamesRouter = createTRPCRouter({
     }),
 
   create: protectedProcedure.input(createGameInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, input.communityId)
 
     const { data: communityRow, error: communityError } = await ctx.supabase
       .from('communities')
       .select('id')
-      .limit(1)
+      .eq('id', input.communityId)
       .maybeSingle()
 
     if (communityError || !communityRow) {
@@ -864,7 +876,8 @@ export const gamesRouter = createTRPCRouter({
   }),
 
   update: protectedProcedure.input(updateGameInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    const communityId = await fetchGameCommunityId(ctx.supabase, input.id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
     let resetCrunchNotice = false
     let shouldResetDraft = false
@@ -1037,7 +1050,8 @@ export const gamesRouter = createTRPCRouter({
   cancel: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
+      const communityId = await fetchGameCommunityId(ctx.supabase, input.id)
+      await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
       const now = new Date().toISOString()
 
       const { data, error } = await ctx.supabase
@@ -1068,7 +1082,8 @@ export const gamesRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
+      const communityId = await fetchGameCommunityId(ctx.supabase, input.id)
+      await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
       await rollbackCommunityRatingForGame(supabaseAdmin, input.id)
 
@@ -1092,7 +1107,8 @@ export const gamesRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
+      const communityId = await fetchGameCommunityId(ctx.supabase, input.gameId)
+      await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
       const snapshot = await fetchDraftStartSnapshot(ctx.supabase, input.gameId)
 
@@ -1180,7 +1196,8 @@ export const gamesRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
+      const communityId = await fetchGameCommunityId(ctx.supabase, input.gameId)
+      await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
       const { data: game, error: gameError } = await ctx.supabase
         .from('games')
@@ -1235,7 +1252,8 @@ export const gamesRouter = createTRPCRouter({
   clearCaptains: protectedProcedure
     .input(z.object({ gameId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
+      const communityId = await fetchGameCommunityId(ctx.supabase, input.gameId)
+      await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
       await resetDraftForGame({
         gameId: input.gameId,
@@ -1248,10 +1266,61 @@ export const gamesRouter = createTRPCRouter({
     }),
 })
 
-const isUserAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
-  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
-  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-  return data?.role === 'admin' || data?.role === 'owner'
+const fetchMembership = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  communityId: string
+) => {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('role, status')
+    .eq('profile_id', userId)
+    .eq('community_id', communityId)
+    .maybeSingle()
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+
+  return data
+}
+
+const requireApprovedMembership = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  communityId: string
+) => {
+  const membership = await fetchMembership(supabase, userId, communityId)
+  if (!membership || membership.status !== 'approved') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Community access is pending' })
+  }
+  return membership
+}
+
+const isUserAdmin = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  communityId: string
+) => {
+  const membership = await requireApprovedMembership(supabase, userId, communityId)
+  return membership.role === 'admin' || membership.role === 'owner'
+}
+
+const fetchGameCommunityId = async (supabase: SupabaseClient<Database>, gameId: string) => {
+  const { data, error } = await supabase
+    .from('games')
+    .select('community_id')
+    .eq('id', gameId)
+    .maybeSingle()
+
+  if (error) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  }
+  if (!data?.community_id) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+  }
+
+  return data.community_id
 }
 
 const fetchRosteredProfileIds = async (
@@ -1276,12 +1345,14 @@ const fetchRosteredProfileIds = async (
 
 const fetchUserGroupIds = async (
   supabase: SupabaseClient<Database>,
-  profileId: string
+  profileId: string,
+  communityId: string
 ) => {
   const { data, error } = await supabase
     .from('community_group_members')
-    .select('group_id')
+    .select('group_id, community_groups!inner(community_id)')
     .eq('profile_id', profileId)
+    .eq('community_groups.community_id', communityId)
 
   if (error) {
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })

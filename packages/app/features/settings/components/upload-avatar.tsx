@@ -165,7 +165,7 @@ export const UploadAvatar = ({
   }
 
   return (
-    <YStack pos="relative" als="center" fs={1} onPress={handlePress} cur="pointer">
+    <YStack pos="relative" als="center" fs={1} onPress={handlePress} cur="pointer" overflow="visible">
       {children}
       <YStack
         position="absolute"
@@ -176,9 +176,12 @@ export const UploadAvatar = ({
         br={14}
         ai="center"
         jc="center"
-        bg="$color10"
+        bg="$color12"
         borderWidth={1}
-        borderColor="$color8"
+        borderColor="$color1"
+        zIndex={2}
+        elevation={2}
+        pointerEvents="none"
       >
         <Upload size={14} color="$color1" />
       </YStack>

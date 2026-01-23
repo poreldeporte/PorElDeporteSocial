@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 
-import { useQuery } from '@tanstack/react-query'
 import {
   Button,
   Card,
@@ -16,10 +15,10 @@ import {
 } from '@my/ui/public'
 import { X } from '@tamagui/lucide-icons'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { formatProfileName } from 'app/utils/profileName'
 import { useBrand } from 'app/provider/brand'
-import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 
 import type { GameDetail } from '../types'
@@ -53,35 +52,33 @@ export const AddPlayerSheet = ({
 }: AddPlayerSheetProps) => {
   const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
-  const supabase = useSupabase()
+  const { activeCommunityId } = useActiveCommunity()
   const toast = useToastController()
   const utils = api.useUtils()
   const [query, setQuery] = useState('')
   const [addingId, setAddingId] = useState<string | null>(null)
 
   const groupQuery = api.groups.byId.useQuery(
-    { id: audienceGroupId ?? '' },
-    { enabled: open && isAdmin && Boolean(audienceGroupId) }
+    { id: audienceGroupId ?? '', communityId: activeCommunityId ?? '' },
+    { enabled: open && isAdmin && Boolean(audienceGroupId) && Boolean(activeCommunityId) }
   )
 
-  const membersQuery = useQuery({
-    queryKey: ['members', 'approved', gameId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name, first_name, last_name, phone')
-        .eq('approval_status', 'approved')
-        .order('first_name', { ascending: true })
-        .order('last_name', { ascending: true })
-      if (error) throw new Error(error.message)
-      return data ?? []
-    },
-    enabled: open && isAdmin && !isLoading,
-  })
+  const membersQuery = api.members.list.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: open && isAdmin && !isLoading && Boolean(activeCommunityId) }
+  )
+
+  const invalidateLists = async () => {
+    if (!activeCommunityId) return
+    await Promise.all([
+      utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+      utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+    ])
+  }
 
   const addMutation = api.queue.addMember.useMutation({
     onSuccess: async ({ status }) => {
-      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: gameId })])
+      await Promise.all([invalidateLists(), utils.games.byId.invalidate({ id: gameId })])
       toast.show(status === 'rostered' ? 'Added to roster' : 'Added to waitlist')
     },
     onError: (error) => {

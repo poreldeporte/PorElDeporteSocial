@@ -1,7 +1,7 @@
 import { StyleSheet, type ScrollViewProps } from 'react-native'
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 
-import { Paragraph, ScrollView, Separator, Settings, SizableText, Switch, XStack, YStack, isWeb } from '@my/ui/public'
+import { ConfirmDialog, Paragraph, ScrollView, Separator, Settings, SizableText, Switch, XStack, YStack, isWeb } from '@my/ui/public'
 import { BrandStamp } from 'app/components/BrandStamp'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { Book, CheckCircle2, Cog, Info, LogOut, Moon, Instagram, ShoppingBag, User, Users } from '@tamagui/lucide-icons'
@@ -198,10 +198,22 @@ const SettingsThemeAction = () => {
 
 const SettingsItemLogoutAction = () => {
   const logout = useLogout()
+  const [open, setOpen] = useState(false)
 
   return (
-    <Settings.Item icon={LogOut} accentTheme="red" onPress={() => logout()}>
-      Log Out
-    </Settings.Item>
+    <>
+      <Settings.Item icon={LogOut} accentTheme="red" onPress={() => setOpen(true)}>
+        Log Out
+      </Settings.Item>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Log out?"
+        description="You can sign back in anytime."
+        confirmLabel="Log out"
+        confirmTone="destructive"
+        onConfirm={() => logout()}
+      />
+    </>
   )
 }

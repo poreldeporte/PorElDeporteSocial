@@ -11,16 +11,16 @@ import {
 } from '@my/ui/public'
 import { useRouter as useNextRouter } from 'next/router'
 import { useState } from 'react'
-import { useRouter } from 'solito/router'
 
 import { getRoutesById, navRoutes, webTabRouteIds } from 'app/navigation/routes'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 /**
  * this component is web-only
  */
 export const NavTabs = (props: TabsProps) => {
   const nextRouter = useNextRouter()
-  const router = useRouter()
+  const router = useAppRouter()
   const pathname = nextRouter.pathname
   const tabRoutes = getRoutesById(webTabRouteIds)
 

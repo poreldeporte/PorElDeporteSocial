@@ -23,20 +23,21 @@ export const AddressField = (props: Pick<InputProps, 'size'>) => {
 
   return (
     <Fieldset gap="$2">
-      <Label theme="alt1" size="$3">
+      <Label color="$color12" size="$3">
         {label}
       </Label>
 
       <XStack $sm={{ fd: 'column' }} $gtSm={{ fw: 'wrap' }} gap="$4">
         <Theme name={error?.street ? 'red' : null} forceClassName>
           <Fieldset $gtSm={{ fb: 0 }} f={1}>
-            <Label theme="alt1" size={props.size || '$3'} htmlFor={`${id}-street`}>
+            <Label color="$color12" size={props.size || '$3'} htmlFor={`${id}-street`}>
               Street
             </Label>
             <Shake shakeKey={error?.street?.errorMessage}>
               <Input
                 disabled={disabled}
                 placeholderTextColor="$color10"
+                backgroundColor="$white1"
                 value={field.value?.street}
                 onChangeText={(street) => field.onChange({ ...field.value, street })}
                 onBlur={field.onBlur}
@@ -52,13 +53,14 @@ export const AddressField = (props: Pick<InputProps, 'size'>) => {
 
         <Theme name={error?.zipCode ? 'red' : null} forceClassName>
           <Fieldset $gtSm={{ fb: 0 }} f={1}>
-            <Label theme="alt1" size={props.size || '$3'} htmlFor={`${id}-zip-code`}>
+            <Label color="$color12" size={props.size || '$3'} htmlFor={`${id}-zip-code`}>
               US ZIP Code
             </Label>
             <Shake shakeKey={error?.zipCode?.errorMessage}>
               <Input
                 disabled={disabled}
                 placeholderTextColor="$color10"
+                backgroundColor="$white1"
                 value={field.value?.zipCode}
                 onChangeText={(zipCode) => field.onChange({ ...field.value, zipCode })}
                 onBlur={field.onBlur}

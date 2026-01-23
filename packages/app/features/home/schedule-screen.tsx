@@ -16,6 +16,7 @@ import {
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { useBrand } from 'app/provider/brand'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime } from 'app/utils/useRealtimeSync'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import type { GameListItem } from 'app/features/games/types'
@@ -40,8 +41,12 @@ const TIMELINE = {
 export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const { primaryColor } = useBrand()
   const { isAdmin } = useUser()
-  const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'upcoming' })
-  useGamesListRealtime(true)
+  const { activeCommunityId } = useActiveCommunity()
+  const { data, isLoading, error, refetch } = api.games.list.useQuery(
+    { scope: 'upcoming', communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
+  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
   const [dropGameId, setDropGameId] = useState<string | null>(null)

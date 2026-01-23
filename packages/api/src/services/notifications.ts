@@ -9,6 +9,7 @@ import { buildPushMessages, deliverPushMessages, type PushPayload } from './push
 type GameSummary = {
   id: string
   name: string
+  communityId: string | null
 }
 
 type NotifyOptions = {
@@ -25,13 +26,17 @@ type ProfileName = {
 const fetchGameSummary = async (supabaseAdmin: SupabaseClient<Database>, gameId: string) => {
   const { data, error } = await supabaseAdmin
     .from('games')
-    .select('id, name')
+    .select('id, name, community_id')
     .eq('id', gameId)
     .maybeSingle()
 
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   if (!data) return null
-  return data as GameSummary
+  return {
+    id: data.id,
+    name: data.name,
+    communityId: data.community_id ?? null,
+  }
 }
 
 export const formatProfileName = (profile: ProfileName | null) =>
@@ -86,12 +91,15 @@ const sendPushToUserIds = async (
   return deliverPushMessages({ messages, supabaseAdmin })
 }
 
-const toGameUrl = (gameId: string) => `/games/${gameId}`
+const toGameUrl = (gameId: string, communityId?: string | null) => {
+  if (!communityId) return `/games/${gameId}`
+  return `/games/${gameId}?communityId=${communityId}`
+}
 
 export const buildGameCancelledPayload = (game: GameSummary): PushPayload => ({
   title: `Game cancelled: ${game.name}`,
   body: 'This game has been cancelled.',
-  data: { url: toGameUrl(game.id) },
+  data: { url: toGameUrl(game.id, game.communityId), communityId: game.communityId },
 })
 
 export const notifyWaitlistPromoted = async ({
@@ -104,7 +112,7 @@ export const notifyWaitlistPromoted = async ({
   await sendPushToUserIds(supabaseAdmin, [profileId], {
     title: `You are in for ${game.name}`,
     body: 'A spot opened. View the game details.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -118,7 +126,7 @@ export const notifyWaitlistDemoted = async ({
   await sendPushToUserIds(supabaseAdmin, [profileId], {
     title: `Roster update: ${game.name}`,
     body: 'A roster change moved you to the waitlist.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -138,7 +146,7 @@ export const notifyResultsConfirmed = async ({ supabaseAdmin, gameId }: NotifyOp
   await sendPushToUserIds(supabaseAdmin, roster, {
     title: `Results posted: ${game.name}`,
     body: 'Ratings and stats are live. Rate your game.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -154,7 +162,7 @@ export const notifyCrunchTimeStarted = async ({
   await sendPushToUserIds(supabaseAdmin, waitlist, {
     title: `Crunch time: ${game.name}`,
     body: 'Last-minute opening — grab open spot.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -169,7 +177,7 @@ export const notifyConfirmationReminder = async ({
   await sendPushToUserIds(supabaseAdmin, profileIds, {
     title: `Confirm attendance: ${game.name}`,
     body: 'Confirm your spot to keep it.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -184,7 +192,7 @@ export const notifyGameNotification = async ({
   await sendPushToUserIds(supabaseAdmin, profileIds, {
     title: `Game reminder: ${game.name}`,
     body: 'Check the game details.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -200,7 +208,7 @@ export const notifyCaptainsAssigned = async ({
   await sendPushToUserIds(supabaseAdmin, uniqueIds, {
     title: `You're a captain for ${game.name}`,
     body: 'Draft starts now.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -214,7 +222,7 @@ export const notifyCaptainTurn = async ({
   await sendPushToUserIds(supabaseAdmin, [profileId], {
     title: `Your pick: ${game.name}`,
     body: "It's your turn to pick.",
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -228,7 +236,7 @@ export const notifyPlayerDrafted = async ({
   await sendPushToUserIds(supabaseAdmin, [profileId], {
     title: `You were drafted for ${game.name}`,
     body: 'Check your team details.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -253,7 +261,7 @@ export const notifyGuestNeedsConfirmation = async ({
   await sendPushToUserIds(supabaseAdmin, [guestRow.added_by_profile_id], {
     title: `Confirm ${guestLabel} for ${game.name}`,
     body: 'A guest spot opened. Confirm attendance in the roster.',
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }
 
@@ -275,6 +283,6 @@ export const notifyTardyMarked = async ({
   await sendPushToUserIds(supabaseAdmin, [profileId], {
     title,
     body,
-    data: { url: toGameUrl(gameId) },
+    data: { url: toGameUrl(gameId, game.communityId), communityId: game.communityId },
   })
 }

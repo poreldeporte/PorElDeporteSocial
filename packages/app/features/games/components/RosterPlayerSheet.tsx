@@ -32,9 +32,10 @@ export const RosterPlayerSheet = ({
   const { primaryColor } = useBrand()
   const profileId = entry?.profileId ?? null
   const isGuest = entry?.isGuest ?? false
-  const leaderboardQuery = api.stats.leaderboard.useQuery(undefined, {
-    enabled: open && Boolean(profileId),
-  })
+  const leaderboardQuery = api.stats.leaderboard.useQuery(
+    { communityId: communityId ?? '' },
+    { enabled: open && Boolean(profileId) && Boolean(communityId) }
+  )
   const ratingQuery = api.stats.profileCommunityRating.useQuery(
     { communityId: communityId ?? '', profileId: profileId ?? '' },
     {

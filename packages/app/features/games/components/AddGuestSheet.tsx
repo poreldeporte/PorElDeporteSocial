@@ -20,6 +20,7 @@ import {
 } from '@my/ui/public'
 import { UsPhoneMaskInput } from 'app/components/UsPhoneMaskInput'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { parsePhoneToE164 } from 'app/utils/phone'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 import { useBrand } from 'app/provider/brand'
@@ -39,6 +40,7 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
   const ctaButtonStyles = useCtaButtonStyles()
   const toast = useToastController()
   const utils = api.useUtils()
+  const { activeCommunityId } = useActiveCommunity()
   const insets = useSafeAreaInsets()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -53,9 +55,17 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
   })
   const [submitAttempted, setSubmitAttempted] = useState(false)
 
+  const invalidateLists = async () => {
+    if (!activeCommunityId) return
+    await Promise.all([
+      utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+      utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+    ])
+  }
+
   const mutation = api.queue.addGuest.useMutation({
     onSuccess: async ({ status }) => {
-      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: gameId })])
+      await Promise.all([invalidateLists(), utils.games.byId.invalidate({ id: gameId })])
       toast.show(status === 'rostered' ? 'Guest added to roster' : 'Guest added to waitlist')
       setFirstName('')
       setLastName('')

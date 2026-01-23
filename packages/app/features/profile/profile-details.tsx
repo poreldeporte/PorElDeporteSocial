@@ -1,5 +1,15 @@
 import type { ReactNode } from 'react'
-import { Button, Card, Checkbox, Input, Label, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
+import {
+  Button,
+  Card,
+  Checkbox,
+  Input,
+  Label,
+  Paragraph,
+  SizableText,
+  XStack,
+  YStack,
+} from '@my/ui/public'
 import { Check, PenSquare } from '@tamagui/lucide-icons'
 
 import {
@@ -20,6 +30,7 @@ import { useBrand } from 'app/provider/brand'
 
 import { profileFieldCopy } from './field-copy'
 import { POSITION_OPTIONS } from './profile-field-schema'
+import { StatePicker } from './state-picker'
 
 export type ProfileEditSection = 'essentials' | 'background'
 
@@ -29,6 +40,8 @@ export type ProfileDraft = {
   email: string
   phone: string
   address: string
+  city: string
+  state: string
   nationality: string
   birthDate: BirthDateParts
   jerseyNumber: string
@@ -48,6 +61,8 @@ type ProfileDetailsProps = {
   email?: string | null
   phone?: string | null
   address?: string | null
+  city?: string | null
+  state?: string | null
   nationality?: string | null
   birthDate?: string | null
   jerseyNumber?: number | null
@@ -79,6 +94,15 @@ const formatBirthDate = (value?: string | null) => {
 const formatPhone = (value?: string | null, fallback = 'Add info') => {
   const formatted = formatPhoneDisplay(value)
   return formatted || fallback
+}
+
+const formatLocation = (street?: string | null, city?: string | null, state?: string | null) => {
+  const streetValue = street?.trim() ?? ''
+  const cityValue = city?.trim() ?? ''
+  const stateValue = state?.trim() ?? ''
+  const cityState = [cityValue, stateValue].filter(Boolean).join(', ')
+  if (streetValue && cityState) return `${streetValue} · ${cityState}`
+  return streetValue || cityState || 'Add your location'
 }
 
 const formatJerseyNumber = (value?: number | string | null) => {
@@ -219,6 +243,8 @@ export const ProfileDetails = ({
   email,
   phone,
   address,
+  city,
+  state,
   nationality,
   birthDate,
   jerseyNumber,
@@ -233,6 +259,8 @@ export const ProfileDetails = ({
   const displayJersey = editor ? draft?.jerseyNumber ?? '' : jerseyNumber
   const displayNationality = editor ? draft?.nationality ?? '' : nationality
   const displayAddress = editor ? draft?.address ?? '' : address
+  const displayCity = editor ? draft?.city ?? '' : city
+  const displayState = editor ? draft?.state ?? '' : state
   const displayEmail = editor ? draft?.email ?? '' : email
   const displayPhone = editor ? draft?.phone ?? '' : phone
   const displayFirstName = editor ? draft?.firstName ?? '' : firstName
@@ -260,7 +288,10 @@ export const ProfileDetails = ({
   const background = [
     { label: profileFieldCopy.birthDate.label, value: formatBirthDate(displayBirthDate) },
     { label: profileFieldCopy.nationality.label, value: formatNationality(displayNationality) },
-    { label: profileFieldCopy.address.label, value: formatValue(displayAddress, 'Add your address') },
+    {
+      label: profileFieldCopy.address.label,
+      value: formatLocation(displayAddress, displayCity, displayState),
+    },
   ]
 
   return (
@@ -409,6 +440,24 @@ const BackgroundEditor = ({
           />
         }
       />
+      <DetailRow
+        label={`${profileFieldCopy.city.label} / ${profileFieldCopy.state.label}`}
+        rightSlot={
+          <XStack gap="$2" flex={1} minWidth={0}>
+            <YStack f={1} minWidth={0}>
+              <InlineInput
+                placeholder={profileFieldCopy.city.placeholder}
+                value={draft.city}
+                onChangeText={(text) => onDraftChange({ city: text })}
+                autoCapitalize="words"
+              />
+            </YStack>
+            <YStack f={1} minWidth={0}>
+              <InlineStatePicker value={draft.state} onChange={(state) => onDraftChange({ state })} />
+            </YStack>
+          </XStack>
+        }
+      />
     </YStack>
   )
 }
@@ -532,7 +581,7 @@ const InlineNationalityPicker = ({
   const triggerTextColor = selected ? '$color12' : '$black9'
 
   return (
-    <XStack {...inlineInputStyle} px="$2" py="$1.5" w="100%" alignSelf="stretch" ai="center">
+    <XStack {...inlineInputStyle} w="100%" alignSelf="stretch" ai="center">
       <CountryPicker
         value={(value || null) as PhoneCountryOption['code'] | null}
         onChange={(code) => onChange(code)}
@@ -544,6 +593,31 @@ const InlineNationalityPicker = ({
         popularCountries={['US', 'AR', 'BR', 'GB', 'DE', 'ES']}
         triggerTextColor={triggerTextColor}
         triggerIconColor="$color12"
+        triggerProps={{ px: '$2', py: '$1.5', minHeight: 40, width: '100%' }}
+      />
+    </XStack>
+  )
+}
+
+const InlineStatePicker = ({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) => {
+  const triggerTextColor = value ? '$color12' : '$black9'
+
+  return (
+    <XStack {...inlineInputStyle} w="100%" alignSelf="stretch" ai="center">
+      <StatePicker
+        value={value || null}
+        onChange={onChange}
+        title="Select state"
+        placeholder={profileFieldCopy.state.placeholder}
+        triggerTextColor={triggerTextColor}
+        triggerIconColor="$color12"
+        triggerProps={{ px: '$2', py: '$1.5', minHeight: 40, width: '100%' }}
       />
     </XStack>
   )

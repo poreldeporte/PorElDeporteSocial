@@ -18,7 +18,7 @@ export const BooleanSwitchField = (props: Pick<SwitchProps, 'size' | 'native'>) 
     <Theme name={error ? 'red' : null} forceClassName>
       <Fieldset ai="flex-start">
         {!!label && (
-          <Label theme="alt1" size={props.size || '$3'} htmlFor={id}>
+          <Label color="$color12" size={props.size || '$3'} htmlFor={id}>
             {label} {isOptional && `(Optional)`}
           </Label>
         )}

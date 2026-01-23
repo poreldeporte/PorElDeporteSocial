@@ -22,6 +22,8 @@ const REMINDER_GRACE_MINUTES = 5
 
 type ReminderType = 'confirmation_reminder' | 'game_notification'
 
+const communityInput = z.object({ communityId: z.string().uuid() })
+
 export const notificationsRouter = createTRPCRouter({
   registerDevice: protectedProcedure.input(registerInput).mutation(async ({ ctx, input }) => {
     const { error } = await supabaseAdmin
@@ -53,8 +55,8 @@ export const notificationsRouter = createTRPCRouter({
     return { ok: true }
   }),
 
-  sendCrunchTimeNotices: protectedProcedure.mutation(async ({ ctx }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
+  sendCrunchTimeNotices: protectedProcedure.input(communityInput).mutation(async ({ ctx, input }) => {
+      await ensureAdmin(ctx.supabase, ctx.user.id, input.communityId)
       const now = new Date()
 
       const { data, error } = await supabaseAdmin
@@ -77,6 +79,7 @@ export const notificationsRouter = createTRPCRouter({
         `
         )
         .eq('status', 'scheduled')
+        .eq('community_id', input.communityId)
         .not('start_time', 'is', null)
         .or('release_at.is.null,released_at.not.is.null')
 
@@ -230,8 +233,8 @@ export const notificationsRouter = createTRPCRouter({
       }
     }),
 
-  sendReminderNotices: protectedProcedure.mutation(async ({ ctx }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
+  sendReminderNotices: protectedProcedure.input(communityInput).mutation(async ({ ctx, input }) => {
+      await ensureAdmin(ctx.supabase, ctx.user.id, input.communityId)
       const now = new Date()
       const graceStart = new Date(now.getTime() - REMINDER_GRACE_MINUTES * 60 * 1000)
 
@@ -252,6 +255,7 @@ export const notificationsRouter = createTRPCRouter({
         `
         )
         .eq('status', 'scheduled')
+        .eq('community_id', input.communityId)
         .not('start_time', 'is', null)
         .or('release_at.is.null,released_at.not.is.null')
 

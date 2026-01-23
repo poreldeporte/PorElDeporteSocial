@@ -1,6 +1,6 @@
 import { useFieldInfo, useTsController } from '@ts-react/form'
 import { useId } from 'react'
-import { Fieldset, Input, type InputProps, Label, Theme, XStack } from '@my/ui/public'
+import { Fieldset, Input, type InputProps, Label, Theme, XStack, formInputStyle } from '@my/ui/public'
 
 import { FieldError } from '@my/ui/public'
 import {
@@ -29,7 +29,6 @@ export const BirthDateField = (props: BirthDateFieldProps) => {
     error?.year?.errorMessage
   const errorMessage =
     rawErrorMessage === 'Required' && label ? `${label} is required` : rawErrorMessage
-
   const updatePart = (key: keyof BirthDateParts, nextValue: string, maxLength: number) => {
     const normalized = normalizeBirthDatePart(nextValue, maxLength)
     const next = field.value ?? emptyBirthDateParts()
@@ -40,15 +39,16 @@ export const BirthDateField = (props: BirthDateFieldProps) => {
     <Theme name={errorMessage ? 'red' : null} forceClassName>
       <Fieldset gap="$2">
         {!!label && (
-          <Label theme="alt1" size={props.size || '$3'} htmlFor={id}>
+          <Label color="$color12" size={props.size || '$3'} htmlFor={id}>
             {label}
           </Label>
         )}
         <Shake shakeKey={rawErrorMessage}>
-          <XStack gap="$2">
+          <XStack gap="$2" w="100%">
             <Input
               id={`${id}-month`}
-              w={72}
+              f={1}
+              minWidth={0}
               placeholder="MM"
               placeholderTextColor="$color10"
               inputMode="numeric"
@@ -60,11 +60,13 @@ export const BirthDateField = (props: BirthDateFieldProps) => {
               ref={field.ref}
               disabled={disabled}
               textAlign="center"
+              {...formInputStyle}
               {...props}
             />
             <Input
               id={`${id}-day`}
-              w={72}
+              f={1}
+              minWidth={0}
               placeholder="DD"
               placeholderTextColor="$color10"
               inputMode="numeric"
@@ -75,11 +77,13 @@ export const BirthDateField = (props: BirthDateFieldProps) => {
               onBlur={field.onBlur}
               disabled={disabled}
               textAlign="center"
+              {...formInputStyle}
               {...props}
             />
             <Input
               id={`${id}-year`}
-              w={96}
+              f={1}
+              minWidth={0}
               placeholder="YYYY"
               placeholderTextColor="$color10"
               inputMode="numeric"
@@ -90,6 +94,7 @@ export const BirthDateField = (props: BirthDateFieldProps) => {
               onBlur={field.onBlur}
               disabled={disabled}
               textAlign="center"
+              {...formInputStyle}
               {...props}
             />
           </XStack>

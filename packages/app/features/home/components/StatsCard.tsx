@@ -1,5 +1,5 @@
 import { AnimatePresence, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
-import { useRouter } from 'solito/router'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 type StatsCardProps = {
   stats: { wins: number; losses: number; games: number }
@@ -7,7 +7,7 @@ type StatsCardProps = {
 }
 
 export const StatsCard = ({ stats, isLoading }: StatsCardProps) => {
-  const router = useRouter()
+  const router = useAppRouter()
   return (
     <YStack gap="$1.5">
       <StatsCardBody stats={stats} isLoading={isLoading} />
@@ -16,7 +16,7 @@ export const StatsCard = ({ stats, isLoading }: StatsCardProps) => {
 }
 
 const StatsCardBody = ({ stats, isLoading }: StatsCardProps) => {
-  const router = useRouter()
+  const router = useAppRouter()
   return (
     <Card
       px="$4"

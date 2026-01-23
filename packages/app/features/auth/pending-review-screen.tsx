@@ -3,15 +3,15 @@ import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { useLogout } from 'app/utils/auth/logout'
 import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 import { SolitoImage } from 'solito/image'
-import { useRouter } from 'solito/router'
 
 type ScrollHeaderProps = {
   topInset?: number
 }
 
 export const PendingReviewScreen = ({ topInset }: ScrollHeaderProps) => {
-  const router = useRouter()
+  const router = useAppRouter()
   const logout = useLogout()
   const { profile } = useUser()
   const isRejected = profile?.approval_status === 'rejected'
