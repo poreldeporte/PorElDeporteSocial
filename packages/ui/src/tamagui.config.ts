@@ -21,8 +21,12 @@ if (process.env.NODE_ENV !== 'production') {
  * This avoids shipping themes as JS. Instead, Tamagui will hydrate them from CSS.
  */
 
+const isServer = typeof window === 'undefined'
 const themes =
-  process.env.TAMAGUI_TARGET !== 'web' || process.env.TAMAGUI_IS_SERVER || process.env.STORYBOOK
+  process.env.TAMAGUI_TARGET !== 'web' ||
+  process.env.TAMAGUI_IS_SERVER ||
+  process.env.STORYBOOK ||
+  isServer
     ? themesIn
     : ({} as typeof themesIn)
 
