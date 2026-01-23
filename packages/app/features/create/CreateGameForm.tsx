@@ -18,6 +18,7 @@ import { BrandStamp } from 'app/components/BrandStamp'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { SchemaForm } from 'app/utils/SchemaForm'
 
 import {
@@ -49,12 +50,14 @@ export const CreateGameForm = ({
 }) => {
   const toast = useToastController()
   const utils = api.useContext()
+  const { activeCommunityId } = useActiveCommunity()
   const showFloatingCta = !isWeb
   const submitRef = useRef<(() => void) | null>(null)
   const formDefaults = useMemo(() => buildGameFormDefaults(), [])
-  const groupsQuery = api.groups.list.useQuery(undefined, {
-    enabled: true,
-  })
+  const groupsQuery = api.groups.list.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
   const groupOptions = useMemo(
     () => (groupsQuery.data ?? []).map((group) => ({ name: group.name, value: group.id })),
     [groupsQuery.data]
@@ -73,7 +76,9 @@ export const CreateGameForm = ({
 
   const mutation = api.games.create.useMutation({
     onSuccess: async () => {
-      await utils.games.list.invalidate()
+      if (activeCommunityId) {
+        await utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId })
+      }
       toast.show('Game created')
       onSuccess()
     },
@@ -104,8 +109,9 @@ export const CreateGameForm = ({
       schema={GameFormSchema}
       props={formProps}
       onSubmit={(values) => {
+        if (!activeCommunityId) return
         const payload = serializeGameFormValues(values)
-        mutation.mutate(payload)
+        mutation.mutate({ ...payload, communityId: activeCommunityId })
       }}
       defaultValues={formDefaults}
       renderAfter={renderAfter}

@@ -27,9 +27,9 @@ import { formatProfileName } from 'app/utils/profileName'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useTeamsState } from 'app/utils/useTeamsState'
 import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 import { Heart, Undo2 } from '@tamagui/lucide-icons'
-import { useRouter } from 'solito/router'
 import { DraftRoomLiveOverlay, SectionTitle, StatusBadge } from './components'
 import { RecentFormChips } from './components/RecentFormChips'
 import { deriveDraftViewModel } from './state/deriveDraftViewModel'
@@ -71,7 +71,7 @@ export const GameDraftScreen = ({
   const toast = useToastController()
   const { primaryColor } = useBrand()
   const utils = api.useUtils()
-  const router = useRouter()
+  const router = useAppRouter()
   const { user } = useUser()
   const [localResetConfirmOpen, setLocalResetConfirmOpen] = useState(false)
   const resetConfirmOpen = resetConfirmOpenProp ?? localResetConfirmOpen

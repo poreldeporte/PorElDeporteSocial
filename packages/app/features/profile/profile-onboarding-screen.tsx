@@ -1,8 +1,8 @@
 import type { ScrollViewProps } from 'react-native'
 import { type ReactNode } from 'react'
-import { useRouter } from 'solito/router'
 
 import { ProfileFormScreen } from './edit-screen'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 type ScrollHeaderProps = {
   scrollProps?: ScrollViewProps
@@ -11,11 +11,13 @@ type ScrollHeaderProps = {
 }
 
 export const ProfileOnboardingScreen = (props: ScrollHeaderProps) => {
-  const router = useRouter()
+  const router = useAppRouter()
   return (
     <ProfileFormScreen
-      submitLabel="Finish setup"
+      submitLabel="Continue to communities"
       showStatusBadge={false}
+      variant="immersive"
+      floatingCta
       onComplete={() => router.push('/onboarding/review')}
       {...props}
     />

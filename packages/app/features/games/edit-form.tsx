@@ -20,6 +20,7 @@ import { BrandStamp } from 'app/components/BrandStamp'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { api, type RouterOutputs } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { SchemaForm, formFields } from 'app/utils/SchemaForm'
 
 import {
@@ -65,9 +66,13 @@ export const EditGameForm = ({
 }) => {
   const toast = useToastController()
   const utils = api.useContext()
+  const { activeCommunityId } = useActiveCommunity()
   const showFloatingCta = !isWeb
   const submitRef = useRef<(() => void) | null>(null)
-  const groupsQuery = api.groups.list.useQuery(undefined, { enabled: true })
+  const groupsQuery = api.groups.list.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
   const groupOptions = useMemo(
     () => (groupsQuery.data ?? []).map((group) => ({ name: group.name, value: group.id })),
     [groupsQuery.data]
@@ -91,7 +96,13 @@ export const EditGameForm = ({
   const pendingRecurringOff = useRef(false)
   const mutation = api.games.update.useMutation({
     onSuccess: async () => {
-      await Promise.all([utils.games.byId.invalidate({ id: game.id }), utils.games.list.invalidate()])
+      const listInvalidations = activeCommunityId
+        ? [
+            utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+            utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+          ]
+        : []
+      await Promise.all([utils.games.byId.invalidate({ id: game.id }), ...listInvalidations])
       toast.show('Game updated')
       onSuccess?.()
     },
@@ -101,7 +112,12 @@ export const EditGameForm = ({
   })
   const deleteMutation = api.games.delete.useMutation({
     onSuccess: async () => {
-      await utils.games.list.invalidate()
+      if (activeCommunityId) {
+        await Promise.all([
+          utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+          utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+        ])
+      }
       toast.show('Recurring game removed')
       onSuccess?.()
     },

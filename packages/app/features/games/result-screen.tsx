@@ -16,7 +16,6 @@ import {
   submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
-import { useRouter } from 'solito/router'
 
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { screenContentContainerStyle } from 'app/constants/layout'
@@ -24,6 +23,7 @@ import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { formatProfileName } from 'app/utils/profileName'
 import { useTeamsState } from 'app/utils/useTeamsState'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 import { useCtaButtonStyles } from './cta-styles'
 
@@ -45,7 +45,7 @@ export const GameResultScreen = ({
   headerSpacer,
   topInset,
 }: Props & ScrollHeaderProps) => {
-  const router = useRouter()
+  const router = useAppRouter()
   const { primaryColor } = useBrand()
   const ctaButtonStyles = useCtaButtonStyles()
   const utils = api.useUtils()

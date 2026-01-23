@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { getScreenLayout } from '@my/app/navigation/layouts'
+import { useActiveCommunity } from '@my/app/utils/useActiveCommunity'
 import { useUser } from '@my/app/utils/useUser'
 import { useToastController } from '@my/ui/public'
 import { GameEditScreen } from 'app/features/games/edit-screen'
@@ -18,11 +19,17 @@ export default function Screen() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id
   const router = useRouter()
   const { isAdmin } = useUser()
+  const { activeCommunityId } = useActiveCommunity()
   const toast = useToastController()
   const utils = api.useUtils()
   const deleteMutation = api.games.delete.useMutation({
     onSuccess: async () => {
-      await utils.games.list.invalidate()
+      if (activeCommunityId) {
+        await Promise.all([
+          utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+          utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+        ])
+      }
       toast.show('Game deleted')
       router.replace('/games')
     },

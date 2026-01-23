@@ -5,7 +5,7 @@ import { Paragraph, ScrollView, YStack } from '@my/ui/public'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { usePathname } from 'app/utils/usePathname'
 import { useUser } from 'app/utils/useUser'
-import { useRouter } from 'solito/router'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 import { CreateGameForm } from './CreateGameForm'
 
@@ -17,7 +17,7 @@ type ScrollHeaderProps = {
 
 export const CreateScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const pathname = usePathname()
-  const router = useRouter()
+  const router = useAppRouter()
   const { isAdmin } = useUser()
 
   const handleSuccess = () => {

@@ -29,7 +29,7 @@ export const ImagePickerField = (props: Pick<InputProps, 'size'>) => {
 
   return (
     <Fieldset gap="$2">
-      <Label theme="alt1" size="$3">
+      <Label color="$color12" size="$3">
         {label}
       </Label>
 

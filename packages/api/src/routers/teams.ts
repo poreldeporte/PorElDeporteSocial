@@ -170,10 +170,7 @@ export const teamsRouter = createTRPCRouter({
 
   startDraft: protectedProcedure.input(startDraftInput).mutation(async ({ ctx, input }) => {
     const { supabase, user } = ctx
-    await ensureAdmin(supabase, user.id)
-
-    const game = await fetchGame(supabase, input.gameId)
-    if (!game) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+    const game = await ensureGameAdmin(supabase, user.id, input.gameId)
     if (game.draft_mode_enabled === false) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
     }
@@ -242,7 +239,7 @@ export const teamsRouter = createTRPCRouter({
 
   resetDraft: protectedProcedure.input(z.object({ gameId: uuid })).mutation(async ({ ctx, input }) => {
     const { supabase, user } = ctx
-    await ensureAdmin(supabase, user.id)
+    await ensureGameAdmin(supabase, user.id, input.gameId)
 
     await resetDraftForGame({
       gameId: input.gameId,
@@ -272,7 +269,7 @@ export const teamsRouter = createTRPCRouter({
     const team = teams.find((t) => t.id === input.teamId)
     if (!team) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid team' })
 
-    const isAdmin = await isUserAdmin(supabase, user.id)
+    const isAdmin = await isUserAdmin(supabase, user.id, game.community_id)
     if (game.draft_visibility === 'admin_only' && !isAdmin) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Draft room is admin-only' })
     }
@@ -405,7 +402,7 @@ export const teamsRouter = createTRPCRouter({
 
   finalizeDraft: protectedProcedure.input(finalizeInput).mutation(async ({ ctx, input }) => {
     const { supabase, user } = ctx
-    await ensureAdmin(supabase, user.id)
+    await ensureGameAdmin(supabase, user.id, input.gameId)
 
     const teams = await fetchTeams(supabase, input.gameId)
 
@@ -485,7 +482,7 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Results can only be reported after kickoff' })
     }
 
-    const isAdmin = await isUserAdmin(supabase, user.id)
+    const isAdmin = await isUserAdmin(supabase, user.id, game.community_id)
     if (game.draft_visibility === 'admin_only' && !isAdmin) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Draft room is admin-only' })
     }
@@ -561,7 +558,7 @@ export const teamsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Draft mode is off for this game' })
     }
 
-    const isAdmin = await isUserAdmin(supabase, user.id)
+    const isAdmin = await isUserAdmin(supabase, user.id, game.community_id)
     if (game.draft_visibility === 'admin_only' && !isAdmin) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Draft room is admin-only' })
     }
@@ -622,7 +619,7 @@ export const teamsRouter = createTRPCRouter({
 
   undoPick: protectedProcedure.input(undoInput).mutation(async ({ ctx, input }) => {
     const { supabase, user } = ctx
-    await ensureAdmin(supabase, user.id)
+    await ensureGameAdmin(supabase, user.id, input.gameId)
 
     const { data: events, error: eventsError } = await supabaseAdmin
       .from('game_draft_events')
@@ -713,12 +710,25 @@ const fetchGame = async (supabase: SupabaseClient<Database>, gameId: string) => 
   const { data, error } = await supabase
     .from('games')
     .select(
-      'id, draft_status, draft_turn, draft_direction, start_time, status, capacity, draft_mode_enabled, draft_style, draft_visibility, confirmation_enabled'
+      'id, community_id, draft_status, draft_turn, draft_direction, start_time, status, capacity, draft_mode_enabled, draft_style, draft_visibility, confirmation_enabled'
     )
     .eq('id', gameId)
     .maybeSingle()
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
   return data
+}
+
+const ensureGameAdmin = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  gameId: string
+) => {
+  const game = await fetchGame(supabase, gameId)
+  if (!game) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+  }
+  await ensureAdmin(supabase, userId, game.community_id)
+  return game
 }
 
 const fetchTeams = async (supabase: SupabaseClient<Database>, gameId: string) => {
@@ -788,10 +798,19 @@ const isPlayerDrafted = async (
   return Boolean(data && data.length > 0)
 }
 
-const isUserAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
-  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+const isUserAdmin = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  communityId: string
+) => {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('role, status')
+    .eq('profile_id', userId)
+    .eq('community_id', communityId)
+    .maybeSingle()
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-  return data?.role === 'admin' || data?.role === 'owner'
+  return data?.status === 'approved' && (data?.role === 'admin' || data?.role === 'owner')
 }
 
 const isUserCaptain = async (supabase: SupabaseClient<Database>, gameId: string, userId: string) => {

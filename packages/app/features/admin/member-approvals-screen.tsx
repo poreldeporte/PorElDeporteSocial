@@ -14,16 +14,16 @@ import {
   YStack,
   useToastController,
 } from '@my/ui/public'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, MoreHorizontal, PenSquare, X } from '@tamagui/lucide-icons'
 import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
+import { api } from 'app/utils/api'
 import { formatProfileName } from 'app/utils/profileName'
-import { useSupabase } from 'app/utils/supabase/useSupabase'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useUser } from 'app/utils/useUser'
 import { formatPhoneDisplay } from 'app/utils/phone'
-import { useRouter } from 'solito/router'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 import { useMemberApprovalsRealtime } from './member-approvals-realtime'
 
@@ -56,64 +56,40 @@ export const MemberApprovalsScreen = ({
 }: ScrollHeaderProps = {}) => {
   const { primaryColor } = useBrand()
   const { isAdmin, isLoading } = useUser()
-  const supabase = useSupabase()
+  const { activeCommunityId } = useActiveCommunity()
   const toast = useToastController()
-  const queryClient = useQueryClient()
-  const router = useRouter()
+  const utils = api.useUtils()
+  const router = useAppRouter()
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const realtimeEnabled = isAdmin && !isLoading
+  const realtimeEnabled = isAdmin && !isLoading && Boolean(activeCommunityId)
   const scheduleInvalidate = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] })
-  }, [queryClient])
-  useMemberApprovalsRealtime(realtimeEnabled, scheduleInvalidate)
+    if (!activeCommunityId) return
+    void utils.members.pending.invalidate({ communityId: activeCommunityId })
+    void utils.members.pendingCount.invalidate({ communityId: activeCommunityId })
+  }, [activeCommunityId, utils.members.pending, utils.members.pendingCount])
+  useMemberApprovalsRealtime(realtimeEnabled, activeCommunityId, scheduleInvalidate)
 
-  const pendingQuery = useQuery({
-    queryKey: ['member-approvals', 'pending'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name, first_name, last_name, email, phone, position, jersey_number, birth_date')
-        .eq('approval_status', 'pending')
-        .not('first_name', 'is', null)
-        .not('last_name', 'is', null)
-        .not('email', 'is', null)
-        .not('position', 'is', null)
-        .not('jersey_number', 'is', null)
-        .not('birth_date', 'is', null)
-        .neq('first_name', '')
-        .neq('last_name', '')
-        .neq('email', '')
-        .neq('position', '')
-      if (error) throw new Error(error.message)
-      return data ?? []
-    },
-    enabled: isAdmin && !isLoading,
-  })
+  const pendingQuery = api.members.pending.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: realtimeEnabled }
+  )
 
-  const approveMutation = useMutation({
-    mutationFn: async (profileId: string) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ approval_status: 'approved' })
-        .eq('id', profileId)
-        .select('id')
-        .maybeSingle()
-      if (error) throw new Error(error.message)
-      if (!data?.id) throw new Error('Unable to approve member.')
-    },
-    onMutate: (profileId) => {
+  const approveMutation = api.members.approve.useMutation({
+    onMutate: ({ profileId }) => {
       setApprovingId(profileId)
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] }),
-        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending-count'] }),
-      ])
+      if (activeCommunityId) {
+        await Promise.all([
+          utils.members.pending.invalidate({ communityId: activeCommunityId }),
+          utils.members.pendingCount.invalidate({ communityId: activeCommunityId }),
+        ])
+      }
       toast.show('Member approved')
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast.show('Unable to approve member', { message: error.message })
     },
     onSettled: () => {
@@ -121,28 +97,20 @@ export const MemberApprovalsScreen = ({
     },
   })
 
-  const rejectMutation = useMutation({
-    mutationFn: async (profileId: string) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ approval_status: 'rejected' })
-        .eq('id', profileId)
-        .select('id')
-        .maybeSingle()
-      if (error) throw new Error(error.message)
-      if (!data?.id) throw new Error('Unable to reject member.')
-    },
-    onMutate: (profileId) => {
+  const rejectMutation = api.members.reject.useMutation({
+    onMutate: ({ profileId }) => {
       setRejectingId(profileId)
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] }),
-        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending-count'] }),
-      ])
+      if (activeCommunityId) {
+        await Promise.all([
+          utils.members.pending.invalidate({ communityId: activeCommunityId }),
+          utils.members.pendingCount.invalidate({ communityId: activeCommunityId }),
+        ])
+      }
       toast.show('Application rejected')
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast.show('Unable to reject member', { message: error.message })
     },
     onSettled: () => {
@@ -241,7 +209,10 @@ export const MemberApprovalsScreen = ({
                     {
                       text: 'Reject',
                       style: 'destructive',
-                      onPress: () => rejectMutation.mutate(member.id),
+                      onPress: () => {
+                        if (!activeCommunityId) return
+                        rejectMutation.mutate({ communityId: activeCommunityId, profileId: member.id })
+                      },
                     },
                   ]
                 )
@@ -322,7 +293,8 @@ export const MemberApprovalsScreen = ({
                             icon={CheckCircle2}
                             onPress={() => {
                               closeMenu()
-                              approveMutation.mutate(member.id)
+                              if (!activeCommunityId) return
+                              approveMutation.mutate({ communityId: activeCommunityId, profileId: member.id })
                             }}
                             disabled={actionsDisabled}
                           >

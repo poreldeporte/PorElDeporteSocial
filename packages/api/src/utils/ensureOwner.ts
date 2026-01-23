@@ -3,11 +3,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@my/supabase/types'
 
-export const ensureOwner = async (supabase: SupabaseClient<Database>, userId: string) => {
+export const ensureOwner = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  communityId: string
+) => {
   const { data, error } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
+    .from('memberships')
+    .select('role, status')
+    .eq('profile_id', userId)
+    .eq('community_id', communityId)
     .maybeSingle()
 
   if (error) {
@@ -18,7 +23,7 @@ export const ensureOwner = async (supabase: SupabaseClient<Database>, userId: st
     })
   }
 
-  if (data?.role !== 'owner') {
+  if (!(data?.status === 'approved' && data?.role === 'owner')) {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'Only the founder can perform this action',

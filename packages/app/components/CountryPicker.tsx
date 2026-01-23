@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 
 import {
   Button,
@@ -32,6 +32,7 @@ type CountryPickerProps = {
   placeholder?: string
   popularCountries?: PhoneCountryOption['code'][]
   showLabel?: boolean
+  triggerProps?: Omit<ComponentProps<typeof Button>, 'onPress' | 'children'>
   triggerTextColor?: ColorTokens | string
   triggerIconColor?: ColorTokens | string
 }
@@ -48,6 +49,7 @@ export const CountryPicker = ({
   placeholder = 'Select country',
   popularCountries = DEFAULT_POPULAR_COUNTRIES,
   showLabel = true,
+  triggerProps,
   triggerTextColor,
   triggerIconColor,
 }: CountryPickerProps) => {
@@ -100,6 +102,7 @@ export const CountryPicker = ({
         width={isCountry ? '100%' : undefined}
         backgroundColor="transparent"
         pressStyle={{ opacity: 0.7 }}
+        {...triggerProps}
       >
         <XStack
           ai="center"

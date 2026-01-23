@@ -64,7 +64,7 @@ export const TimeListField = ({ name, label, helper }: TimeListFieldProps) => {
 
   return (
     <YStack gap="$2">
-      <Label theme="alt1" size="$3">
+      <Label color="$color12" size="$3">
         {label}
       </Label>
       {helper ? (

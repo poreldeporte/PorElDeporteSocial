@@ -1,14 +1,20 @@
 import { pedLogo } from 'app/assets'
 import { resolveBrandColor } from 'app/utils/brand'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 
 export const useBrand = () => {
-  const { data, isLoading } = api.community.branding.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000,
-  })
+  const { activeCommunityId, activeCommunity } = useActiveCommunity()
+  const { data, isLoading } = api.community.branding.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    {
+      enabled: Boolean(activeCommunityId),
+      staleTime: 5 * 60 * 1000,
+    }
+  )
 
-  const logoUrl = data?.logoUrl?.trim() ? data.logoUrl : null
-  const primaryColor = resolveBrandColor(data?.primaryColor ?? null)
+  const logoUrl = data?.logoUrl?.trim() ? data.logoUrl : activeCommunity?.logoUrl ?? null
+  const primaryColor = resolveBrandColor(data?.primaryColor ?? activeCommunity?.primaryColor ?? null)
   const logo = logoUrl ?? pedLogo
 
   return {

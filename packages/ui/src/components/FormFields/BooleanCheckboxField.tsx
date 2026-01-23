@@ -20,7 +20,7 @@ export const BooleanCheckboxField = (props: Pick<CheckboxProps, 'size' | 'native
       <Fieldset>
         <XStack gap="$4">
           {!!label && (
-            <Label theme="alt1" size={props.size || '$3'} htmlFor={id}>
+            <Label color="$color12" size={props.size || '$3'} htmlFor={id}>
               {label} {isOptional && `(Optional)`}
             </Label>
           )}

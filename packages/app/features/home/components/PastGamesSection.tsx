@@ -4,6 +4,7 @@ import { useLink } from 'solito/link'
 
 import type { GameListItem } from 'app/features/games/types'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime } from 'app/utils/useRealtimeSync'
 
 import { ViewAllPastGamesButton } from './ViewAllPastGamesButton'
@@ -13,8 +14,12 @@ type PastGamesSectionProps = {
 }
 
 export const PastGamesSection = ({ mode }: PastGamesSectionProps) => {
-  const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'past' })
-  useGamesListRealtime(true)
+  const { activeCommunityId } = useActiveCommunity()
+  const { data, isLoading, error, refetch } = api.games.list.useQuery(
+    { scope: 'past', communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
+  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
   const games = data ?? []
   const visibleGames = games
   const title = 'Recent games'

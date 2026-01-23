@@ -7,6 +7,7 @@ import { screenContentContainerStyle } from 'app/constants/layout'
 import { HistoryGameCard } from 'app/features/games/components/HistoryGameCard'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime } from 'app/utils/useRealtimeSync'
 
 type ScrollHeaderProps = {
@@ -17,8 +18,12 @@ type ScrollHeaderProps = {
 
 export const GameHistoryScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps = {}) => {
   const { primaryColor } = useBrand()
-  const { data, isLoading, error, refetch } = api.games.list.useQuery({ scope: 'past' })
-  useGamesListRealtime(true)
+  const { activeCommunityId } = useActiveCommunity()
+  const { data, isLoading, error, refetch } = api.games.list.useQuery(
+    { scope: 'past', communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
+  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
   const games = data ?? []
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer

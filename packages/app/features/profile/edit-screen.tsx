@@ -1,7 +1,6 @@
 import {
   Button,
   Card,
-  Checkbox,
   FieldError,
   Fieldset,
   FormWrapper,
@@ -20,19 +19,25 @@ import { Alert, type ScrollViewProps } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
+import { useThemeSetting } from 'app/provider/theme'
 import { CountryPicker } from 'app/components/CountryPicker'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
+import { SectionHeading } from 'app/components/SectionHeading'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { formatPhoneDisplay, getPhoneCountryOptions, parsePhoneToE164, type PhoneCountryOption } from 'app/utils/phone'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useUser } from 'app/utils/useUser'
 import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
-import { type ReactNode, useRef } from 'react'
+import { BrandStamp } from 'app/components/BrandStamp'
+import { InfoPopup } from 'app/components/InfoPopup'
+import { useAppRouter } from 'app/utils/useAppRouter'
+import { type ReactNode, useRef, useState } from 'react'
 import { createParam } from 'solito'
-import { useRouter } from 'solito/router'
 import { useController, useFormContext } from 'react-hook-form'
-import { Check as CheckIcon } from '@tamagui/lucide-icons'
+import { LinearGradient } from '@tamagui/linear-gradient'
+import { HelpCircle } from '@tamagui/lucide-icons'
 
 import { api } from '../../utils/api'
 import {
@@ -46,6 +51,7 @@ import {
   POSITION_OPTIONS,
   type ProfileUpdateFieldValues,
 } from './profile-field-schema'
+import { StatePicker } from './state-picker'
 
 const { useParams } = createParam<{ edit_name?: '1' }>()
 export const EditProfileScreen = (props: ScrollHeaderProps) => {
@@ -59,6 +65,7 @@ type ProfileFormScreenProps = {
   onComplete?: () => void
   showStatusBadge?: boolean
   floatingCta?: boolean
+  variant?: 'default' | 'immersive'
 }
 
 type ScrollHeaderProps = {
@@ -72,11 +79,11 @@ export const ProfileFormScreen = ({
   onComplete,
   showStatusBadge = true,
   floatingCta = false,
+  variant = 'default',
   scrollProps,
   headerSpacer,
   topInset,
 }: ProfileFormScreenProps & ScrollHeaderProps) => {
-  const { primaryColor } = useBrand()
   const { profile, user } = useUser()
 
   if (!profile || !user?.id) {
@@ -97,6 +104,7 @@ export const ProfileFormScreen = ({
       showStatusBadge={showStatusBadge}
       onComplete={onComplete}
       floatingCta={floatingCta}
+      variant={variant}
       scrollProps={scrollProps}
       headerSpacer={headerSpacer}
     />
@@ -113,6 +121,7 @@ const EditProfileForm = ({
   onComplete,
   floatingCta = false,
   showBrandAccent = false,
+  variant = 'default',
   scrollProps,
   headerSpacer,
   topSection,
@@ -126,17 +135,26 @@ const EditProfileForm = ({
   onComplete?: () => void
   floatingCta?: boolean
   showBrandAccent?: boolean
+  variant?: 'default' | 'immersive'
   scrollProps?: ScrollViewProps
   headerSpacer?: ReactNode
   topSection?: ReactNode
 }) => {
   const { params } = useParams()
   const showFloatingCta = floatingCta && !isWeb
+  const isImmersive = variant === 'immersive'
+  const { primaryColor } = useBrand()
+  const { resolvedTheme } = useThemeSetting()
+  const isDark = resolvedTheme === 'dark'
+  const glassBackground = isDark ? 'rgba(9, 14, 20, 0.72)' : 'rgba(255, 255, 255, 0.82)'
   const submitRef = useRef<(() => void) | null>(null)
+  const [profileInfoOpen, setProfileInfoOpen] = useState(false)
+  const [playerInfoOpen, setPlayerInfoOpen] = useState(false)
+  const [locationInfoOpen, setLocationInfoOpen] = useState(false)
   const supabase = useSupabase()
   const toast = useToastController()
   const queryClient = useQueryClient()
-  const router = useRouter()
+  const router = useAppRouter()
   const apiUtils = api.useUtils()
   const mutation = useMutation({
     async mutationFn(data: ProfileUpdateFieldValues) {
@@ -153,6 +171,8 @@ const EditProfileForm = ({
           email: data.email.trim(),
           phone: normalizedPhone ?? data.phone.trim(),
           address: data.address?.trim() || null,
+          city: data.city.trim(),
+          state: data.state.trim().toUpperCase(),
           nationality: data.nationality?.trim() || null,
           name: `${data.firstName} ${data.lastName}`.trim(),
           birth_date: birthDate,
@@ -199,7 +219,24 @@ const EditProfileForm = ({
   const mergedScrollProps = {
     ...scrollProps,
     contentInsetAdjustmentBehavior: 'never',
+    automaticallyAdjustKeyboardInsets: true,
+    keyboardDismissMode: 'on-drag',
   }
+  const profileInfoBullets = [
+    'Your name appears on your player card.',
+    'Email is used for invites and updates.',
+    'Phone is verified and can only be changed by an admin.',
+  ]
+  const playerInfoBullets = [
+    'Select every position you play.',
+    'Birth date is used for eligibility and birthdays.',
+    'Jersey number helps teammates identify you.',
+  ]
+  const locationInfoBullets = [
+    'Add your street address, city, and state.',
+    'Shown on your player card.',
+    'Keep it current if you move.',
+  ]
   const handleSubmit = () => submitRef.current?.()
   const renderAfter = showFloatingCta
     ? ({ submit }: { submit: () => void }) => {
@@ -216,8 +253,220 @@ const EditProfileForm = ({
         </Theme>
       )
 
+  const renderHeader = () => (
+    <YStack ai="center" gap="$3" mb="$3">
+      {isImmersive ? (
+        <YStack ai="center" gap="$2">
+          <YStack position="relative" ai="center" jc="center">
+            <YStack
+              position="absolute"
+              width={210}
+              height={210}
+              br={999}
+              bg={primaryColor}
+              opacity={0.18}
+              style={isWeb ? { filter: 'blur(40px)' } : undefined}
+            />
+            <UploadAvatar
+              profileId={userId}
+              avatarUrl={avatarUrl}
+              onComplete={handleAvatarUpdated}
+            >
+              <LinearGradient
+                colors={
+                  isDark
+                    ? ['rgba(255,120,48,0.6)', 'rgba(7,12,20,0.9)']
+                    : ['rgba(255,120,48,0.35)', 'rgba(255,255,255,0.95)']
+                }
+                start={[0.1, 0.1]}
+                end={[1, 1]}
+                br={999}
+                p="$1.5"
+              >
+                <YStack
+                  br={999}
+                  p="$1.5"
+                  bg={isDark ? 'rgba(6,10,16,0.9)' : '$color1'}
+                  shadowColor={primaryColor}
+                  shadowOpacity={0.35}
+                  shadowRadius={24}
+                  elevation={10}
+                >
+                  <UserAvatar size={136} name={displayName} avatarUrl={avatarUrl} />
+                </YStack>
+              </LinearGradient>
+            </UploadAvatar>
+          </YStack>
+          <SizableText size="$7" fontWeight="700" textAlign="center">
+            Your Player Card
+          </SizableText>
+          {showStatusBadge ? <StatusBadge label={statusLabel} /> : null}
+          <Paragraph color="$color12" size="$3" textAlign="center">
+            The essentials for lineups, access, and stats.
+          </Paragraph>
+          {showBrandAccent || isImmersive ? (
+            <YStack h={2} w={64} br={999} bg={primaryColor} />
+          ) : null}
+          <Paragraph
+            color="$color12"
+            size="$2"
+            textTransform="uppercase"
+            letterSpacing={1.5}
+            mt="$2"
+          >
+            Set up profile
+          </Paragraph>
+        </YStack>
+      ) : (
+        <YStack ai="center" gap="$2">
+          <UploadAvatar
+            profileId={userId}
+            avatarUrl={avatarUrl}
+            onComplete={handleAvatarUpdated}
+          >
+            <UserAvatar size={128} name={displayName} avatarUrl={avatarUrl} />
+          </UploadAvatar>
+          <SizableText size="$7" fontWeight="700" textAlign="center">
+            Your Player Card
+          </SizableText>
+          {showStatusBadge ? <StatusBadge label={statusLabel} /> : null}
+          <Paragraph color="$color12" size="$2" textAlign="center">
+            The essentials for lineups, access, and stats.
+          </Paragraph>
+          {showBrandAccent ? <YStack h={2} w={56} br={999} bg={primaryColor} /> : null}
+          <Paragraph
+            color="$color12"
+            size="$2"
+            textTransform="uppercase"
+            letterSpacing={1.5}
+            mt="$2"
+          >
+            Set up profile
+          </Paragraph>
+        </YStack>
+      )}
+    </YStack>
+  )
+
+  const SectionPanel = ({
+    title,
+    description,
+    onInfoPress,
+    infoLabel,
+    children,
+  }: {
+    title: string
+    description: string
+    onInfoPress?: () => void
+    infoLabel?: string
+    children: ReactNode
+  }) =>
+    isImmersive ? (
+      <YStack
+        borderWidth={1}
+        borderColor="$color12"
+        borderRadius={20}
+        p={0}
+        bg={glassBackground}
+        overflow="hidden"
+        shadowColor={isDark ? '#00000066' : '#00000022'}
+        shadowOpacity={0.18}
+        shadowRadius={18}
+        elevation={6}
+        style={isWeb ? { backdropFilter: 'blur(14px)' } : undefined}
+      >
+        <Theme inverse>
+          <YStack
+            p="$4"
+            gap="$1"
+            borderBottomWidth={1}
+            borderBottomColor="$color12"
+            backgroundColor="$color1"
+          >
+            <XStack ai="center" jc="space-between" gap="$2">
+              <SectionHeading>{title}</SectionHeading>
+              {onInfoPress ? (
+                <Button
+                  chromeless
+                  size="$2"
+                  p="$1"
+                  onPress={onInfoPress}
+                  aria-label={infoLabel ?? `${title} info`}
+                  pressStyle={{ opacity: 0.7 }}
+                >
+                  <Button.Icon>
+                    <HelpCircle size={18} color="$color12" />
+                  </Button.Icon>
+                </Button>
+              ) : null}
+            </XStack>
+            <Paragraph color="$color12" size="$2">
+              {description}
+            </Paragraph>
+          </YStack>
+        </Theme>
+        <YStack p="$4" gap="$3" backgroundColor="$color1">
+          {children}
+        </YStack>
+      </YStack>
+    ) : (
+      <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
+        <Theme inverse>
+          <YStack
+            p="$4"
+            gap="$1"
+            borderBottomWidth={1}
+            borderBottomColor="$color12"
+            backgroundColor="$color1"
+          >
+            <XStack ai="center" jc="space-between" gap="$2">
+              <SectionHeading>{title}</SectionHeading>
+              {onInfoPress ? (
+                <Button
+                  chromeless
+                  size="$2"
+                  p="$1"
+                  onPress={onInfoPress}
+                  aria-label={infoLabel ?? `${title} info`}
+                  pressStyle={{ opacity: 0.7 }}
+                >
+                  <Button.Icon>
+                    <HelpCircle size={18} color="$color12" />
+                  </Button.Icon>
+                </Button>
+              ) : null}
+            </XStack>
+            <Paragraph color="$color12" size="$2">
+              {description}
+            </Paragraph>
+          </YStack>
+        </Theme>
+        <YStack p="$4" gap="$3" backgroundColor="$color1">
+          {children}
+        </YStack>
+      </Card>
+    )
+
   return (
-    <FormWrapper jc="flex-start">
+    <YStack f={1} position="relative" bg="$color1">
+      {isImmersive ? (
+        <LinearGradient
+          colors={
+            isDark
+              ? ['rgba(255,120,48,0.35)', 'rgba(6,10,16,0.96)']
+              : ['rgba(255,120,48,0.2)', 'rgba(255,255,255,0.95)']
+          }
+          start={[0, 0]}
+          end={[1, 1]}
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          pointerEvents="none"
+        />
+      ) : null}
+      <FormWrapper jc="flex-start" zIndex={1} bg="transparent">
       <SchemaForm
         bare
         schema={ProfileSchema}
@@ -228,7 +477,17 @@ const EditProfileForm = ({
           phone: {
             inputMode: 'tel',
             disabled: true,
+            bg: '$white1',
+            borderColor: '$color8',
+            color: '$color10',
+            opacity: 0.7,
           } as any,
+          address: {
+            autoCapitalize: 'words',
+          },
+          city: {
+            autoCapitalize: 'words',
+          },
         }}
         defaultValues={{
           firstName: initial.firstName,
@@ -236,6 +495,8 @@ const EditProfileForm = ({
           email: initial.email,
           phone: initial.phone,
           address: initial.address,
+          city: initial.city,
+          state: initial.state,
           nationality: initial.nationality,
           birthDate: initial.birthDate,
           jerseyNumber: initial.jerseyNumber,
@@ -254,98 +515,97 @@ const EditProfileForm = ({
               scrollProps={mergedScrollProps}
             >
               {headerSpacer}
-              <YStack ai="center" gap="$2" mb="$2">
-                <UploadAvatar
-                  profileId={userId}
-                  avatarUrl={avatarUrl}
-                  onComplete={handleAvatarUpdated}
-                >
-                  <UserAvatar size={128} name={displayName} avatarUrl={avatarUrl} />
-                </UploadAvatar>
-                <SizableText size="$7" fontWeight="700" textAlign="center">
-                  {displayName}
-                </SizableText>
-                {showStatusBadge ? <StatusBadge label={statusLabel} /> : null}
-                <Paragraph theme="alt2" size="$2" textAlign="center">
-                  Private club details for lineups and access.
-                </Paragraph>
-                {showBrandAccent ? (
-                  <YStack h={2} w={56} br={999} bg={primaryColor} />
-                ) : null}
-              </YStack>
+              {renderHeader()}
               <YStack gap="$4">
                 {topSection}
-                <Card bordered bw={1} boc="$color12" br="$5" p="$4">
-                  <YStack gap="$3">
-                    <YStack gap="$1">
-                      <SizableText size="$5" fontWeight="700" textTransform="uppercase">
-                        Identity
-                      </SizableText>
-                      <Paragraph theme="alt2" size="$2">
-                        Keep this aligned with your membership details.
-                      </Paragraph>
-                    </YStack>
-                    <XStack gap="$3" $sm={{ fd: 'column' }}>
-                      <YStack f={1}>{fields.firstName}</YStack>
-                      <YStack f={1}>{fields.lastName}</YStack>
-                    </XStack>
-                    <YStack gap="$1">
-                      {fields.email}
-                      <Paragraph theme="alt2" size="$2">
-                        Used for member updates and scheduling.
-                      </Paragraph>
-                    </YStack>
-                    <YStack gap="$1">
-                      {fields.phone}
-                      <Paragraph theme="alt2" size="$2">
-                        Verified via SMS. Contact the club to change it.
-                      </Paragraph>
-                    </YStack>
-                    <NationalityField />
+                <SectionPanel
+                  title="1. Profile"
+                  description="Your name, your identity — show up the right way."
+                  onInfoPress={() => setProfileInfoOpen(true)}
+                  infoLabel="Profile info"
+                >
+                  <XStack gap="$3">
+                    <YStack f={1}>{fields.firstName}</YStack>
+                    <YStack f={1}>{fields.lastName}</YStack>
+                  </XStack>
+                  <YStack gap="$1">
+                    {fields.email}
+                    <Paragraph color="$color12" size="$2">
+                      For invites and updates.
+                    </Paragraph>
                   </YStack>
-                </Card>
-                <Card bordered bw={1} boc="$color12" br="$5" p="$4">
-                  <YStack gap="$3">
-                    <YStack gap="$1">
-                      <SizableText size="$5" fontWeight="700" textTransform="uppercase">
-                        Player details
-                      </SizableText>
-                      <Paragraph theme="alt2" size="$2">
-                        This helps us balance teams and matchups.
-                      </Paragraph>
-                    </YStack>
-                    <PositionCheckboxes />
-                    <XStack gap="$3" $sm={{ fd: 'column' }}>
-                      <YStack f={1} gap="$1">
-                        {fields.jerseyNumber}
-                        <Paragraph theme="alt2" size="$2">
-                          1-99. Match your kit number.
-                        </Paragraph>
-                      </YStack>
-                      <YStack f={1} gap="$1">
-                        {fields.birthDate}
-                        <Paragraph theme="alt2" size="$2">
-                          Used for birthdays and eligibility.
-                        </Paragraph>
-                      </YStack>
-                    </XStack>
+                  <YStack gap="$1">
+                    {fields.phone}
+                    <Paragraph color="$color12" size="$2">
+                      Verified. Ask an admin to change.
+                    </Paragraph>
                   </YStack>
-                </Card>
-                <Card bordered bw={1} boc="$color12" br="$5" p="$4">
-                  <YStack gap="$3">
-                    <YStack gap="$1">
-                      <SizableText size="$5" fontWeight="700" textTransform="uppercase">
-                        Location
-                      </SizableText>
-                      <Paragraph theme="alt2" size="$2">
-                        Optional for local game planning.
+                </SectionPanel>
+                <SectionPanel
+                  title="2. Player"
+                  description="Roles, number, and eligibility — your on-field stamp."
+                  onInfoPress={() => setPlayerInfoOpen(true)}
+                  infoLabel="Player info"
+                >
+                  <PositionCheckboxes />
+                  <NationalityField />
+                  <XStack gap="$3" $sm={{ fd: 'column' }}>
+                    <YStack f={1} gap="$1">
+                      {fields.jerseyNumber}
+                      <Paragraph color="$color12" size="$2">
+                        1-99. Match your kit.
                       </Paragraph>
                     </YStack>
+                    <YStack f={1} gap="$1">
+                      {fields.birthDate}
+                      <Paragraph color="$color12" size="$2">
+                        Used for eligibility and birthdays.
+                      </Paragraph>
+                    </YStack>
+                  </XStack>
+                </SectionPanel>
+                <SectionPanel
+                  title="3. Location"
+                  description="Represent your city."
+                  onInfoPress={() => setLocationInfoOpen(true)}
+                  infoLabel="Location info"
+                >
+                  <YStack gap="$3">
                     {fields.address}
+                    <XStack gap="$3">
+                      <YStack f={1}>{fields.city}</YStack>
+                      <YStack f={1}>
+                        <StateField />
+                      </YStack>
+                    </XStack>
                   </YStack>
-                </Card>
+                </SectionPanel>
+                {isImmersive ? <BrandStamp size={84} /> : null}
               </YStack>
             </FormWrapper.Body>
+            <InfoPopup
+              open={profileInfoOpen}
+              onOpenChange={setProfileInfoOpen}
+              title="Profile"
+              description="These details define how you appear to the community."
+              bullets={profileInfoBullets}
+              footer="Keep them accurate so teammates can reach you."
+            />
+            <InfoPopup
+              open={playerInfoOpen}
+              onOpenChange={setPlayerInfoOpen}
+              title="Player"
+              description="Your on-field identity for lineups and rosters."
+              bullets={playerInfoBullets}
+              footer="Update anytime as your role changes."
+            />
+            <InfoPopup
+              open={locationInfoOpen}
+              onOpenChange={setLocationInfoOpen}
+              title="Location"
+              description="Where you represent the community."
+              bullets={locationInfoBullets}
+            />
             {showFloatingCta ? (
               <FloatingSubmitBar
                 label={mutation.isPending ? 'Saving…' : submitLabel}
@@ -356,7 +616,8 @@ const EditProfileForm = ({
           </>
         )}
       </SchemaForm>
-    </FormWrapper>
+      </FormWrapper>
+    </YStack>
   )
 }
 
@@ -388,6 +649,8 @@ type ProfileRow = {
   email: string | null
   phone: string | null
   address: string | null
+  city: string | null
+  state: string | null
   nationality: string | null
   birth_date: string | null
   jersey_number: number | null
@@ -400,6 +663,8 @@ type ProfileFormInitial = {
   email: string
   phone: string
   address?: string
+  city: string
+  state: string
   nationality: string
   birthDate: BirthDateParts
   jerseyNumber?: number
@@ -418,6 +683,8 @@ const buildProfileFormInitial = (
     email: profile.email ?? user?.email ?? '',
     phone,
     address: profile.address ?? '',
+    city: profile.city ?? '',
+    state: profile.state ?? '',
     nationality: profile.nationality ?? '',
     birthDate: parseBirthDateParts(profile.birth_date) ?? emptyBirthDateParts(),
     jerseyNumber: profile.jersey_number ?? undefined,
@@ -434,7 +701,7 @@ const buildProfileDisplayName = (initial: ProfileFormInitial) => {
 
 const buildProfileStatusLabel = (status: 'draft' | 'pending' | 'approved' | 'rejected') => {
   if (status === 'approved') return 'Membership Active'
-  if (status === 'draft') return 'Setup incomplete'
+  if (status === 'draft') return 'Setup needed'
   if (status === 'rejected') return 'Application not approved'
   return 'Review pending'
 }
@@ -471,17 +738,19 @@ export const AdminProfileEditScreen = ({
   topInset,
 }: { profileId: string } & ScrollHeaderProps) => {
   const { isAdmin, isOwner, isLoading } = useUser()
+  const { activeCommunityId } = useActiveCommunity()
   const supabase = useSupabase()
-  const router = useRouter()
+  const router = useAppRouter()
   const toast = useToastController()
   const queryClient = useQueryClient()
+  const utils = api.useUtils()
   const profileQuery = useQuery({
     queryKey: ['profile', profileId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, avatar_url, first_name, last_name, email, phone, address, nationality, birth_date, jersey_number, position, approval_status, role'
+          'id, avatar_url, first_name, last_name, email, phone, address, city, state, nationality, birth_date, jersey_number, position, approval_status'
         )
         .eq('id', profileId)
         .single()
@@ -490,12 +759,22 @@ export const AdminProfileEditScreen = ({
     },
     enabled: isAdmin && !isLoading && !!profileId,
   })
+  const membershipQuery = api.members.list.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: isAdmin && !isLoading && Boolean(activeCommunityId) }
+  )
+  const membership = membershipQuery.data?.find((member) => member.id === profileId) ?? null
+  const membershipRole = membership?.role ?? 'member'
   const updateRoleMutation = api.members.updateRole.useMutation({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['profile', profileId] }),
-        queryClient.invalidateQueries({ queryKey: ['members', 'approved'] }),
-        queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending'] }),
+        activeCommunityId
+          ? utils.members.list.invalidate({ communityId: activeCommunityId })
+          : Promise.resolve(),
+        activeCommunityId
+          ? utils.members.pending.invalidate({ communityId: activeCommunityId })
+          : Promise.resolve(),
       ])
       toast.show('Role updated')
     },
@@ -518,7 +797,7 @@ export const AdminProfileEditScreen = ({
         <SizableText size="$6" fontWeight="700">
           Admin access only
         </SizableText>
-        <Paragraph theme="alt2" textAlign="center">
+        <Paragraph color="$color12" textAlign="center">
           Talk to a club steward if you need approval access.
         </Paragraph>
       </YStack>
@@ -536,7 +815,7 @@ export const AdminProfileEditScreen = ({
   if (profileQuery.isError || !profileQuery.data) {
     return (
       <YStack f={1} ai="center" jc="center" px="$4" gap="$3" pt={topInset ?? 0}>
-        <Paragraph theme="alt2">
+        <Paragraph color="$color12">
           {profileQuery.isError ? 'Unable to load this member.' : 'Member not found.'}
         </Paragraph>
         <XStack gap="$2">
@@ -556,7 +835,7 @@ export const AdminProfileEditScreen = ({
     email: profileQuery.data.email,
     phone: profileQuery.data.phone,
   })
-  const roleLabel = formatRoleLabel(profileQuery.data.role)
+  const roleLabel = formatRoleLabel(membershipRole)
   const canUpdateRole = isOwner
 
   const handleRoleChange = () => {
@@ -565,22 +844,22 @@ export const AdminProfileEditScreen = ({
       {
         text: 'Owner',
         onPress: () => {
-          if (profileQuery.data.role === 'owner') return
-          updateRoleMutation.mutate({ profileId, role: 'owner' })
+          if (membershipRole === 'owner' || !activeCommunityId) return
+          updateRoleMutation.mutate({ communityId: activeCommunityId, profileId, role: 'owner' })
         },
       },
       {
         text: 'Admin',
         onPress: () => {
-          if (profileQuery.data.role === 'admin') return
-          updateRoleMutation.mutate({ profileId, role: 'admin' })
+          if (membershipRole === 'admin' || !activeCommunityId) return
+          updateRoleMutation.mutate({ communityId: activeCommunityId, profileId, role: 'admin' })
         },
       },
       {
         text: 'Member',
         onPress: () => {
-          if (profileQuery.data.role === 'member') return
-          updateRoleMutation.mutate({ profileId, role: 'member' })
+          if (membershipRole === 'member' || !activeCommunityId) return
+          updateRoleMutation.mutate({ communityId: activeCommunityId, profileId, role: 'member' })
         },
       },
       { text: 'Cancel', style: 'cancel' },
@@ -594,7 +873,7 @@ export const AdminProfileEditScreen = ({
           <SizableText size="$5" fontWeight="700">
             Role
           </SizableText>
-          <Paragraph theme="alt2" size="$2">
+          <Paragraph color="$color12" size="$2">
             Controls who can manage games, rosters, and approvals.
           </Paragraph>
         </YStack>
@@ -614,7 +893,7 @@ export const AdminProfileEditScreen = ({
           ) : null}
         </XStack>
         {!canUpdateRole ? (
-          <Paragraph theme="alt2" size="$2">
+          <Paragraph color="$color12" size="$2">
             Only owners can change roles.
           </Paragraph>
         ) : null}
@@ -652,18 +931,11 @@ const NationalityField = () => {
 
   return (
     <Theme name={errorMessage ? 'red' : null} forceClassName>
-      <Fieldset gap="$2">
-        <Label theme="alt1" size="$3">
-          Nationality (Optional)
+      <Fieldset>
+        <Label color="$color12" size="$3">
+          Nationality
         </Label>
-        <YStack
-          borderWidth={1}
-          borderColor="$borderColor"
-          borderRadius={12}
-          backgroundColor="$background"
-          px="$3"
-          py="$2"
-        >
+        <YStack borderWidth={1} borderColor="$color12" borderRadius={12} backgroundColor="$white1">
           <CountryPicker
             value={value}
             onChange={(code) => field.onChange(code)}
@@ -674,6 +946,38 @@ const NationalityField = () => {
             title="Select nationality"
             placeholder="Select country"
             popularCountries={['US', 'AR', 'BR', 'GB', 'DE', 'ES']}
+            triggerProps={{ px: '$3', py: '$3', minHeight: 48 }}
+          />
+        </YStack>
+        <FieldError message={errorMessage} />
+      </Fieldset>
+    </Theme>
+  )
+}
+
+const StateField = () => {
+  const { control, formState } = useFormContext<ProfileUpdateFieldValues>()
+  const { field, fieldState } = useController({ control, name: 'state' })
+  const errorMessage = fieldState.error?.message
+  const value = typeof field.value === 'string' ? field.value : ''
+  const triggerTextColor = value ? '$color12' : '$color10'
+
+  return (
+    <Theme name={errorMessage ? 'red' : null} forceClassName>
+      <Fieldset>
+        <Label color="$color12" size="$3">
+          State
+        </Label>
+        <YStack borderWidth={1} borderColor="$color12" borderRadius={12} backgroundColor="$white1">
+          <StatePicker
+            value={value || null}
+            onChange={(code) => field.onChange(code)}
+            disabled={formState.isSubmitting}
+            placeholder="Select state"
+            title="Select state"
+            triggerTextColor={triggerTextColor}
+            triggerIconColor="$color12"
+            triggerProps={{ px: '$3', py: '$3', minHeight: 48 }}
           />
         </YStack>
         <FieldError message={errorMessage} />
@@ -683,6 +987,7 @@ const NationalityField = () => {
 }
 
 const PositionCheckboxes = () => {
+  const { primaryColor } = useBrand()
   const {
     watch,
     setValue,
@@ -704,27 +1009,59 @@ const PositionCheckboxes = () => {
 
   return (
     <YStack gap="$2">
-      <Paragraph theme="alt2">Preferred positions</Paragraph>
-      <YStack gap="$2">
-        {POSITION_OPTIONS.map((option) => (
-          <XStack key={option} ai="center" gap="$2">
-            <Checkbox
-              checked={selected.includes(option)}
-              onCheckedChange={() => toggle(option)}
-              id={`position-edit-${option}`}
-              size="$3"
-            >
-              <Checkbox.Indicator>
-                <CheckIcon size={12} />
-              </Checkbox.Indicator>
-            </Checkbox>
-            <Label htmlFor={`position-edit-${option}`} onPress={() => toggle(option)}>
-              {option}
-            </Label>
-          </XStack>
-        ))}
+      <YStack gap="$0.5">
+        <Paragraph color="$color12">Positions</Paragraph>
+        <Paragraph color="$color12" size="$2">
+          Choose at least one.
+        </Paragraph>
       </YStack>
+      <XStack gap="$1.5" flexWrap="nowrap">
+        {POSITION_OPTIONS.map((option) => {
+          const isSelected = selected.includes(option)
+          const selectedText = isSelected ? getContrastColor(primaryColor) : '$color12'
+          return (
+            <XStack
+              key={option}
+              ai="center"
+              jc="center"
+              f={1}
+              minWidth={0}
+              px="$2"
+              py="$1"
+              br="$10"
+              borderWidth={1}
+              borderColor={isSelected ? primaryColor : '$color12'}
+              backgroundColor={isSelected ? primaryColor : 'transparent'}
+              pressStyle={{ opacity: 0.85 }}
+              hoverStyle={{ opacity: 0.9 }}
+              cursor="pointer"
+              onPress={() => toggle(option)}
+            >
+              <SizableText
+                size="$1"
+                fontWeight="600"
+                color={selectedText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                textAlign="center"
+              >
+                {option}
+              </SizableText>
+            </XStack>
+          )
+        })}
+      </XStack>
       <FieldError message={errorMessage} />
     </YStack>
   )
+}
+
+const getContrastColor = (color: string) => {
+  const hex = color.replace('#', '')
+  if (hex.length < 6) return '#FFFFFF'
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 160 ? '#0B0B0B' : '#FFFFFF'
 }

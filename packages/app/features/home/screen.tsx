@@ -21,6 +21,7 @@ import { SectionHeading } from 'app/components/SectionHeading'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import { useUser } from 'app/utils/useUser'
@@ -36,11 +37,15 @@ type ScrollHeaderProps = {
 
 export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) {
   const { user, isLoading, isAdmin } = useUser()
+  const { activeCommunityId } = useActiveCommunity()
   const { primaryColor } = useBrand()
   const { stats, isLoading: statsLoading } = useMyStats()
-  const gamesQuery = api.games.list.useQuery({ scope: 'upcoming' }, { enabled: Boolean(user) })
-  useGamesListRealtime(Boolean(user))
-  useStatsRealtime(Boolean(user))
+  const gamesQuery = api.games.list.useQuery(
+    { scope: 'upcoming', communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
+  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
+  useStatsRealtime(Boolean(activeCommunityId), activeCommunityId)
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
   const [dropGameId, setDropGameId] = useState<string | null>(null)

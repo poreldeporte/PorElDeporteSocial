@@ -37,6 +37,7 @@ import {
   captainBadge,
   ironmanBadge,
   legendBadge,
+  bannerPed,
   memberBadge,
   ownerBadge,
   playerBadge,
@@ -54,6 +55,7 @@ import type { GameListItem } from 'app/features/games/types'
 import { HistoryGameCard } from 'app/features/games/components/HistoryGameCard'
 import { useBrand } from 'app/provider/brand'
 import { emptyBirthDateParts, formatBirthDateParts, parseBirthDateParts } from 'app/utils/birthDate'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
@@ -81,6 +83,8 @@ type ProfileRow = {
   email: string | null
   phone: string | null
   address: string | null
+  city: string | null
+  state: string | null
   nationality: string | null
   birth_date: string | null
   jersey_number: number | null
@@ -176,6 +180,8 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
               email={data.profileEmail}
               phone={data.profile?.phone}
               address={data.profile?.address}
+              city={data.profile?.city}
+              state={data.profile?.state}
               nationality={data.profile?.nationality}
               birthDate={data.profile?.birth_date}
               jerseyNumber={data.profile?.jersey_number}
@@ -204,15 +210,25 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
 
 const useProfileData = () => {
   const { profile, avatarUrl, user, displayName, role, isAdmin } = useUser()
-  useGamesListRealtime(Boolean(user))
+  const { activeCommunityId } = useActiveCommunity()
+  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
   const historyLink = useLink({ href: '/games/history' })
-  const leaderboardQuery = api.stats.leaderboard.useQuery()
-  const historyQuery = api.games.list.useQuery({ scope: 'past' })
-  const communityQuery = api.community.defaults.useQuery(undefined, { enabled: Boolean(user) })
-  useStatsRealtime(Boolean(user), communityQuery.data?.id ?? null)
+  const leaderboardQuery = api.stats.leaderboard.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
+  const historyQuery = api.games.list.useQuery(
+    { scope: 'past', communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
+  const communityQuery = api.community.defaults.useQuery(
+    { communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
+  )
+  useStatsRealtime(Boolean(activeCommunityId), activeCommunityId)
   const ratingQuery = api.stats.myCommunityRating.useQuery(
-    { communityId: communityQuery.data?.id ?? '' },
-    { enabled: Boolean(communityQuery.data?.id) }
+    { communityId: activeCommunityId ?? '' },
+    { enabled: Boolean(activeCommunityId) }
   )
 
   const leaderboardEntry = useMemo(() => {
@@ -244,7 +260,7 @@ const useProfileData = () => {
     role,
     isAdmin,
     userId: user?.id ?? '',
-    communityId: communityQuery.data?.id ?? null,
+    communityId: activeCommunityId ?? null,
     communityBannerUrl: communityQuery.data?.bannerUrl ?? null,
     stats,
     performance,
@@ -309,6 +325,8 @@ const useProfileEditor = ({
         email: values.email.trim(),
         phone: values.phone.trim(),
         address: values.address.trim() || undefined,
+        city: values.city.trim(),
+        state: values.state.trim().toUpperCase(),
         nationality: values.nationality.trim(),
         birthDate: values.birthDate,
         jerseyNumber: Number(values.jerseyNumber),
@@ -332,6 +350,8 @@ const useProfileEditor = ({
           email: result.data.email,
           phone: normalizedPhone ?? result.data.phone,
           address: result.data.address?.trim() || null,
+          city: result.data.city.trim(),
+          state: result.data.state.trim().toUpperCase(),
           nationality: result.data.nationality?.trim() || null,
           name: `${result.data.firstName} ${result.data.lastName}`.trim(),
           birth_date: birthDate,
@@ -390,6 +410,8 @@ const buildProfileDraft = (
     email: profile?.email ?? user?.email ?? '',
     phone,
     address: profile?.address ?? '',
+    city: profile?.city ?? '',
+    state: profile?.state ?? '',
     nationality: profile?.nationality ?? '',
     birthDate: parseBirthDateParts(profile?.birth_date) ?? emptyBirthDateParts(),
     jerseyNumber: profile?.jersey_number ? String(profile.jersey_number) : '',
@@ -411,6 +433,8 @@ const isProfileDraftEqual = (next: ProfileDraft, prev: ProfileDraft) => {
   if (next.email !== prev.email) return false
   if (next.phone !== prev.phone) return false
   if (next.address !== prev.address) return false
+  if (next.city !== prev.city) return false
+  if (next.state !== prev.state) return false
   if (next.nationality !== prev.nationality) return false
   if (next.jerseyNumber !== prev.jerseyNumber) return false
   if (next.birthDate.month !== prev.birthDate.month) return false
@@ -450,7 +474,7 @@ const ProfileHero = ({
 }) => {
   const [ratingInfoOpen, setRatingInfoOpen] = useState(false)
   const phoneLabel = formatPhoneDisplay(phone) || 'Add phone'
-  const coverSource = coverImageUrl ? { uri: coverImageUrl } : null
+  const coverSource: ImageSourcePropType = coverImageUrl ? { uri: coverImageUrl } : bannerPed
 
   const bannerHeight = 180
   const avatarSize = 112
@@ -466,9 +490,7 @@ const ProfileHero = ({
 
   const bannerContent = (
     <YStack h={bannerHeight} w="100%" bg="$color3" position="relative" overflow="hidden">
-      {coverSource ? (
-        <Image source={coverSource} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-      ) : null}
+      <Image source={coverSource} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
     </YStack>
   )
 

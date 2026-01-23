@@ -6,7 +6,7 @@ import { api } from 'app/utils/api'
 import { loadPushToken, clearPushToken } from 'app/utils/notifications/pushToken'
 import { useSessionContext } from 'app/utils/supabase/useSessionContext'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
-import { useRouter } from 'solito/router'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 export type LogoutOptions = {
   userId?: string | null
@@ -61,7 +61,7 @@ export const useLogout = () => {
   const supabase = useSupabase()
   const { session } = useSessionContext()
   const queryClient = useQueryClient()
-  const router = useRouter()
+  const router = useAppRouter()
   const { mutateAsync: unregisterDevice } = api.notifications.unregisterDevice.useMutation()
   const redirectPath = Platform.OS === 'web' ? '/sign-in' : '/onboarding'
 

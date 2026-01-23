@@ -2,6 +2,7 @@ import { PenSquare, Star, X } from '@tamagui/lucide-icons'
 
 import { Button, Card, Paragraph, SizableText, useToastController, XStack, YStack } from '@my/ui/public'
 import { api } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useLink } from 'solito/link'
 
 import type { GameDetail } from '../types'
@@ -9,13 +10,21 @@ import type { GameDetail } from '../types'
 export const AdminPanel = ({ game }: { game: GameDetail }) => {
   const toast = useToastController()
   const utils = api.useContext()
+  const { activeCommunityId } = useActiveCommunity()
   const editLink = useLink({ href: `/games/${game.id}/edit` })
   const resultLink = useLink({ href: `/games/${game.id}/result` })
   const draftLink = useLink({ href: `/games/${game.id}/draft` })
   const reviewsLink = useLink({ href: `/games/${game.id}/reviews` })
+  const invalidateLists = async () => {
+    if (!activeCommunityId) return
+    await Promise.all([
+      utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+      utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+    ])
+  }
   const cancelMutation = api.games.cancel.useMutation({
     onSuccess: async () => {
-      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: game.id })])
+      await Promise.all([invalidateLists(), utils.games.byId.invalidate({ id: game.id })])
       toast.show('Game cancelled')
     },
     onError: (err) => toast.show('Unable to cancel game', { message: err.message }),

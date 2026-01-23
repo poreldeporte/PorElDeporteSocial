@@ -7,6 +7,7 @@ import { Instagram } from '@tamagui/lucide-icons'
 import { Link } from 'solito/link'
 import { useThemeSetting } from 'app/provider/theme'
 import { useBrand } from 'app/provider/brand'
+import { useCommunitySwitcher } from 'app/provider/community-switcher'
 
 const GREETING_TEMPLATES: Array<(name: string) => string> = [
   (name) => `Hello ${name}, ready to fuch?`,
@@ -31,6 +32,8 @@ type Particle = {
 
 export const HeroCard = () => {
   const { logo } = useBrand()
+  const communitySwitcher = useCommunitySwitcher()
+  const canOpenSwitcher = Boolean(communitySwitcher)
   const [crestVisible, setCrestVisible] = useState(false)
   const [copyVisible, setCopyVisible] = useState(false)
   const [glowShift, setGlowShift] = useState(0)
@@ -92,7 +95,21 @@ export const HeroCard = () => {
   }, [greeting])
 
   return (
-    <YStack br={32} p="$0.5" animation="verySlow" scale={1}>
+    <YStack
+      br={32}
+      p="$0.5"
+      animation="verySlow"
+      scale={1}
+      {...(canOpenSwitcher
+        ? {
+            onPress: () => communitySwitcher?.open(),
+            cursor: 'pointer',
+            pressStyle: { opacity: 0.95 },
+            accessibilityRole: 'button',
+            accessibilityLabel: 'Switch community',
+          }
+        : {})}
+    >
       <LinearGradient
         colors={
           isDark

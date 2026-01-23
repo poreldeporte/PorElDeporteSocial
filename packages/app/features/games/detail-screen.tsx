@@ -29,12 +29,12 @@ import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
-import { isProfileApproved } from 'app/utils/auth/profileApproval'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useRefreshOnFocus } from 'app/utils/react-query/useRefreshOnFocus'
 import { useQueueActions } from 'app/utils/useQueueActions'
-import { useRouter } from 'solito/router'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
 import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 import { useLink } from 'solito/link'
 
 import {
@@ -107,14 +107,15 @@ export const GameDetailScreen = ({
     { id: gameId },
     { enabled: !!gameId }
   )
-  const router = useRouter()
+  const router = useAppRouter()
   const toast = useToastController()
   const { primaryColor } = useBrand()
   const ctaButtonStyles = useCtaButtonStyles()
   const utils = api.useUtils()
+  const { activeCommunityId } = useActiveCommunity()
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
-  const { isAdmin, user, profile } = useUser()
+  const { isAdmin, membershipStatus, user } = useUser()
   const draftLink = useLink({ href: `/games/${gameId}/draft` })
   const resultLink = useLink({ href: `/games/${gameId}/result` })
   const [removingId, setRemovingId] = useState<string | null>(null)
@@ -133,10 +134,17 @@ export const GameDetailScreen = ({
   }, [])
 
   useRefreshOnFocus(refetch)
+  const invalidateLists = async () => {
+    if (!activeCommunityId) return
+    await Promise.all([
+      utils.games.list.invalidate({ scope: 'upcoming', communityId: activeCommunityId }),
+      utils.games.list.invalidate({ scope: 'past', communityId: activeCommunityId }),
+    ])
+  }
 
   const removeMutation = api.queue.removeMember.useMutation({
     onSuccess: async ({ gameId }) => {
-      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: gameId })])
+      await Promise.all([invalidateLists(), utils.games.byId.invalidate({ id: gameId })])
       toast.show('Player removed')
     },
     onError: (err) => toast.show('Unable to remove player', { message: err.message }),
@@ -144,7 +152,7 @@ export const GameDetailScreen = ({
   })
   const removeGuestMutation = api.queue.removeGuest.useMutation({
     onSuccess: async ({ gameId }) => {
-      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: gameId })])
+      await Promise.all([invalidateLists(), utils.games.byId.invalidate({ id: gameId })])
       toast.show('Guest removed')
     },
     onError: (err) => toast.show('Unable to remove guest', { message: err.message }),
@@ -152,7 +160,7 @@ export const GameDetailScreen = ({
   })
   const confirmAttendanceMutation = api.queue.markAttendanceConfirmed.useMutation({
     onSuccess: async () => {
-      await Promise.all([utils.games.list.invalidate(), utils.games.byId.invalidate({ id: gameId })])
+      await Promise.all([invalidateLists(), utils.games.byId.invalidate({ id: gameId })])
       toast.show('Attendance confirmed')
     },
     onError: (err) => toast.show('Unable to confirm attendance', { message: err.message }),
@@ -161,7 +169,7 @@ export const GameDetailScreen = ({
   const confirmGuestMutation = api.queue.confirmGuestAttendance.useMutation({
     onSuccess: async ({ gameId: resolvedGameId }) => {
       await Promise.all([
-        utils.games.list.invalidate(),
+        invalidateLists(),
         utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
       ])
       toast.show('Guest confirmed')
@@ -172,7 +180,7 @@ export const GameDetailScreen = ({
   const markNoShowMutation = api.queue.markNoShow.useMutation({
     onSuccess: async ({ gameId: resolvedGameId }, variables) => {
       await Promise.all([
-        utils.games.list.invalidate(),
+        invalidateLists(),
         utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
       ])
       toast.show(variables.isNoShow ? 'No-show flagged' : 'No-show cleared')
@@ -183,7 +191,7 @@ export const GameDetailScreen = ({
   const markTardyMutation = api.queue.markTardy.useMutation({
     onSuccess: async ({ gameId: resolvedGameId }, variables) => {
       await Promise.all([
-        utils.games.list.invalidate(),
+        invalidateLists(),
         utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
       ])
       toast.show(variables.isTardy ? 'Tardy flagged' : 'Tardy cleared')
@@ -194,7 +202,7 @@ export const GameDetailScreen = ({
   const markConfirmedMutation = api.queue.markConfirmed.useMutation({
     onSuccess: async ({ gameId: resolvedGameId }) => {
       await Promise.all([
-        utils.games.list.invalidate(),
+        invalidateLists(),
         utils.games.byId.invalidate({ id: resolvedGameId ?? gameId }),
       ])
       toast.show('Player confirmed')
@@ -218,7 +226,7 @@ export const GameDetailScreen = ({
   useGameRealtimeSync(data?.id)
 
   const canManage = !!data && isAdmin
-  const isApprovedMember = isProfileApproved(profile)
+  const isApprovedMember = membershipStatus === 'approved'
   const canAddGuest =
     !!data &&
     !view.isUnreleased &&

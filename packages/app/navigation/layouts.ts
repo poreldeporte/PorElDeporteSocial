@@ -50,7 +50,7 @@ const screenLayouts: Record<ScreenLayoutId, ScreenLayout> = {
   gameReviews: { id: 'gameReviews', title: 'Game Reviews' },
   profile: { id: 'profile', title: 'My Profile' },
   profileEdit: { id: 'profileEdit', title: 'Edit Profile' },
-  profileOnboarding: { id: 'profileOnboarding', title: 'Finish Setup' },
+  profileOnboarding: { id: 'profileOnboarding', title: 'Member Profile' },
   profileReview: { id: 'profileReview', title: 'Member Review' },
   leaderboard: { id: 'leaderboard', title: 'Leaderboard' },
   settings: { id: 'settings', title: 'Settings' },

@@ -24,6 +24,8 @@ const schemaFields = {
     .min(6, 'Password must be at least 6 characters')
     .describe(describeProfileField('password')),
   address: formFields.text.describe(describeProfileField('address')),
+  city: formFields.text.min(1, 'City is required').describe(describeProfileField('city')),
+  state: formFields.select.describe(describeProfileField('state')),
   nationality: formFields.text.optional().describe(describeProfileField('nationality')),
   birthDate: formFields.birthDate.describe(describeProfileField('birthDate')),
   jerseyNumber: formFields.number
@@ -47,6 +49,33 @@ const requirePositionSelection = <T extends { position: string[] }>(schema: z.Zo
     })
   })
 
+const applyProfileLocationRules = <T extends { city: string; state: string; position: string[] }>(
+  schema: z.ZodType<T>
+) =>
+  schema.superRefine((data, ctx) => {
+    if (!data.city?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['city'],
+        message: 'City is required',
+      })
+    }
+    if (!data.state?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['state'],
+        message: 'State is required',
+      })
+    }
+    if (data.position.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['position'],
+        message: 'Select at least one position',
+      })
+    }
+  })
+
 export const signUpFieldSchema = requirePositionSelection(z.object({
   firstName: schemaFields.firstName,
   lastName: schemaFields.lastName,
@@ -60,16 +89,20 @@ export const signUpFieldSchema = requirePositionSelection(z.object({
 
 export type SignUpFieldValues = z.infer<typeof signUpFieldSchema>
 
-export const profileUpdateFieldSchema = requirePositionSelection(z.object({
-  firstName: schemaFields.firstName,
-  lastName: schemaFields.lastName,
-  email: schemaFields.email,
-  phone: schemaFields.phone,
-  address: schemaFields.address.optional(),
-  nationality: schemaFields.nationality,
-  birthDate: schemaFields.birthDate,
-  jerseyNumber: schemaFields.jerseyNumber,
-  position: schemaFields.position,
-}))
+export const profileUpdateFieldSchema = applyProfileLocationRules(
+  z.object({
+    firstName: schemaFields.firstName,
+    lastName: schemaFields.lastName,
+    email: schemaFields.email,
+    phone: schemaFields.phone,
+    address: schemaFields.address.optional(),
+    city: schemaFields.city,
+    state: schemaFields.state,
+    nationality: schemaFields.nationality,
+    birthDate: schemaFields.birthDate,
+    jerseyNumber: schemaFields.jerseyNumber,
+    position: schemaFields.position,
+  })
+)
 
 export type ProfileUpdateFieldValues = z.infer<typeof profileUpdateFieldSchema>

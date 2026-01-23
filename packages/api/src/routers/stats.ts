@@ -5,7 +5,8 @@ import { supabaseAdmin } from '../supabase-admin'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 
 const leaderboardMetric = z.enum(['overall', 'wins', 'goal_diff', 'captain'])
-const communityRatingInput = z.object({ communityId: z.string().uuid() })
+const communityIdInput = z.object({ communityId: z.string().uuid() })
+const communityRatingInput = communityIdInput
 const profileCommunityRatingInput = communityRatingInput.extend({ profileId: z.string().uuid() })
 const DEFAULT_RATING = 1500
 
@@ -20,11 +21,16 @@ const toNumber = (value: unknown) => {
 
 export const statsRouter = createTRPCRouter({
   leaderboard: protectedProcedure
-    .input(z.object({ metric: leaderboardMetric }).optional())
+    .input(
+      communityIdInput.extend({
+        metric: leaderboardMetric.optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
-      const metric = input?.metric ?? 'overall'
+      const metric = input.metric ?? 'overall'
       const { data, error } = await (ctx.supabase as any).rpc('get_leaderboard_all_time', {
         p_metric: metric,
+        p_community_id: input.communityId,
       })
 
       if (error) {
@@ -67,9 +73,10 @@ export const statsRouter = createTRPCRouter({
       })
     }),
 
-  myStats: protectedProcedure.query(async ({ ctx }) => {
+  myStats: protectedProcedure.input(communityIdInput).query(async ({ ctx, input }) => {
     const { data, error } = await ctx.supabase.rpc('get_player_stats', {
       p_profile_id: ctx.user.id,
+      p_community_id: input.communityId,
     })
 
     if (error) {
@@ -112,6 +119,7 @@ export const statsRouter = createTRPCRouter({
         .select('id')
         .eq('community_id', input.communityId)
         .eq('profile_id', ctx.user.id)
+        .eq('status', 'approved')
         .maybeSingle()
 
       if (membershipError) {

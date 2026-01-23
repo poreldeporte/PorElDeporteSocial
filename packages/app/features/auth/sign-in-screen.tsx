@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Check as CheckIcon } from '@tamagui/lucide-icons'
 import { Controller, useForm } from 'react-hook-form'
 import { SolitoImage } from 'solito/image'
-import { useRouter } from 'solito/router'
 
 import {
   Button,
@@ -26,7 +25,6 @@ import { CountryPicker } from 'app/components/CountryPicker'
 import { UsPhoneMaskInput } from 'app/components/UsPhoneMaskInput'
 import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
-import { PROFILE_APPROVAL_FIELDS, isProfileApproved } from 'app/utils/auth/profileApproval'
 import { PROFILE_COMPLETION_FIELDS, isProfileComplete } from 'app/utils/auth/profileCompletion'
 import {
   formatPhoneDisplay,
@@ -39,6 +37,7 @@ import {
 import { usePathname } from 'app/utils/usePathname'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 const RESEND_SECONDS = 30
 const DEFAULT_COUNTRY: PhoneCountryOption['code'] = 'US'
@@ -58,7 +57,7 @@ type PhoneAuthScreenProps = {
 
 export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
   const supabase = useSupabase()
-  const router = useRouter()
+  const router = useAppRouter()
   const { isLoadingSession } = useUser()
   const { primaryColor } = useBrand()
   const pathname = usePathname()
@@ -223,6 +222,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
                     selectedCountry={selectedCountry}
                     options={countryOptions}
                     disabled={status !== 'idle'}
+                    primaryColor={primaryColor}
                   />
                 )}
               />
@@ -254,20 +254,21 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
                       if (status === 'idle') verifyCode(next)
                     }}
                     error={fieldState.error?.message}
-                      disabled={status !== 'idle'}
-                    />
-                  )}
-                />
+                    disabled={status !== 'idle'}
+                    primaryColor={primaryColor}
+                  />
+                )}
+              />
                 <Paragraph fontSize={13} theme="alt2" textAlign="center">
                   Code sent to {phoneDisplay}.
                 </Paragraph>
                 <YStack gap="$2" ai="center">
-                  <Button
-                    chromeless
-                    size="$2"
+                <Button
+                  chromeless
+                  size="$2"
                   onPress={resendCode}
                   disabled={resendSeconds > 0 || status !== 'idle'}
-                  color={resendSeconds > 0 ? '$color10' : PRIMARY_COLOR}
+                  color={resendSeconds > 0 ? '$color10' : primaryColor}
                 >
                   {resendSeconds > 0 ? `Resend code in ${resendSeconds}s` : 'Send new code'}
                 </Button>
@@ -275,7 +276,7 @@ export const PhoneAuthScreen = ({ title, subtitle }: PhoneAuthScreenProps) => {
                   <Paragraph fontSize={15} theme="alt2">
                     Not your number?
                   </Paragraph>
-                  <Button chromeless size="$2" onPress={resetToPhone} color={PRIMARY_COLOR}>
+                  <Button chromeless size="$2" onPress={resetToPhone} color={primaryColor}>
                     Edit number
                   </Button>
                 </XStack>
@@ -386,6 +387,7 @@ type PhoneInputFieldProps = {
   selectedCountry: PhoneCountryOption
   options: PhoneCountryOption[]
   disabled?: boolean
+  primaryColor: string
 }
 
 const PhoneInputField = ({
@@ -398,6 +400,7 @@ const PhoneInputField = ({
   selectedCountry,
   options,
   disabled,
+  primaryColor,
 }: PhoneInputFieldProps) => {
   const placeholder = formatPhoneInput('2015550123', country) || '2015550123'
 
@@ -436,7 +439,7 @@ const PhoneInputField = ({
               onBlur={onBlur}
               disabled={disabled}
               textProps={{ fontSize: 17, color: '$color' }}
-              inputProps={{ selectionColor: PRIMARY_COLOR, caretColor: PRIMARY_COLOR }}
+              inputProps={{ selectionColor: primaryColor, caretColor: primaryColor }}
             />
           ) : (
             <Input
@@ -451,8 +454,8 @@ const PhoneInputField = ({
               keyboardType="phone-pad"
               inputMode="numeric"
               maxLength={24}
-              selectionColor={PRIMARY_COLOR}
-              caretColor={PRIMARY_COLOR}
+              selectionColor={primaryColor}
+              caretColor={primaryColor}
               disabled={disabled}
               flex={1}
               fontSize={17}
@@ -485,9 +488,17 @@ type OtpInputFieldProps = {
   onComplete: (value: string) => void
   error?: string
   disabled?: boolean
+  primaryColor: string
 }
 
-const OtpInputField = ({ value, onChange, onComplete, error, disabled }: OtpInputFieldProps) => {
+const OtpInputField = ({
+  value,
+  onChange,
+  onComplete,
+  error,
+  disabled,
+  primaryColor,
+}: OtpInputFieldProps) => {
   const [focused, setFocused] = useState(false)
   const lastComplete = useRef<string | null>(null)
   const inputRef = useRef<{ focus?: () => void } | null>(null)
@@ -528,7 +539,7 @@ const OtpInputField = ({ value, onChange, onComplete, error, disabled }: OtpInpu
               height={56}
               borderRadius={12}
               borderWidth={isActive ? 2 : 1}
-              borderColor={isFilled || isActive ? PRIMARY_COLOR : '$borderColor'}
+              borderColor={isFilled || isActive ? primaryColor : '$borderColor'}
               alignItems="center"
               justifyContent="center"
               accessibilityLabel={`Code digit ${index + 1}`}
@@ -568,11 +579,17 @@ const OtpInputField = ({ value, onChange, onComplete, error, disabled }: OtpInpu
 const resolvePostAuthRoute = async (supabase: ReturnType<typeof useSupabase>, userId: string) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select(`${PROFILE_COMPLETION_FIELDS},${PROFILE_APPROVAL_FIELDS}`)
+    .select(PROFILE_COMPLETION_FIELDS)
     .eq('id', userId)
     .maybeSingle()
-  if (error || !data) return '/onboarding/profile'
-  if (!isProfileComplete(data)) return '/onboarding/profile'
-  if (!isProfileApproved(data)) return '/onboarding/review'
+  if (error || !data || !isProfileComplete(data)) return '/onboarding/profile'
+  const { data: approvedMembership, error: membershipError } = await supabase
+    .from('memberships')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'approved')
+    .limit(1)
+    .maybeSingle()
+  if (membershipError || !approvedMembership) return '/communities/join'
   return '/'
 }

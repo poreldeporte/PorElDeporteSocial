@@ -10,8 +10,11 @@ import {
 } from '@my/ui/public'
 import { ChevronLeft, Plus, ShoppingBag } from '@tamagui/lucide-icons'
 import { UserAvatar } from 'app/components/UserAvatar'
+import { CommunitySwitcherSheet } from 'app/features/community/community-switcher-sheet'
 import { getScreenLayout, type ScreenLayoutId } from 'app/navigation/layouts'
 import { getRoutesById, navRoutes, profileMenuRouteIds, webTabRouteIds } from 'app/navigation/routes'
+import { CommunitySwitcherProvider } from 'app/provider/community-switcher'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { usePathname } from 'app/utils/usePathname'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { useUser } from 'app/utils/useUser'
@@ -62,7 +65,12 @@ export const HomeLayout = ({
   const defaultLayout = getScreenLayout('tabsRoot')
   const activeLayout = layoutId ? getScreenLayout(layoutId) : defaultLayout
   const derivedTitle = pageTitle ?? activeLayout?.title ?? defaultLayout.title
-  const headerTitle = headerTitleByLayout[activeLayout.id] ?? derivedTitle
+  const { activeCommunity } = useActiveCommunity()
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const openCommunitySwitcher = () => setSwitcherOpen(true)
+  const baseTitle = headerTitleByLayout[activeLayout.id] ?? derivedTitle
+  const headerTitle =
+    activeLayout.id === 'tabsRoot' && activeCommunity?.name ? activeCommunity.name : baseTitle
   const pathname = usePathname()
   const layoutBackConfig = headerBackByLayout[activeLayout.id]
   const layoutBackHref =
@@ -70,29 +78,32 @@ export const HomeLayout = ({
   const derivedBackHref = backHref ?? layoutBackHref
   const { isAdmin } = useUser()
   return (
-    <YStack f={1} bg="$color1">
-      <Header
-        title={headerTitle}
-        backHref={derivedBackHref}
-        layoutId={activeLayout.id}
-        isAdmin={isAdmin}
-        headerRight={headerRight}
+    <CommunitySwitcherProvider onOpen={openCommunitySwitcher}>
+      <YStack f={1} bg="$color1">
+        <CommunitySwitcherSheet open={switcherOpen} onOpenChange={setSwitcherOpen} />
+        <Header
+          title={headerTitle}
+          backHref={derivedBackHref}
+          layoutId={activeLayout.id}
+          isAdmin={isAdmin}
+          headerRight={headerRight}
       />
-      <YStack
-        {...(fullPage && { flex: 1 })}
-        {...(padded && {
-          maw: 800,
-          mx: 'auto',
-          px: '$2',
-          w: '100%',
-        })}
-        pb={activeLayout.stickyCta === 'primary' ? '$13' : '$8'}
-        $gtSm={{ pb: 0 }}
-      >
-        {children}
+        <YStack
+          {...(fullPage && { flex: 1 })}
+          {...(padded && {
+            maw: 800,
+            mx: 'auto',
+            px: '$2',
+            w: '100%',
+          })}
+          pb={activeLayout.stickyCta === 'primary' ? '$13' : '$8'}
+          $gtSm={{ pb: 0 }}
+        >
+          {children}
+        </YStack>
+        <BottomNav reserveCtaSpace={activeLayout.stickyCta === 'primary'} />
       </YStack>
-      <BottomNav reserveCtaSpace={activeLayout.stickyCta === 'primary'} />
-    </YStack>
+    </CommunitySwitcherProvider>
   )
 }
 
@@ -176,7 +187,7 @@ const Header = ({
 }) => {
   const showBack = Boolean(backHref)
   const showCreate = layoutId === 'gamesList' && isAdmin
-  const showProfile = layoutId === 'leaderboard'
+  const showProfile = layoutId === 'tabsRoot' || layoutId === 'leaderboard'
   const { avatarUrl, displayName } = useUser()
   const LeftContent = () => {
     if (showBack) {

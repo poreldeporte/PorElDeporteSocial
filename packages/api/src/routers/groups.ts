@@ -8,6 +8,7 @@ import { notifyGuestNeedsConfirmation, notifyWaitlistPromoted } from '../service
 import { resetDraftForGame } from '../services/draft'
 
 const createGroupInput = z.object({
+  communityId: z.string().uuid(),
   name: z.string().trim().min(2, 'Group name is required'),
   memberIds: z.array(z.string().uuid()).default([]),
 })
@@ -18,6 +19,11 @@ const updateGroupInput = createGroupInput.extend({
 
 const groupIdInput = z.object({
   id: z.string().uuid(),
+  communityId: z.string().uuid(),
+})
+
+const communityInput = z.object({
+  communityId: z.string().uuid(),
 })
 
 type RpcResult = {
@@ -26,23 +32,6 @@ type RpcResult = {
   promoted_guest_queue_id?: string | null
 }
 
-const getDefaultCommunityId = async () => {
-  const { data, error } = await supabaseAdmin
-    .from('communities')
-    .select('id')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (error || !data?.id) {
-    throw new TRPCError({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: error?.message ?? 'Unable to load community.',
-    })
-  }
-
-  return data.id
-}
 
 const safelyNotify = async (action: () => Promise<void>) => {
   try {
@@ -165,14 +154,13 @@ const removeMembersFromUpcomingGroupGames = async ({
 }
 
 export const groupsRouter = createTRPCRouter({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+  list: protectedProcedure.input(communityInput).query(async ({ ctx, input }) => {
+    await ensureAdmin(ctx.supabase, ctx.user.id, input.communityId)
 
-    const communityId = await getDefaultCommunityId()
     const { data, error } = await supabaseAdmin
       .from('community_groups')
       .select('id, name, created_at')
-      .eq('community_id', communityId)
+      .eq('community_id', input.communityId)
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -206,7 +194,7 @@ export const groupsRouter = createTRPCRouter({
   }),
 
   byId: protectedProcedure.input(groupIdInput).query(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, input.communityId)
 
     const { data: group, error: groupError } = await supabaseAdmin
       .from('community_groups')
@@ -219,6 +207,9 @@ export const groupsRouter = createTRPCRouter({
     }
 
     if (!group) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' })
+    }
+    if (group.community_id !== input.communityId) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' })
     }
 
@@ -240,9 +231,9 @@ export const groupsRouter = createTRPCRouter({
   }),
 
   create: protectedProcedure.input(createGroupInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, input.communityId)
 
-    const communityId = await getDefaultCommunityId()
+    const communityId = input.communityId
     const name = input.name.trim()
     const memberIds = Array.from(new Set(input.memberIds))
 
@@ -281,11 +272,11 @@ export const groupsRouter = createTRPCRouter({
   }),
 
   update: protectedProcedure.input(updateGroupInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, input.communityId)
 
     const { data: group, error: groupError } = await supabaseAdmin
       .from('community_groups')
-      .select('id')
+      .select('id, community_id')
       .eq('id', input.id)
       .maybeSingle()
 
@@ -293,6 +284,9 @@ export const groupsRouter = createTRPCRouter({
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: groupError.message })
     }
     if (!group) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' })
+    }
+    if (group.community_id !== input.communityId) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' })
     }
 

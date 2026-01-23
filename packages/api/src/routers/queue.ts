@@ -154,10 +154,20 @@ const fetchDraftStatus = async (supabase: SupabaseClient<Database>, gameId: stri
   return data?.draft_status ?? null
 }
 
-const isUserAdmin = async (supabase: SupabaseClient<Database>, userId: string) => {
-  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+const isUserAdmin = async (
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  communityId: string
+) => {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('role, status')
+    .eq('profile_id', userId)
+    .eq('community_id', communityId)
+    .maybeSingle()
+
   if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
-  return data?.role === 'admin' || data?.role === 'owner'
+  return data?.status === 'approved' && (data?.role === 'admin' || data?.role === 'owner')
 }
 
 const resetDraftIfNeeded = async ({
@@ -206,6 +216,19 @@ const fetchConfirmationRules = async (supabase: SupabaseClient<Database>, gameId
   }
 
   return data as ConfirmationRules
+}
+
+const fetchGameCommunityId = async (supabase: SupabaseClient<Database>, gameId: string) => {
+  const { data, error } = await supabase
+    .from('games')
+    .select('community_id')
+    .eq('id', gameId)
+    .maybeSingle()
+
+  if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+  if (!data?.community_id) throw new TRPCError({ code: 'NOT_FOUND', message: 'Game not found' })
+
+  return data.community_id
 }
 
 const ensureConfirmationWindowOpen = (rules: ConfirmationRules) => {
@@ -402,7 +425,8 @@ export const queueRouter = createTRPCRouter({
       }
 
       const rules = await fetchConfirmationRules(ctx.supabase, queueRow.game_id)
-      const admin = await isUserAdmin(ctx.supabase, ctx.user.id)
+      const communityId = await fetchGameCommunityId(ctx.supabase, queueRow.game_id)
+      const admin = await isUserAdmin(ctx.supabase, ctx.user.id, communityId)
       if (!admin && queueRow.added_by_profile_id !== ctx.user.id) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the adder can confirm this guest' })
       }
@@ -428,7 +452,8 @@ export const queueRouter = createTRPCRouter({
     }),
 
   addMember: protectedProcedure.input(adminAddInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    const communityId = await fetchGameCommunityId(ctx.supabase, input.gameId)
+    await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
     const { data, error } = await supabaseAdmin.rpc('admin_add_to_queue', {
       p_game_id: input.gameId,
@@ -450,7 +475,8 @@ export const queueRouter = createTRPCRouter({
   }),
 
   markAttendanceConfirmed: protectedProcedure.input(adminConfirmInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
+    const communityId = await fetchGameCommunityId(ctx.supabase, input.gameId)
+    await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
     const { data: entry, error: entryError } = await supabaseAdmin
       .from('game_queue')
@@ -484,8 +510,6 @@ export const queueRouter = createTRPCRouter({
   }),
 
   markNoShow: protectedProcedure.input(markNoShowInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
-
     const { data: queueRow, error: queueError } = await supabaseAdmin
       .from('game_queue')
       .select('id, game_id, status, no_show_at, games!game_queue_game_id_fkey ( status )')
@@ -504,6 +528,9 @@ export const queueRouter = createTRPCRouter({
     if (queueRow.games?.status !== 'completed') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game must be completed' })
     }
+
+    const communityId = await fetchGameCommunityId(ctx.supabase, queueRow.game_id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
     const nextNoShowAt = input.isNoShow ? new Date().toISOString() : null
     const nextNoShowBy = input.isNoShow ? ctx.user.id : null
@@ -536,8 +563,6 @@ export const queueRouter = createTRPCRouter({
   }),
 
   markTardy: protectedProcedure.input(markTardyInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
-
     const { data: queueRow, error: queueError } = await supabaseAdmin
       .from('game_queue')
       .select(
@@ -558,6 +583,9 @@ export const queueRouter = createTRPCRouter({
     if (queueRow.games?.status !== 'completed') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game must be completed' })
     }
+
+    const communityId = await fetchGameCommunityId(ctx.supabase, queueRow.game_id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
     const now = new Date().toISOString()
     const nextTardyAt = input.isTardy ? now : null
@@ -607,8 +635,6 @@ export const queueRouter = createTRPCRouter({
   }),
 
   markConfirmed: protectedProcedure.input(markConfirmedInput).mutation(async ({ ctx, input }) => {
-    await ensureAdmin(ctx.supabase, ctx.user.id)
-
     const { data: queueRow, error: queueError } = await supabaseAdmin
       .from('game_queue')
       .select('id, game_id, status, attendance_confirmed_at, games!game_queue_game_id_fkey ( status )')
@@ -627,6 +653,9 @@ export const queueRouter = createTRPCRouter({
     if (queueRow.games?.status !== 'completed') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Game must be completed' })
     }
+
+    const communityId = await fetchGameCommunityId(ctx.supabase, queueRow.game_id)
+    await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
     const now = new Date().toISOString()
     const nextConfirmedAt = queueRow.attendance_confirmed_at ?? now
@@ -668,7 +697,8 @@ export const queueRouter = createTRPCRouter({
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Queue entry is not a guest' })
       }
 
-      const admin = await isUserAdmin(ctx.supabase, ctx.user.id)
+      const communityId = await fetchGameCommunityId(ctx.supabase, queueRow.game_id)
+      const admin = await isUserAdmin(ctx.supabase, ctx.user.id, communityId)
       if (!admin && queueRow.added_by_profile_id !== ctx.user.id) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the adder can remove this guest' })
       }
@@ -711,8 +741,6 @@ export const queueRouter = createTRPCRouter({
   removeMember: protectedProcedure
     .input(z.object({ queueId: z.string().uuid('Invalid queue id') }))
     .mutation(async ({ ctx, input }) => {
-      await ensureAdmin(ctx.supabase, ctx.user.id)
-
       const { data: queueRow, error: queueFetchError } = await supabaseAdmin
         .from('game_queue')
         .select('game_id, profile_id, status')
@@ -725,6 +753,9 @@ export const queueRouter = createTRPCRouter({
       if (!queueRow) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Queue entry not found' })
       }
+
+      const communityId = await fetchGameCommunityId(ctx.supabase, queueRow.game_id)
+      await ensureAdmin(ctx.supabase, ctx.user.id, communityId)
 
       const { data, error } = await supabaseAdmin.rpc('admin_remove_queue_entry', {
         p_queue_id: input.queueId,

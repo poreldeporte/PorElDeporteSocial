@@ -3,6 +3,7 @@ import { useId } from 'react'
 import { Fieldset, Input, InputProps, Label, Theme } from 'tamagui'
 
 import { FieldError } from '../FieldError'
+import { formInputStyle } from './formInputStyle'
 import { Shake } from '../Shake'
 
 export const TextField = (props: Pick<InputProps, 'size' | 'autoFocus' | 'secureTextEntry'>) => {
@@ -14,12 +15,11 @@ export const TextField = (props: Pick<InputProps, 'size' | 'autoFocus' | 'secure
   const { label, placeholder, isOptional, maxLength, isEmail } = useStringFieldInfo()
   const id = useId()
   const disabled = isSubmitting
-
   return (
     <Theme name={error ? 'red' : null} forceClassName>
       <Fieldset>
         {!!label && (
-          <Label theme="alt1" size={props.size || '$3'} htmlFor={id}>
+          <Label color="$color12" size={props.size || '$3'} htmlFor={id}>
             {label} {isOptional && `(Optional)`}
           </Label>
         )}
@@ -38,6 +38,7 @@ export const TextField = (props: Pick<InputProps, 'size' | 'autoFocus' | 'secure
             placeholder={placeholder}
             id={id}
             w="100%"
+            {...formInputStyle}
             {...props}
           />
         </Shake>

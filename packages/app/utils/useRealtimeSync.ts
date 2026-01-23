@@ -32,18 +32,20 @@ const useFocusInvalidate = (callback: () => void) => {
 
 const useThrottledInvalidate = (callback: () => void, delay = REALTIME_INVALIDATE_DELAY_MS) => {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const callbackRef = useRef(callback)
+  callbackRef.current = callback
 
   const schedule = useCallback(() => {
     if (shouldFlushNow()) {
-      callback()
+      callbackRef.current()
       return
     }
     if (timerRef.current) return
     timerRef.current = setTimeout(() => {
-      callback()
+      callbackRef.current()
       timerRef.current = null
     }, delay)
-  }, [callback, delay])
+  }, [delay])
 
   useEffect(() => {
     return () => {
@@ -59,19 +61,23 @@ const useThrottledInvalidate = (callback: () => void, delay = REALTIME_INVALIDAT
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
-    callback()
+    callbackRef.current()
   })
 
   return schedule
 }
 
-const LIST_SCOPES: Array<{ scope: 'upcoming' | 'past' }> = [
-  { scope: 'upcoming' },
-  { scope: 'past' },
-]
+const LIST_SCOPES: Array<'upcoming' | 'past'> = ['upcoming', 'past']
 
-const invalidateAllGameLists = (utils: ReturnType<typeof api.useUtils>) => {
-  LIST_SCOPES.forEach((input) => {
+const buildListInputs = (communityId: string) =>
+  LIST_SCOPES.map((scope) => ({ scope, communityId }))
+
+const invalidateAllGameLists = (
+  utils: ReturnType<typeof api.useUtils>,
+  communityId?: string | null
+) => {
+  if (!communityId) return
+  buildListInputs(communityId).forEach((input) => {
     void utils.games.list.invalidate(input)
   })
 }
@@ -79,10 +85,12 @@ const invalidateAllGameLists = (utils: ReturnType<typeof api.useUtils>) => {
 
 const patchGameListItem = (
   utils: ReturnType<typeof api.useUtils>,
+  communityId: string | null | undefined,
   gameId: string,
   updater: (game: GameListItem) => GameListItem
 ) => {
-  LIST_SCOPES.forEach((input) => {
+  if (!communityId) return
+  buildListInputs(communityId).forEach((input) => {
     utils.games.list.setData(input, (current) => {
       if (!current) return current
       let changed = false
@@ -198,7 +206,7 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
             const next = payload.new as Database['public']['Tables']['games']['Row'] | null
             if (!next) return
             const id = next.id
-            patchGameListItem(utils, id, (game) => ({
+            patchGameListItem(utils, next.community_id, id, (game) => ({
               ...game,
               name: next.name,
               description: next.description,
@@ -295,8 +303,10 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
             new: (payload.new as { status?: Database['public']['Enums']['game_queue_status'] | null }) ?? {},
             old: (payload.old as { status?: Database['public']['Enums']['game_queue_status'] | null }) ?? {},
           })
+          const detail = utils.games.byId.getData({ id: gameIdFromRow })
+          const communityId = detail?.communityId ?? null
           if (deltas.deltaRostered !== 0 || deltas.deltaWaitlisted !== 0) {
-            patchGameListItem(utils, gameIdFromRow, (game) => ({
+            patchGameListItem(utils, communityId, gameIdFromRow, (game) => ({
               ...game,
               rosteredCount: Math.max(0, game.rosteredCount + deltas.deltaRostered),
               waitlistedCount: Math.max(0, game.waitlistedCount + deltas.deltaWaitlisted),
@@ -343,10 +353,10 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
   })
 }
 
-export const useGamesListRealtime = (enabled: boolean) => {
+export const useGamesListRealtime = (enabled: boolean, communityId?: string | null) => {
   const utils = api.useUtils()
   const scheduleInvalidate = useThrottledInvalidate(() => {
-    invalidateAllGameLists(utils)
+    invalidateAllGameLists(utils, communityId)
   }, 150)
 
   const listChannelHandler = useCallback(
@@ -363,7 +373,8 @@ export const useGamesListRealtime = (enabled: boolean) => {
               Boolean(previous) &&
               (previous.release_at !== next.release_at ||
                 previous.released_at !== next.released_at)
-            patchGameListItem(utils, next.id, (game) => ({
+            if (communityId && next.community_id !== communityId) return
+            patchGameListItem(utils, communityId, next.id, (game) => ({
               ...game,
               name: next.name,
               description: next.description,
@@ -396,7 +407,15 @@ export const useGamesListRealtime = (enabled: boolean) => {
             }
           }
         )
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'games' }, scheduleInvalidate)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'games' },
+          (payload) => {
+            const row = payload.new as Database['public']['Tables']['games']['Row'] | null
+            if (communityId && row?.community_id !== communityId) return
+            scheduleInvalidate()
+          }
+        )
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_captains' }, scheduleInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_queue' }, (payload) => {
           const row = payload.new as { game_id?: string | null; status?: Database['public']['Enums']['game_queue_status'] | null }
@@ -407,8 +426,10 @@ export const useGamesListRealtime = (enabled: boolean) => {
             new: payload.new as { status?: Database['public']['Enums']['game_queue_status'] | null },
             old: payload.old as { status?: Database['public']['Enums']['game_queue_status'] | null },
           })
+          const detail = utils.games.byId.getData({ id: gameId })
+          const listCommunityId = detail?.communityId ?? communityId ?? null
           if (deltas.deltaRostered !== 0 || deltas.deltaWaitlisted !== 0) {
-            patchGameListItem(utils, gameId, (game) => ({
+            patchGameListItem(utils, listCommunityId, gameId, (game) => ({
               ...game,
               rosteredCount: Math.max(0, game.rosteredCount + deltas.deltaRostered),
               waitlistedCount: Math.max(0, game.waitlistedCount + deltas.deltaWaitlisted),
@@ -423,7 +444,7 @@ export const useGamesListRealtime = (enabled: boolean) => {
           scheduleInvalidate()
         })
     },
-    [utils, scheduleInvalidate]
+    [utils, scheduleInvalidate, communityId]
   )
 
   useRealtimeChannel('games:list', listChannelHandler, {
@@ -435,11 +456,10 @@ export const useGamesListRealtime = (enabled: boolean) => {
 export const useStatsRealtime = (enabled: boolean, communityId?: string | null) => {
   const utils = api.useUtils()
   const scheduleInvalidate = useThrottledInvalidate(() => {
-    void utils.stats.myStats.invalidate()
-    void utils.stats.leaderboard.invalidate()
-    if (communityId) {
-      void utils.stats.myCommunityRating.invalidate({ communityId })
-    }
+    if (!communityId) return
+    void utils.stats.myStats.invalidate({ communityId })
+    void utils.stats.leaderboard.invalidate({ communityId })
+    void utils.stats.myCommunityRating.invalidate({ communityId })
   }, 200)
 
   const statsChannelHandler = useCallback(

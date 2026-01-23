@@ -16,8 +16,8 @@ import { BrandStamp } from 'app/components/BrandStamp'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api, type RouterOutputs } from 'app/utils/api'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useStatsRealtime } from 'app/utils/useRealtimeSync'
-import { useUser } from 'app/utils/useUser'
 import { LeaderboardPlayerSheet } from './components/LeaderboardPlayerSheet'
 
 type Metric = 'wins' | 'losses' | 'goal_diff' | 'games'
@@ -38,14 +38,16 @@ type ScrollHeaderProps = {
 }
 
 export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
-  const { user } = useUser()
-  const communityQuery = api.community.defaults.useQuery(undefined, { enabled: Boolean(user) })
-  useStatsRealtime(Boolean(user), communityQuery.data?.id ?? null)
+  const { activeCommunityId } = useActiveCommunity()
+  useStatsRealtime(Boolean(activeCommunityId), activeCommunityId)
   const [sortMetric, setSortMetric] = useState<Metric>('wins')
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
   const queryMetric =
     sortMetric === 'goal_diff' ? 'goal_diff' : sortMetric === 'wins' ? 'wins' : 'overall'
-  const query = api.stats.leaderboard.useQuery({ metric: queryMetric as any })
+  const query = api.stats.leaderboard.useQuery(
+    { communityId: activeCommunityId ?? '', metric: queryMetric as any },
+    { enabled: Boolean(activeCommunityId) }
+  )
 
   const entries = useMemo(() => (query.data ?? []).map(normalizeEntry), [query.data])
   const sorted = useMemo(() => {
@@ -153,7 +155,7 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
         }}
         entry={sheetEntry}
         communitySize={entries.length}
-        communityId={communityQuery.data?.id ?? null}
+        communityId={activeCommunityId}
       />
     </ScrollView>
   )

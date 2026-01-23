@@ -1,7 +1,6 @@
 import { Button, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 import { useMemo } from 'react'
 import { useLink } from 'solito/link'
-import { useRouter } from 'solito/router'
 
 import {
   DEFAULT_CONFIRMATION_WINDOW_HOURS,
@@ -14,6 +13,7 @@ import { getGameCtaIcon, type GameCtaState } from 'app/features/games/cta-icons'
 import { deriveCombinedStatus, getConfirmCountdownLabel } from 'app/features/games/status-helpers'
 import type { GameListItem } from 'app/features/games/types'
 import { buildConfirmationWindowStart, buildJoinCutoff, buildZonedTime, formatGameKickoffLabel } from 'app/features/games/time-utils'
+import { useAppRouter } from 'app/utils/useAppRouter'
 
 const ctaCopy: Record<GameCtaState, string> = {
   claim: 'Claim spot',
@@ -138,7 +138,7 @@ export const GameCard = ({
     isGrabOnly,
   })
   const canJoin = game.status === 'scheduled' && !isUnreleased && !hasStarted && !isLocked
-  const router = useRouter()
+  const router = useAppRouter()
   const detailHref = `/games/${game.id}`
   const detailLink = useLink({ href: detailHref })
   const canConfirmAttendance =

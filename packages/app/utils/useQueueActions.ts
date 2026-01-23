@@ -3,14 +3,19 @@ import { useState } from 'react'
 import { useToastController } from '@my/ui/public'
 
 import { api } from './api'
+import { useActiveCommunity } from './useActiveCommunity'
 
-const useGameInvalidator = () => {
+const LIST_SCOPES: Array<'upcoming' | 'past'> = ['upcoming', 'past']
+
+const useGameInvalidator = (communityId?: string | null) => {
   const utils = api.useContext()
   return async (gameId: string) => {
-    await Promise.all([
-      utils.games.byId.invalidate({ id: gameId }),
-      utils.games.list.invalidate(),
-    ])
+    const listInvalidations = communityId
+      ? LIST_SCOPES.map((scope) =>
+          utils.games.list.invalidate({ scope, communityId })
+        )
+      : []
+    await Promise.all([utils.games.byId.invalidate({ id: gameId }), ...listInvalidations])
   }
 }
 
@@ -70,7 +75,8 @@ const useConfirmAttendanceMutation = (
 
 export const useQueueActions = () => {
   const toast = useToastController()
-  const invalidate = useGameInvalidator()
+  const { activeCommunityId } = useActiveCommunity()
+  const invalidate = useGameInvalidator(activeCommunityId)
   const [pendingGameId, setPendingGameId] = useState<string | null>(null)
   const handleSettled = () => setPendingGameId(null)
 

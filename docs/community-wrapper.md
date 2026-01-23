@@ -35,7 +35,7 @@ Profile:
 1. Sign up / create account.
 2. Verify phone + complete basic profile info.
 3. Resolve memberships:
-   - 0 memberships → Community selection (invite, search/nearby, request access).
+   - 0 memberships → Community selection (search/browse + request access; invite link/QR deep links also supported).
    - 1+ approved → enter favorite community (default to first approved).
    - Only pending/rejected → Community selection with pending banner + allow new requests.
 4. Approved → Community Home.
@@ -49,7 +49,7 @@ Profile:
 ### C) Switching Communities
 - Tap the main logo on Home → bottom sheet list.
 - Select community → app reloads content in that scope.
-- Switcher shows membership status (approved/pending/rejected).
+- Switcher shows membership status (approved/pending). Rejected/left do not appear in My Communities.
 
 ---
 
@@ -57,11 +57,17 @@ Profile:
 
 ### Community Selection
 - Card list of available communities.
-- Actions: “Join with invite”, “Request access”, “Search”.
+- Actions: “Request access”, “Search”.
 - Messaging: “Communities are groups where games live.” (copy TBD)
 - All communities are public, searchable, and browsable in this screen.
 - Default sort: alphabetical by community name.
 - Invites still create a request (approval required).
+- Invite links/QR allow direct request without searching.
+- Invite links/QR can be generated/shared by owners and admins.
+- Invite links/QR are multi-use (one static link per community).
+- No regeneration/invalidation in v1 (public link).
+- Invite link uses community id (stable), not name slug.
+- Renaming the community does not change the invite link.
 
 ### Pending Review (within Community Selection)
 - “You’re in review. We’ll notify you when approved.”
@@ -72,6 +78,7 @@ Profile:
 - CTA: “Join your first run.”
 - Hero area uses the community logo.
 - Tapping the main logo opens the community switcher.
+- Community name is shown only on the Home header.
 
 ### Games / Schedule
 - All queries filtered by `community_id`.
@@ -96,15 +103,16 @@ Profile:
 - Profile (community-aware)
 - Admin/Settings (admins only)
 
-### Community Switcher (Home logo)
+### Community Switcher (Home hero)
 - Shows current community logo + name.
-- Tap the logo → bottom sheet list.
+- Tap the Home hero → bottom sheet list.
 - Each entry: name, member count, role (owner/admin/member).
 - “Join another community” action.
 - “Set as favorite” action (star icon). Only one favorite at a time.
 - First approved community becomes favorite until switched.
 - Home header title reflects the active community.
 - Pending communities are visible but not selectable (tap does nothing).
+- Rejected/left communities do not appear here.
 - To switch communities, return to Home and tap the logo.
 
 ---
@@ -126,6 +134,10 @@ Profile:
   - Home hero logo + Home switcher icon
   - Notifications (logo + name)
   - Primary color for buttons/highlights
+Admins/owners can edit all community settings fields (name/city/sport/branding).
+Branding can be reset to defaults (remove logo, reset primary color).
+City and sport are editable after creation.
+Sport uses the same fixed list everywhere (no custom entry).
 
 ---
 
@@ -198,6 +210,65 @@ Profile:
 
 ---
 
+## 13) Community Creation (Draft Spec)
+
+### Intent
+- Users can create a community (max 1 per user).
+- Creation is instant, switches into the new community, and makes the creator the owner.
+- CTA lives on the Join Communities page as “Start a community”.
+- Single-form create flow (no multi-step).
+
+### Create Fields
+Required:
+- Name
+- City
+- Sport (pick list: Fútbol, Basketball, Volleyball, Pickleball, Padel, Other)
+City is free-text in v1.
+Name length: 3–40 characters.
+
+Optional:
+- Logo (important, but not required)
+- Description
+- Primary color (optional; default to app primary)
+No tagline field in v1.
+Description max length: 160 characters.
+Primary color only changes if user selects one (no auto-extract from logo).
+No timezone field in v1.
+
+### Ownership Rules (Single Owner)
+- Exactly one approved owner per community.
+- Owner cannot be demoted.
+- Owner cannot leave without transferring ownership.
+- Transfer should be explicit (no automatic promotion on leave).
+- Transfer target: prefer an approved admin; if none, allow any approved member.
+- If the owner is the only approved member, leaving is blocked; archive instead.
+- Owner cannot delete/deactivate their account while they own a community.
+- On ownership transfer, previous owner becomes admin.
+
+### One-Community Limit
+Rule: one community created per profile, permanent (even if ownership transfers).
+
+### Deletion / Archiving
+Rule: archive only (no hard delete).
+- Archived communities are hidden from join/search and block new join requests.
+- Archived communities remain visible to existing members in My Communities (disabled).
+- Owner can archive/unarchive later (owner only).
+- Only the owner can access an archived community; admins/members are blocked.
+- Archived community is read-only for the owner (except unarchive).
+- Existing games/memberships/stats remain intact.
+
+### Name Uniqueness
+Rule: global unique community name, case-insensitive.
+Duplicate name blocks creation with a clear error.
+Also enforced on name edits in Community Settings.
+Archived community names remain reserved (no reuse).
+Only name uniqueness matters (city/sport do not affect uniqueness).
+Normalize names for uniqueness: trim and collapse whitespace.
+Name characters: letters, numbers, spaces only (no special characters).
+Accented letters are allowed.
+
+---
+
 ## 13) Decisions (Locked)
 - All communities are public and searchable.
 - Multiple communities are allowed.
@@ -208,13 +279,15 @@ Profile:
 ---
 
 ## 14) Community Creation
-- Provide a “Create community” request flow.
-- Entry points: community switcher bottom sheet and initial join flow.
-- If approved, the requester becomes **Owner**.
-- Owners can manage admins and settings.
-- Request fields (required): **name, city, sport, primary color, description**.
-- Logo is optional; default to the app logo if not provided.
-- Suggested optional: **timezone** (auto from city or device).
+- Creation is instant (no admin approval).
+- Entry point: Join Communities screen (“Start a community”).
+- If the user already created one, replace CTA with “My community” (opens it) + helper text “You can only create 1 community.”
+- If archived, label “Archived community” and still open settings (with Unarchive).
+- If the user already created one but is no longer a member, show disabled text “You already created a community.”
+- Creator becomes **Owner** (approved), set as favorite, switch into the new community.
+- Single-form create flow.
+- Required: **name (3–40), city (free-text), sport (pick list)**.
+- Optional: **logo**, **description (max 160)**, **primary color** (defaults to app primary).
 
 ---
 
@@ -227,11 +300,18 @@ Profile:
 ## 16) Membership Rules
 - All communities require approval (no auto-join).
 - For now, all communities are public/searchable/browsable. (Future: invite-only or hidden.)
-- Users cannot leave a community.
+- Members can leave a community.
+- Leaving sets membership status to `left`.
+- `left` members are hidden from member lists/leaderboards.
+- Rejoin requires approval and reactivates the same membership (stats/history preserved).
 - Users always have exactly one favorite community. Only approved communities can be favorited.
+- If a user leaves their favorite, auto-select another approved community (favorite → first approved). If none approved, favorite is cleared and user goes to Join Communities.
+- Admins can remove members; removal sets status to `left`.
 - Pending communities are shown in the switcher but locked (not selectable).
-- Rejected users can request to join again (update existing membership back to pending).
-- Add a lightweight anti-spam rule (e.g., short cooldown between requests).
+- Rejected/left/kicked users appear in Join Communities like any other public community (no “pending” state).
+- Reapply sets the existing membership back to `pending`.
+- Pending requests cannot be canceled in v1.
+- Kicked users see no special messaging in Join Communities.
 - Recommended enums:
   - `join_policy` (future): `open` | `approval` | `invite_only`
   - `visibility`: `public` | `hidden`
@@ -251,7 +331,7 @@ Profile:
 
 ## 17) Zero Membership State
 - If a user has zero memberships, land on a “Join communities” screen.
-- Default layout: search + invite code + request access (no featured list unless curated).
+- Default layout: search + request access (invite link/QR via deep links).
 - If all memberships are pending/rejected, show a “Pending review” state within the same screen.
 
 ---
@@ -270,7 +350,7 @@ Profile:
 
 ### B) Membership roles + approvals (per community)
 - Move role + approval from `profiles` to `memberships` (per community).
-  - New columns: `memberships.role` (owner/admin/member), `memberships.status` (pending/approved/rejected).
+  - New columns: `memberships.role` (owner/admin/member), `memberships.status` (pending/approved/rejected/left).
   - Super Admin remains a global flag on `profiles` (not a membership role).
   - Update admin checks:
     - `packages/api/src/utils/ensureAdmin.ts`
@@ -282,12 +362,9 @@ Profile:
   - `packages/app/features/admin/member-list-screen.tsx`
   - `packages/api/src/routers/members.ts`
 
-### C) Community creation requests
-- Add a request table and admin flow for Super Admin review.
-  - New table: `community_create_requests` (name, city, sport, logo_url, primary_color, description, status, created_at, reviewed_by).
-  - New API router for requests: `packages/api/src/routers/community-requests.ts` (or extend `community` router).
-  - New admin screen under `packages/app/features/admin/`.
-  - Owner-facing status view for their own requests (read-only).
+### C) Community creation
+- Creation is instant (no admin approval flow).
+- Enforce one community created per profile (permanent).
 
 ### D) Scope all queries by active community
 - Games:
