@@ -1,24 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
-import { AppState } from 'react-native'
-import { useFocusEffect } from 'expo-router'
+import { useEffect, useState } from 'react'
+
+const getInitialActive = () => {
+  if (typeof document === 'undefined') return true
+  return document.visibilityState === 'visible'
+}
 
 export const useRealtimeEnabled = (enabled = true) => {
-  const [isFocused, setIsFocused] = useState(true)
-  const [isActive, setIsActive] = useState(AppState.currentState === 'active')
-
-  useFocusEffect(
-    useCallback(() => {
-      setIsFocused(true)
-      return () => setIsFocused(false)
-    }, [])
-  )
+  const [isActive, setIsActive] = useState(getInitialActive)
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      setIsActive(state === 'active')
-    })
-    return () => subscription.remove()
+    if (typeof document === 'undefined') return
+    const handleVisibility = () => setIsActive(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
-  return enabled && isFocused && isActive
+  return enabled && isActive
 }
