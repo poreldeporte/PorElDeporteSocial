@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
+import { getScreenLayout } from 'app/navigation/layouts'
 import { ProfileOnboardingScreen } from 'app/features/profile/profile-onboarding-screen'
 
 import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'

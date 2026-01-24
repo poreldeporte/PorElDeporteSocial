@@ -2,12 +2,12 @@ import { ShoppingBag, User } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { navRoutes } from '@my/app/navigation/routes'
+import { getScreenLayout } from 'app/navigation/layouts'
+import { navRoutes } from 'app/navigation/routes'
 import { HomeScreen } from 'app/features/home/screen'
 import { CommunitySwitcherSheet } from 'app/features/community/community-switcher-sheet'
 import { CommunitySwitcherProvider } from 'app/provider/community-switcher'
-import { useActiveCommunity } from '@my/app/utils/useActiveCommunity'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 
 import { FloatingHeaderLayout } from '../../../components/FloatingHeaderLayout'
 

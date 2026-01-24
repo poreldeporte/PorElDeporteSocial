@@ -2,7 +2,7 @@ import { ChevronLeft } from '@tamagui/lucide-icons'
 import { Stack, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
+import { getScreenLayout } from 'app/navigation/layouts'
 import { PrivacyPolicyScreen } from 'app/features/legal/privacy-policy-screen'
 
 import { FloatingHeaderLayout } from '../components/FloatingHeaderLayout'

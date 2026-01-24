@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useBrand } from '@my/app/provider/brand'
+import { useBrand } from 'app/provider/brand'
 
 const baseTokens = {
   appBgStart: '#0c0f14',

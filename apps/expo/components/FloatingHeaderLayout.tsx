@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { IconProps } from '@tamagui/helpers-icon'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 
-import { SCREEN_CONTENT_PADDING } from '@my/app/constants/layout'
+import { SCREEN_CONTENT_PADDING } from 'app/constants/layout'
 import { YStack } from '@my/ui/public'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 

@@ -1,6 +1,6 @@
 import { Stack, Tabs } from 'expo-router'
 
-import { getRoutesById, nativeTabRouteIds } from '@my/app/navigation/routes'
+import { getRoutesById, nativeTabRouteIds } from 'app/navigation/routes'
 import { BottomDockTabBar } from '../../../navigation/BottomDockTabBar'
 
 export default function Layout() {

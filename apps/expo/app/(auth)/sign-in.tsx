@@ -1,5 +1,5 @@
 import { SignInScreen } from 'app/features/auth/sign-in-screen'
-import { getScreenLayout } from '@my/app/navigation/layouts'
+import { getScreenLayout } from 'app/navigation/layouts'
 import { useTheme } from '@my/ui/public'
 import { useHeaderHeight } from '@react-navigation/elements'
 import { Stack } from 'expo-router'

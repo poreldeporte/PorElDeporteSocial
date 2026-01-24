@@ -2,8 +2,8 @@ import { ChevronLeft } from '@tamagui/lucide-icons'
 import { Stack, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { CommunitySettingsScreen } from '@my/app/features/settings/community-screen'
+import { getScreenLayout } from 'app/navigation/layouts'
+import { CommunitySettingsScreen } from 'app/features/settings/community-screen'
 
 import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'
 

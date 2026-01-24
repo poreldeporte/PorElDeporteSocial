@@ -4,9 +4,9 @@ import type { LayoutChangeEvent } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 
 import { SizableText, XStack, YStack, useTheme } from '@my/ui/public'
-import { useBrand } from '@my/app/provider/brand'
-import { navRoutes } from '@my/app/navigation/routes'
-import { DOCK, DOCK_CHROME, getDockBottomOffset } from '@my/app/constants/dock'
+import { useBrand } from 'app/provider/brand'
+import { navRoutes } from 'app/navigation/routes'
+import { DOCK, DOCK_CHROME, getDockBottomOffset } from 'app/constants/dock'
 import { useSafeAreaInsets } from 'app/utils/useSafeAreaInsets'
 
 const dockHeight = DOCK.height

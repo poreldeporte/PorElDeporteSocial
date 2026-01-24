@@ -1,9 +1,9 @@
 import { History, Plus } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { navRoutes } from '@my/app/navigation/routes'
-import { useUser } from '@my/app/utils/useUser'
+import { getScreenLayout } from 'app/navigation/layouts'
+import { navRoutes } from 'app/navigation/routes'
+import { useUser } from 'app/utils/useUser'
 import { ScheduleScreen } from 'app/features/home/schedule-screen'
 
 import { FloatingHeaderLayout } from '../../../../components/FloatingHeaderLayout'
