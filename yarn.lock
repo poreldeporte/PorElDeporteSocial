@@ -3895,7 +3895,6 @@ __metadata:
   dependencies:
     "@babel/runtime": "npm:^7.18.9"
     "@hookform/resolvers": "npm:^3.1.0"
-    "@react-native-community/datetimepicker": "npm:8.3.0"
     "@rehookify/datepicker": "npm:^6.6.6"
     "@tamagui/animations-moti": "npm:^1.132.7"
     "@tamagui/animations-react-native": "npm:^1.132.7"
@@ -3919,7 +3918,6 @@ __metadata:
     typescript: "npm:~5.8.3"
     zod: "npm:^3.22.2"
   peerDependencies:
-    "@react-native-community/datetimepicker": 8.3.0
     "@rehookify/datepicker": ^6.6.6
   languageName: unknown
   linkType: soft
