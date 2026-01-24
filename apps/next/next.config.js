@@ -72,6 +72,8 @@ module.exports = () => {
       '@ts-react/form',
       'react-hook-form',
       'react-native-reanimated',
+      '@my/ui',
+      'app',
     ],
     /*
        A few notes before enabling app directory:
