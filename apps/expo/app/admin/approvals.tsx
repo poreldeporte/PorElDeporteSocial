@@ -7,9 +7,9 @@ import { Stack, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { YStack } from '@my/ui/public'
-import { MemberListScreen } from '@my/app/features/admin/member-list-screen'
-import { useMemberApprovalsRealtime } from '@my/app/features/admin/member-approvals-realtime'
-import { getScreenLayout } from '@my/app/navigation/layouts'
+import { MemberListScreen } from 'app/features/admin/member-list-screen'
+import { useMemberApprovalsRealtime } from 'app/features/admin/member-approvals-realtime'
+import { getScreenLayout } from 'app/navigation/layouts'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 

@@ -1,8 +1,8 @@
 import { ChevronLeft, Settings } from '@tamagui/lucide-icons'
 import { useRouter } from 'expo-router'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { ProfileScreen } from '@my/app/features/profile/screen'
+import { getScreenLayout } from 'app/navigation/layouts'
+import { ProfileScreen } from 'app/features/profile/screen'
 
 import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'
 

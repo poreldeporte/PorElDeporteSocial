@@ -2,8 +2,8 @@ import { ChevronLeft, PenSquare, Star } from '@tamagui/lucide-icons'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { useUser } from '@my/app/utils/useUser'
+import { getScreenLayout } from 'app/navigation/layouts'
+import { useUser } from 'app/utils/useUser'
 import { GameDetailScreen } from 'app/features/games/detail-screen'
 import { api } from 'app/utils/api'
 

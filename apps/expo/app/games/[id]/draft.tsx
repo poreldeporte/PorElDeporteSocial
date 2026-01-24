@@ -4,8 +4,8 @@ import { ChevronLeft, RotateCcw } from '@tamagui/lucide-icons'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { getScreenLayout } from '@my/app/navigation/layouts'
-import { useUser } from '@my/app/utils/useUser'
+import { getScreenLayout } from 'app/navigation/layouts'
+import { useUser } from 'app/utils/useUser'
 import { GameDraftScreen } from 'app/features/games/draft-screen'
 
 import { FloatingHeaderLayout } from '../../../components/FloatingHeaderLayout'

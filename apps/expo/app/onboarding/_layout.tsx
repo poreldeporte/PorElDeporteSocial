@@ -1,6 +1,6 @@
-import { isProfileComplete } from '@my/app/utils/auth/profileCompletion'
-import { useActiveCommunity } from '@my/app/utils/useActiveCommunity'
-import { useUser } from '@my/app/utils/useUser'
+import { isProfileComplete } from 'app/utils/auth/profileCompletion'
+import { useActiveCommunity } from 'app/utils/useActiveCommunity'
+import { useUser } from 'app/utils/useUser'
 import { Redirect, Stack, usePathname } from 'expo-router'
 
 export default function Layout() {

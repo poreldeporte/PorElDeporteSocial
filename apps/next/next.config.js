@@ -27,6 +27,10 @@ const plugins = [
         return true
       }
     },
+    shouldExcludeFromServer: ({ request, fullPath }) => {
+      if (request === 'app' || request.startsWith('app/')) return false
+      if (fullPath.includes(join('packages', 'app'))) return false
+    },
   }),
   (nextConfig) => {
     return {
@@ -72,6 +76,8 @@ module.exports = () => {
       '@ts-react/form',
       'react-hook-form',
       'react-native-reanimated',
+      '@my/ui',
+      'app',
     ],
     /*
        A few notes before enabling app directory:

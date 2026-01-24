@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 
-import { Button, Card, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
+import { Button, Card, Dialog, Paragraph, SizableText, XStack, YStack } from '@my/ui/public'
 import { X } from '@tamagui/lucide-icons'
-import { Dialog } from 'tamagui'
 
 type InfoPopupProps = {
   open: boolean

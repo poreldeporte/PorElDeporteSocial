@@ -1,5 +1,5 @@
 import { ShopScreen } from 'app/features/shop'
-import { getScreenLayout } from '@my/app/navigation/layouts'
+import { getScreenLayout } from 'app/navigation/layouts'
 import { Stack, router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
