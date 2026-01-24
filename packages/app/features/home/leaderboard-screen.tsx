@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { StyleSheet, type ScrollViewProps } from 'react-native'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Animated, StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { Crown as CrownIcon } from '@tamagui/lucide-icons'
 import {
@@ -11,13 +11,20 @@ import {
   SizableText,
   XStack,
   YStack,
+  useTheme,
 } from '@my/ui/public'
 import { BrandStamp } from 'app/components/BrandStamp'
+import { InfoPopup } from 'app/components/InfoPopup'
+import { SectionCard } from 'app/components/SectionCard'
 import { screenContentContainerStyle } from 'app/constants/layout'
+import { navRoutes } from 'app/navigation/routes'
 import { useBrand } from 'app/provider/brand'
 import { api, type RouterOutputs } from 'app/utils/api'
 import { useActiveCommunity } from 'app/utils/useActiveCommunity'
+import { useAppRouter } from 'app/utils/useAppRouter'
 import { useStatsRealtime } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
+import { useCtaButtonStyles } from 'app/features/games/cta-styles'
 import { LeaderboardPlayerSheet } from './components/LeaderboardPlayerSheet'
 
 type Metric = 'wins' | 'losses' | 'goal_diff' | 'games'
@@ -39,9 +46,12 @@ type ScrollHeaderProps = {
 
 export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: ScrollHeaderProps = {}) => {
   const { activeCommunityId } = useActiveCommunity()
-  useStatsRealtime(Boolean(activeCommunityId), activeCommunityId)
+  const realtimeEnabled = useRealtimeEnabled(Boolean(activeCommunityId))
+  useStatsRealtime(realtimeEnabled, activeCommunityId)
   const [sortMetric, setSortMetric] = useState<Metric>('wins')
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const router = useAppRouter()
   const queryMetric =
     sortMetric === 'goal_diff' ? 'goal_diff' : sortMetric === 'wins' ? 'wins' : 'overall'
   const query = api.stats.leaderboard.useQuery(
@@ -49,7 +59,10 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
     { enabled: Boolean(activeCommunityId) }
   )
 
-  const entries = useMemo(() => (query.data ?? []).map(normalizeEntry), [query.data])
+  const entries = useMemo(
+    () => (query.data ?? []).map(normalizeEntry).filter((entry) => (entry.games ?? 0) > 0),
+    [query.data]
+  )
   const sorted = useMemo(() => {
     const list = [...entries]
     list.sort((a, b) => {
@@ -102,6 +115,8 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
       : [baseContentStyle, contentContainerStyle]
   )
 
+  const isEmpty = sorted.length === 0
+
   return (
     <ScrollView {...scrollViewProps} contentContainerStyle={mergedContentStyle}>
       {headerSpacer}
@@ -110,44 +125,66 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
           <YStack pt="$2">
             <GlowRow entries={glowRow} />
           </YStack>
+        ) : isEmpty ? (
+          <YStack pt="$2">
+            <GlowRowGhost />
+          </YStack>
         ) : null}
 
         <YStack gap="$2">
-          {sorted.length ? (
-            <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden">
-              <TableHeader sortMetric={sortMetric} onSort={setSortMetric} />
-            </Card>
-          ) : null}
-          <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden">
-            {sorted.length === 0 ? (
-              <Paragraph theme="alt2" px="$3" py="$3">
-                No players to rank yet.
-              </Paragraph>
-            ) : (
-              <YStack gap={0}>
-                {sorted.map((entry, index) => (
-                <YStack
-                  key={entry.profileId ?? index}
-                  px="$3"
-                  py="$3"
-                  borderTopWidth={index === 0 ? 0 : 1}
-                  borderColor="$color12"
-                  borderWidth={1}
-                  transform={[{ scale: 0.97 }]}
-                  pressStyle={{ backgroundColor: '$color2' }}
-                  animation="100ms"
-                  overflow="visible"
-                  onPress={() => setSelectedEntry(entry)}
-                >
-                    <LeaderboardRow rank={index + 1} entry={entry} />
+          <SectionCard
+            title="Leaderboard"
+            description="Ranked by wins, losses, GD, and games."
+            onInfoPress={() => setInfoOpen(true)}
+            infoLabel="Leaderboard info"
+            bodyProps={{ p: '$0', gap: '$0', backgroundColor: '$color1' }}
+          >
+            {sorted.length ? (
+              <>
+                <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden" borderWidth={0}>
+                  <TableHeader sortMetric={sortMetric} onSort={setSortMetric} />
+                </Card>
+                <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden" borderWidth={0}>
+                  <YStack gap={0}>
+                    {sorted.map((entry, index) => (
+                      <YStack
+                        key={entry.profileId ?? index}
+                        px="$3"
+                        py="$3"
+                        borderTopWidth={index === 0 ? 0 : 1}
+                        borderColor="$color12"
+                        borderWidth={1}
+                        transform={[{ scale: 0.97 }]}
+                        pressStyle={{ backgroundColor: '$color2' }}
+                        animation="100ms"
+                        overflow="visible"
+                        onPress={() => setSelectedEntry(entry)}
+                      >
+                        <LeaderboardRow rank={index + 1} entry={entry} />
+                      </YStack>
+                    ))}
                   </YStack>
-                ))}
-              </YStack>
+                </Card>
+              </>
+            ) : (
+              <LeaderboardEmptyState onPressCta={() => router.push(navRoutes.games.href)} />
             )}
-          </Card>
+          </SectionCard>
         </YStack>
       </YStack>
       <BrandStamp />
+      <InfoPopup
+        open={infoOpen}
+        onOpenChange={setInfoOpen}
+        title="Leaderboard"
+        description="Leaderboards show how players rank inside this community."
+        bullets={[
+          'Ranks are based on wins, losses, goal differential, and games played.',
+          'You appear after you’ve played your first game.',
+          'Sorting changes how the list is ordered.',
+        ]}
+        footer="Keep playing to climb the ranks."
+      />
       <LeaderboardPlayerSheet
         open={Boolean(sheetEntry)}
         onOpenChange={(open) => {
@@ -158,6 +195,98 @@ export const LeaderboardScreen = ({ scrollProps, headerSpacer, topInset }: Scrol
         communityId={activeCommunityId}
       />
     </ScrollView>
+  )
+}
+
+const LeaderboardEmptyState = ({ onPressCta }: { onPressCta: () => void }) => {
+  const { primaryColor } = useBrand()
+  const ctaButtonStyles = useCtaButtonStyles()
+  const shimmer = useRef(new Animated.Value(0.45)).current
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 0.7,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0.45,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ])
+    )
+    animation.start()
+    return () => animation.stop()
+  }, [shimmer])
+
+  return (
+    <YStack position="relative" py="$5" gap="$3">
+      <Animated.View style={{ opacity: shimmer }}>
+        <YStack gap="$2">
+          <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden" borderWidth={0}>
+            <LeaderboardGhostHeader />
+          </Card>
+          <Card bordered borderColor="$color12" p={0} gap={0} overflow="hidden" borderWidth={0}>
+            <YStack gap={0}>
+              {[0, 1, 2, 3, 4].map((row) => (
+                <LeaderboardGhostRow key={`ghost-row-${row}`} />
+              ))}
+            </YStack>
+          </Card>
+        </YStack>
+      </Animated.View>
+      <YStack
+        position="absolute"
+        top={0}
+        bottom={0}
+        left={0}
+        right={0}
+        ai="center"
+        jc="center"
+        pointerEvents="box-none"
+      >
+        <Card
+          bordered
+          bw={1}
+          boc="$color12"
+          br="$5"
+          p="$4"
+          gap="$3"
+          alignItems="center"
+          maxWidth={320}
+          width="100%"
+        >
+          <YStack w={72} h={72} br={999} bg="$color2" ai="center" jc="center">
+            <CrownIcon size={32} color={primaryColor} />
+          </YStack>
+          <YStack gap="$1" ai="center">
+            <SizableText
+              size="$3"
+              fontWeight="700"
+              textTransform="uppercase"
+              letterSpacing={1.2}
+              textAlign="center"
+            >
+              Start the leaderboard
+            </SizableText>
+            <Paragraph theme="alt2" textAlign="center">
+              Rankings unlock after your first game.
+            </Paragraph>
+          </YStack>
+          <YStack gap="$1" ai="center" width="100%">
+            <Button size="$3" br="$10" onPress={onPressCta} {...ctaButtonStyles.brandSolid}>
+              View schedule
+            </Button>
+            <Paragraph size="$1" color="$color10" textAlign="center">
+              Stats appear after your first match.
+            </Paragraph>
+          </YStack>
+        </Card>
+      </YStack>
+    </YStack>
   )
 }
 
@@ -287,6 +416,62 @@ const InitialsBadge = ({ name }: { name: string }) => (
   </YStack>
 )
 
+const GhostBar = ({ width, height = 4 }: { width: number; height?: number }) => (
+  <YStack
+    width={width}
+    height={height}
+    br={2}
+    backgroundColor="$color6"
+  />
+)
+
+const LeaderboardGhostHeader = () => (
+  <XStack
+    px="$3"
+    py="$3"
+    ai="center"
+    jc="space-between"
+    gap="$2"
+    flexWrap="nowrap"
+    borderBottomWidth={1}
+    borderColor="$color12"
+  >
+    <GhostBar width={18} height={2} />
+    <YStack f={1} pr="$2">
+      <GhostBar width={120} height={4} />
+    </YStack>
+    <XStack ai="center" gap="$1">
+      <GhostBar width={columnWidth} height={3} />
+      <GhostBar width={columnWidth} height={3} />
+      <GhostBar width={columnWidth} height={3} />
+      <GhostBar width={columnWidth} height={3} />
+    </XStack>
+  </XStack>
+)
+
+const LeaderboardGhostRow = () => (
+  <YStack
+    px="$3"
+    py="$5"
+    borderTopWidth={1}
+    borderColor="$color12"
+    borderWidth={1}
+  >
+    <XStack ai="center" gap="$2" jc="space-between">
+      <GhostBar width={18} height={2} />
+      <YStack f={1} jc="center" pr="$2">
+        <GhostBar width={140} height={5} />
+      </YStack>
+      <XStack ai="center" gap="$1">
+        <GhostBar width={columnWidth} height={3} />
+        <GhostBar width={columnWidth} height={3} />
+        <GhostBar width={columnWidth} height={3} />
+        <GhostBar width={columnWidth} height={3} />
+      </XStack>
+    </XStack>
+  </YStack>
+)
+
 const GlowRow = ({ entries }: { entries: Entry[] }) => {
   const { primaryColor } = useBrand()
   const podiumColors = {
@@ -356,6 +541,79 @@ const GlowRow = ({ entries }: { entries: Entry[] }) => {
     </YStack>
   )
 }
+
+const GlowRowGhost = () => {
+  const { primaryColor } = useBrand()
+  const theme = useTheme()
+  const crownColor = theme.color12?.val ?? primaryColor
+  const podiumColors = {
+    1: primaryColor,
+    2: '#6CACE4',
+    3: '#4b5320',
+  } as const
+  const ghostSlots = [
+    { rank: 2, height: 64, width: 88, color: podiumColors[2] },
+    { rank: 1, height: 84, width: 96, color: podiumColors[1] },
+    { rank: 3, height: 64, width: 88, color: podiumColors[3] },
+  ]
+  const slotSpacing = 8
+  const podiumWidth =
+    ghostSlots.reduce((sum, slot) => sum + slot.width, 0) + slotSpacing * (ghostSlots.length - 1)
+  return (
+    <YStack p="$3" ai="center" jc="center">
+      <YStack position="relative" ai="center" width={podiumWidth}>
+        <YStack
+          position="absolute"
+          top={-10}
+          width={120}
+          height={120}
+          br={60}
+          backgroundColor={toRgba(primaryColor, 0.08)}
+        />
+        <YStack
+          position="absolute"
+          bottom={-6}
+          height={2}
+          width="100%"
+          br={999}
+          backgroundColor="$color4"
+        />
+        <XStack ai="flex-end" jc="center" gap="$2" flexWrap="nowrap" width="100%">
+        {ghostSlots.map((slot) => (
+          <YStack key={`ghost-slot-${slot.rank}`} ai="center" minWidth={110} gap="$2">
+            {slot.rank === 1 ? (
+              <CrownIcon size={18} color={crownColor} opacity={0.45} />
+            ) : null}
+            <GhostPodiumBlock width={slot.width} height={slot.height} color={slot.color} />
+            <Paragraph size="$2" color="$color10" fontWeight="700">
+              {slot.rank}
+            </Paragraph>
+          </YStack>
+        ))}
+        </XStack>
+      </YStack>
+    </YStack>
+  )
+}
+
+const GhostPodiumBlock = ({
+  width,
+  height,
+  color,
+}: {
+  width: number
+  height: number
+  color: string
+}) => (
+  <YStack
+    width={width}
+    height={height}
+    br="$5"
+    backgroundColor={toRgba(color, 0.12)}
+    borderColor={toRgba(color, 0.5)}
+    borderWidth={1.5}
+  />
+)
 
 const GlowCircle = ({ name, glowColor, scale = 1, rank }: { name: string; glowColor: string; scale?: number; rank: number }) => {
   const size = 72 * scale

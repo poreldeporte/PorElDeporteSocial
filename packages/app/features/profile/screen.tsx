@@ -28,16 +28,15 @@ import {
   Calendar,
   Check,
   ChevronDown,
-  HelpCircle,
   Shield,
   Star,
   Trophy,
 } from '@tamagui/lucide-icons'
 import {
+  bannerPed,
   captainBadge,
   ironmanBadge,
   legendBadge,
-  bannerPed,
   memberBadge,
   ownerBadge,
   playerBadge,
@@ -48,6 +47,7 @@ import { BrandStamp } from 'app/components/BrandStamp'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { InfoPopup } from 'app/components/InfoPopup'
 import { RatingBlock } from 'app/components/RatingBlock'
+import { SectionCard } from 'app/components/SectionCard'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { UploadAvatar } from 'app/features/settings/components/upload-avatar'
 import { UploadCommunityBanner } from 'app/features/settings/components/upload-community-banner'
@@ -57,6 +57,7 @@ import { useBrand } from 'app/provider/brand'
 import { emptyBirthDateParts, formatBirthDateParts, parseBirthDateParts } from 'app/utils/birthDate'
 import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
 import { api } from 'app/utils/api'
@@ -106,7 +107,10 @@ type ScrollHeaderProps = {
 
 type PillTone = 'neutral' | 'active' | 'primary'
 
+type BadgeId = 'rookie' | 'player' | 'legend' | 'member' | 'owner' | 'ironman' | 'captain'
+
 type BadgeDefinition = {
+  badgeId?: BadgeId
   label: string
   icon: typeof Shield
   tone?: PillTone
@@ -211,7 +215,8 @@ export const ProfileScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps =
 const useProfileData = () => {
   const { profile, avatarUrl, user, displayName, role, isAdmin } = useUser()
   const { activeCommunityId } = useActiveCommunity()
-  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
+  const realtimeEnabled = useRealtimeEnabled(Boolean(activeCommunityId))
+  useGamesListRealtime(realtimeEnabled, activeCommunityId)
   const historyLink = useLink({ href: '/games/history' })
   const leaderboardQuery = api.stats.leaderboard.useQuery(
     { communityId: activeCommunityId ?? '' },
@@ -225,7 +230,7 @@ const useProfileData = () => {
     { communityId: activeCommunityId ?? '' },
     { enabled: Boolean(activeCommunityId) }
   )
-  useStatsRealtime(Boolean(activeCommunityId), activeCommunityId)
+  useStatsRealtime(realtimeEnabled, activeCommunityId)
   const ratingQuery = api.stats.myCommunityRating.useQuery(
     { communityId: activeCommunityId ?? '' },
     { enabled: Boolean(activeCommunityId) }
@@ -566,19 +571,36 @@ const ProfileHero = ({
             </YStack>
             <YStack ai="center" jc="center" gap="$1.5">
               <YStack
-                w={88}
-                h={88}
-                br={44}
+                w={104}
+                h={104}
+                br={52}
                 bw={1}
                 boc="$color12"
                 bg="$background"
                 theme="light"
                 ai="center"
                 jc="center"
+                position="relative"
                 onPress={() => setRatingInfoOpen(true)}
                 pressStyle={{ opacity: 0.85 }}
                 accessibilityRole="button"
+                accessibilityLabel="Community rating info"
               >
+                <YStack
+                  position="absolute"
+                  top={6}
+                  right={6}
+                  w={18}
+                  h={18}
+                  br={999}
+                  bg="$color12"
+                  ai="center"
+                  jc="center"
+                >
+                  <SizableText size="$1" fontWeight="700" color="$background">
+                    ?
+                  </SizableText>
+                </YStack>
                 <RatingBlock
                   rating={rating}
                   ratedGames={ratedGames}
@@ -685,11 +707,7 @@ const PerformanceSection = ({
 }) => {
   const { primaryColor } = useBrand()
   const [infoOpen, setInfoOpen] = useState(false)
-  const summary = isLoading
-    ? 'Dialing in your record…'
-    : stats.games
-    ? 'Tracking your impact over time.'
-    : ''
+  const subtitle = 'Track wins, goals, and rank as you play.'
 
   const hasGames = stats.games > 0
   const infoBullets = [
@@ -702,117 +720,89 @@ const PerformanceSection = ({
 
   return (
     <>
-      <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
-        <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
-          <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-            <YStack gap="$1" flex={1}>
-              <XStack ai="center" jc="space-between" gap="$2">
-                <SizableText size="$5" fontWeight="600" textTransform="uppercase" letterSpacing={1.2}>
-                  Performance
-                </SizableText>
-                <Button
-                  chromeless
-                  size="$2"
-                  p="$1"
-                  onPress={() => setInfoOpen(true)}
-                  aria-label="Performance info"
-                  pressStyle={{ opacity: 0.7 }}
-                >
-                  <Button.Icon>
-                    <HelpCircle size={20} color="$color10" />
-                  </Button.Icon>
-                </Button>
-              </XStack>
-              {summary ? <Paragraph theme="alt2">{summary}</Paragraph> : null}
-            </YStack>
-          </XStack>
-        </YStack>
-        <YStack p="$4" gap="$3" backgroundColor="$color1" w="100%">
-          {hasGames ? (
-            <>
-              <YStack gap="$3">
-                {[performance.slice(0, 2), performance.slice(2, 5), performance.slice(5, 8)].map(
-                  (row, rowIndex) => (
-                    <XStack key={`performance-row-${rowIndex}`} gap="$3">
-                      {row.map((metric) => (
-                        <MetricCard
-                          key={metric.label}
-                          {...metric}
-                          isLoading={isLoading}
-                          highlight={rowIndex === 0}
-                        />
-                      ))}
-                    </XStack>
-                  )
-                )}
-              </YStack>
-              <RecentForm recentForm={recentForm} />
-            </>
-          ) : (
-            <YStack ai="center" jc="center" py="$6" position="relative" overflow="hidden">
-              <YStack
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                opacity={0.2}
-                gap="$3"
-              >
-                {[0, 1].map((row) => (
-                  <XStack key={`ghost-row-${row}`} gap="$3">
-                    {[0, 1].map((col) => (
-                      <YStack
-                        key={`ghost-card-${row}-${col}`}
-                        f={1}
-                        h={64}
-                        br="$4"
-                        bg="$color2"
-                        borderWidth={1}
-                        borderColor="$color12"
+      <SectionCard
+        title="Performance"
+        description={subtitle}
+        onInfoPress={() => setInfoOpen(true)}
+        infoLabel="Performance info"
+      >
+        {hasGames ? (
+          <>
+            <YStack gap="$3">
+              {[performance.slice(0, 2), performance.slice(2, 5), performance.slice(5, 8)].map(
+                (row, rowIndex) => (
+                  <XStack key={`performance-row-${rowIndex}`} gap="$3">
+                    {row.map((metric) => (
+                      <MetricCard
+                        key={metric.label}
+                        {...metric}
+                        isLoading={isLoading}
+                        highlight={rowIndex === 0}
                       />
                     ))}
                   </XStack>
-                ))}
-              </YStack>
-              <Card
-                bordered
-                bw={1}
-                boc="$color12"
-                br="$5"
-                p="$4"
-                gap="$2"
-                alignItems="center"
-                maxWidth={280}
-                width="100%"
-              >
-                <YStack
-                  w={72}
-                  h={72}
-                  br={999}
-                  bg="$color2"
-                  ai="center"
-                  jc="center"
-                >
-                  <BarChart3 size={32} color={primaryColor} />
-                </YStack>
-                <SizableText
-                  size="$3"
-                  fontWeight="700"
-                  textTransform="uppercase"
-                  letterSpacing={1.2}
-                  textAlign="center"
-                >
-                  Play to unlock
-                </SizableText>
-                <Paragraph theme="alt2" textAlign="center">
-                  Performance stats appear after your first run.
-                </Paragraph>
-              </Card>
+                )
+              )}
             </YStack>
-          )}
-        </YStack>
-      </Card>
+            <RecentForm recentForm={recentForm} />
+          </>
+        ) : (
+          <YStack ai="center" jc="center" py="$6" position="relative" overflow="hidden">
+            <YStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              opacity={0.2}
+              gap="$3"
+            >
+              {[0, 1].map((row) => (
+                <XStack key={`ghost-row-${row}`} gap="$3">
+                  {[0, 1].map((col) => (
+                    <YStack
+                      key={`ghost-card-${row}-${col}`}
+                      f={1}
+                      h={64}
+                      br="$4"
+                      bg="$color2"
+                      borderWidth={1}
+                      borderColor="$color12"
+                    />
+                  ))}
+                </XStack>
+              ))}
+            </YStack>
+            <Card
+              bordered
+              bw={1}
+              boc="$color12"
+              br="$5"
+              p="$4"
+              gap="$2"
+              alignItems="center"
+              maxWidth={280}
+              width="100%"
+            >
+              <YStack w={72} h={72} br={999} bg="$color2" ai="center" jc="center">
+                <BarChart3 size={32} color={primaryColor} />
+              </YStack>
+              <SizableText
+                size="$3"
+                fontWeight="700"
+                textTransform="uppercase"
+                letterSpacing={1.2}
+                textAlign="center"
+              >
+                Play to unlock
+              </SizableText>
+              <Paragraph theme="alt2" textAlign="center">
+                Performance stats appear after your first run.
+              </Paragraph>
+            </Card>
+          </YStack>
+        )}
+      </SectionCard>
       <InfoPopup
         open={infoOpen}
         onOpenChange={setInfoOpen}
@@ -839,109 +829,92 @@ const HistorySection = ({
   scheduleLink: ReturnType<typeof useLink>
 }) => {
   const { primaryColor } = useBrand()
+  const viewAllButton = (
+    <Button
+      chromeless
+      size="$2"
+      px={0}
+      py={0}
+      color="$color10"
+      pressStyle={{ opacity: 0.6 }}
+      {...scheduleLink}
+    >
+      View all
+    </Button>
+  )
   return (
-    <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
-      <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
-        <XStack ai="center" jc="space-between" flexWrap="wrap" gap="$2">
-          <YStack gap="$1" f={1}>
-            <XStack ai="center" jc="space-between" gap="$2" flexWrap="wrap">
-              <SizableText size="$5" fontWeight="600" textTransform="uppercase" letterSpacing={1.2}>
-                Recent games
-              </SizableText>
-              <Button
-                chromeless
-                size="$2"
-                px={0}
-                py={0}
-                color="$color10"
-                pressStyle={{ opacity: 0.6 }}
-                {...scheduleLink}
-              >
-                View all
-              </Button>
-            </XStack>
-            <Paragraph theme="alt2">
-              Analyze each game and leave a quick review.
-            </Paragraph>
-          </YStack>
+    <SectionCard
+      title="Recent games"
+      description="Analyze each game and leave a quick review."
+      rightSlot={viewAllButton}
+    >
+      {isLoading ? (
+        <Paragraph theme="alt2">Loading your matches…</Paragraph>
+      ) : isError ? (
+        <XStack gap="$2" ai="center">
+          <Paragraph theme="alt2">Unable to load match history.</Paragraph>
+          <Button size="$2" onPress={onRetry}>
+            Retry
+          </Button>
         </XStack>
-      </YStack>
-      <YStack p="$4" gap="$3" backgroundColor="$color1" w="100%">
-        {isLoading ? (
-          <Paragraph theme="alt2">Loading your matches…</Paragraph>
-        ) : isError ? (
-          <XStack gap="$2" ai="center">
-            <Paragraph theme="alt2">Unable to load match history.</Paragraph>
-            <Button size="$2" onPress={onRetry}>
-              Retry
-            </Button>
-          </XStack>
-        ) : games.length === 0 ? (
-          <YStack ai="center" jc="center" py="$6" position="relative" overflow="hidden">
-            <YStack
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-              opacity={0.2}
-              gap="$3"
-            >
-              {[0, 1, 2].map((row) => (
-                <YStack
-                  key={`ghost-game-${row}`}
-                  h={72}
-                  br="$5"
-                  bg="$color2"
-                  borderWidth={1}
-                  borderColor="$color12"
-                />
-              ))}
-            </YStack>
-            <Card
-              bordered
-              bw={1}
-              boc="$color12"
-              br="$5"
-              p="$4"
-              gap="$2"
-              alignItems="center"
-              maxWidth={280}
-              width="100%"
-            >
+      ) : games.length === 0 ? (
+        <YStack ai="center" jc="center" py="$6" position="relative" overflow="hidden">
+          <YStack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            opacity={0.2}
+            gap="$3"
+          >
+            {[0, 1, 2].map((row) => (
               <YStack
-                w={72}
+                key={`ghost-game-${row}`}
                 h={72}
-                br={999}
+                br="$5"
                 bg="$color2"
-                ai="center"
-                jc="center"
-              >
-                <Calendar size={32} color={primaryColor} />
-              </YStack>
-              <SizableText
-                size="$3"
-                fontWeight="700"
-                textTransform="uppercase"
-                letterSpacing={1.2}
-                textAlign="center"
-              >
-                No games yet
-              </SizableText>
-              <Paragraph theme="alt2" textAlign="center">
-                Join your first run to start your history.
-              </Paragraph>
-            </Card>
-          </YStack>
-        ) : (
-          <YStack gap="$3">
-            {games.map((game) => (
-              <HistoryGameCard key={game.id} game={game} />
+                borderWidth={1}
+                borderColor="$color12"
+              />
             ))}
           </YStack>
-        )}
-      </YStack>
-    </Card>
+          <Card
+            bordered
+            bw={1}
+            boc="$color12"
+            br="$5"
+            p="$4"
+            gap="$2"
+            alignItems="center"
+            maxWidth={280}
+            width="100%"
+          >
+            <YStack w={72} h={72} br={999} bg="$color2" ai="center" jc="center">
+              <Calendar size={32} color={primaryColor} />
+            </YStack>
+            <SizableText
+              size="$3"
+              fontWeight="700"
+              textTransform="uppercase"
+              letterSpacing={1.2}
+              textAlign="center"
+            >
+              No games yet
+            </SizableText>
+            <Paragraph theme="alt2" textAlign="center">
+              Join your first run to start your history.
+            </Paragraph>
+          </Card>
+        </YStack>
+      ) : (
+        <YStack gap="$3">
+          {games.map((game) => (
+            <HistoryGameCard key={game.id} game={game} />
+          ))}
+        </YStack>
+      )}
+    </SectionCard>
   )
 }
 
@@ -955,6 +928,7 @@ const BadgeSection = ({
   attendanceStreak: number
 }) => {
   const [infoOpen, setInfoOpen] = useState(false)
+  const [badgeInfoId, setBadgeInfoId] = useState<BadgeId | null>(null)
   const tierProgress = getTierProgress(stats.games)
   const badges = buildBadges(role, stats, tierProgress.current, attendanceStreak)
   const progressRows = [
@@ -980,51 +954,46 @@ const BadgeSection = ({
     'Certain badges reflect your role or leadership.',
     'More badges appear as you progress.',
   ]
+  const badgeInfo = badgeInfoId ? BADGE_INFO[badgeInfoId] : null
 
   return (
     <>
-      <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
-        <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
-          <XStack ai="center" jc="space-between" gap="$2">
-            <SizableText size="$5" fontWeight="600" textTransform="uppercase" letterSpacing={1.2}>
-              Badges
-            </SizableText>
-            <Button
-              chromeless
-              size="$2"
-              p="$1"
-              onPress={() => setInfoOpen(true)}
-              aria-label="Badges info"
-              pressStyle={{ opacity: 0.7 }}
-            >
-              <Button.Icon>
-                <HelpCircle size={20} color="$color10" />
-              </Button.Icon>
-            </Button>
-          </XStack>
-          <Paragraph theme="alt2">Play, show up, and unlock milestones.</Paragraph>
-        </YStack>
-        <YStack p="$4" gap="$3" backgroundColor="$color1" w="100%">
-          <BadgeProgressList progress={progressRows} />
-          <XStack gap="$2" flexWrap="wrap">
-            {badges.map((badge) => (
-              <BadgeTile
-                key={badge.label}
-                label={badge.label}
-                icon={badge.icon}
-                image={badge.image}
-                completed
-              />
-            ))}
-          </XStack>
-        </YStack>
-      </Card>
+      <SectionCard
+        title="Badges"
+        description="Play, show up, and unlock milestones."
+        onInfoPress={() => setInfoOpen(true)}
+        infoLabel="Badges info"
+      >
+        <BadgeProgressList progress={progressRows} />
+        <XStack gap="$2" flexWrap="wrap">
+          {badges.map((badge) => (
+            <BadgeTile
+              key={badge.label}
+              badgeId={badge.badgeId}
+              label={badge.label}
+              icon={badge.icon}
+              image={badge.image}
+              completed
+              onPressImage={(id) => setBadgeInfoId(id)}
+            />
+          ))}
+        </XStack>
+      </SectionCard>
       <InfoPopup
         open={infoOpen}
         onOpenChange={setInfoOpen}
         title="Badges"
         description="Badges highlight your milestones and impact inside the community."
         bullets={infoBullets}
+      />
+      <InfoPopup
+        open={Boolean(badgeInfo)}
+        onOpenChange={(open) => {
+          if (!open) setBadgeInfoId(null)
+        }}
+        title={badgeInfo?.title ?? ''}
+        description={badgeInfo?.meaning ?? ''}
+        bullets={badgeInfo ? [badgeInfo.earned] : undefined}
       />
     </>
   )
@@ -1100,15 +1069,19 @@ const BADGE_SHIELD_PATH =
   'M12 2H60C64 2 68 6 68 10V46C68 60 58 72 44 78L36 84L28 78C14 72 4 60 4 46V10C4 6 8 2 12 2Z'
 
 const BadgeTile = ({
+  badgeId,
   label,
   icon: Icon,
   completed,
   image,
+  onPressImage,
 }: {
+  badgeId?: BadgeId
   label: string
   icon: typeof Shield
   completed: boolean
   image?: ImageSourcePropType
+  onPressImage?: (badgeId: BadgeId) => void
 }) => {
   const { primaryColor } = useBrand()
   const theme = useTheme()
@@ -1119,6 +1092,11 @@ const BadgeTile = ({
   const shieldFill = backgroundColor ?? theme.background?.val ?? 'transparent'
   const shieldStroke = borderColor ?? theme.borderColor?.val ?? 'transparent'
   const hasImage = Boolean(image)
+  const isPressable = Boolean(hasImage && completed && badgeId && onPressImage)
+  const handleImagePress = () => {
+    if (!badgeId || !onPressImage) return
+    onPressImage(badgeId)
+  }
   return (
     <YStack
       w="31%"
@@ -1128,11 +1106,18 @@ const BadgeTile = ({
       position="relative"
     >
       {hasImage ? (
-        <Image
-          source={image as ImageSourcePropType}
-          resizeMode="contain"
-          style={{ width: '100%', height: '100%' }}
-        />
+        <YStack
+          width="100%"
+          height="100%"
+          onPress={isPressable ? handleImagePress : undefined}
+          pressStyle={isPressable ? { opacity: 0.85 } : undefined}
+        >
+          <Image
+            source={image as ImageSourcePropType}
+            resizeMode="contain"
+            style={{ width: '100%', height: '100%' }}
+          />
+        </YStack>
       ) : (
         <>
           <Svg width="100%" height="100%" viewBox="0 0 72 88" style={{ position: 'absolute' }}>
@@ -1370,6 +1355,7 @@ const buildBadges = (
 
   if (tier) {
     badges.push({
+      badgeId: tier.id,
       label: tier.label,
       icon: Star,
       tone: 'active',
@@ -1384,6 +1370,7 @@ const buildBadges = (
     })
   }
   badges.push({
+    badgeId: role === 'owner' ? 'owner' : role === 'member' ? 'member' : undefined,
     label: formatRole(role),
     icon: Shield,
     tone: role === 'admin' || role === 'owner' ? 'primary' : 'neutral',
@@ -1391,12 +1378,55 @@ const buildBadges = (
   })
 
   if (attendanceStreak >= IRONMAN_STREAK) {
-    badges.push({ label: 'Ironman', icon: Trophy, image: ironmanBadge })
+    badges.push({ badgeId: 'ironman', label: 'Ironman', icon: Trophy, image: ironmanBadge })
   }
   if (stats.gamesAsCaptain > 0) {
-    badges.push({ label: 'Capitan', icon: Shield, image: captainBadge })
+    badges.push({ badgeId: 'captain', label: 'Capitan', icon: Shield, image: captainBadge })
   }
   return badges
+}
+
+const BADGE_TIER_MIN_GAMES = BADGE_TIERS.reduce((acc, tier) => {
+  acc[tier.id] = tier.minGames
+  return acc
+}, {} as Record<BadgeTier['id'], number>)
+
+const BADGE_INFO: Record<BadgeId, { title: string; meaning: string; earned: string }> = {
+  rookie: {
+    title: 'Rookie',
+    meaning: 'Every journey starts with a first run. This badge marks the moment you stepped in.',
+    earned: `Earned after you play ${BADGE_TIER_MIN_GAMES.rookie} games.`,
+  },
+  player: {
+    title: 'Player',
+    meaning: "You've moved beyond the first steps. You show up, contribute, and belong.",
+    earned: `Earned after you play ${BADGE_TIER_MIN_GAMES.player} games.`,
+  },
+  legend: {
+    title: 'Legend',
+    meaning: "Your name is part of the community's story. You've built real history here.",
+    earned: `Earned after you play ${BADGE_TIER_MIN_GAMES.legend} games.`,
+  },
+  member: {
+    title: 'Member',
+    meaning: 'You belong here. This badge reflects your commitment to the community.',
+    earned: 'Granted when you join a community.',
+  },
+  owner: {
+    title: 'Owner',
+    meaning: 'You carry the standards of the community and set its direction.',
+    earned: 'Granted to community owners.',
+  },
+  ironman: {
+    title: 'Ironman',
+    meaning: 'Reliability under pressure. You show up when it counts.',
+    earned: `Earned by attending ${IRONMAN_STREAK} games in a row.`,
+  },
+  captain: {
+    title: 'Capitan',
+    meaning: 'Leadership in motion. You take responsibility when the game is on the line.',
+    earned: 'Earned after captaining at least one game.',
+  },
 }
 
 const getAttendanceStreak = (games: GameListItem[]) => {

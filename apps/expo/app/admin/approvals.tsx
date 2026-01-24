@@ -12,6 +12,7 @@ import { useMemberApprovalsRealtime } from 'app/features/admin/member-approvals-
 import { getScreenLayout } from 'app/navigation/layouts'
 import { useSupabase } from 'app/utils/supabase/useSupabase'
 import { useUser } from 'app/utils/useUser'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 
 import { FloatingHeaderLayout } from '../../components/FloatingHeaderLayout'
 
@@ -22,11 +23,11 @@ export default function Screen() {
   const { isAdmin, isLoading } = useUser()
   const supabase = useSupabase()
   const queryClient = useQueryClient()
-  const realtimeEnabled = isAdmin && !isLoading
+  const realtimeEnabled = useRealtimeEnabled(isAdmin && !isLoading)
   const invalidatePendingCount = () => {
     void queryClient.invalidateQueries({ queryKey: ['member-approvals', 'pending-count'] })
   }
-  useMemberApprovalsRealtime(realtimeEnabled, invalidatePendingCount)
+  useMemberApprovalsRealtime(realtimeEnabled, null, invalidatePendingCount)
   const pendingCountQuery = useQuery({
     queryKey: ['member-approvals', 'pending-count'],
     queryFn: async () => {

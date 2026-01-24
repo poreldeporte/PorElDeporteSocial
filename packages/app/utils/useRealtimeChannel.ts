@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 
 import { defaultRealtimeChannelConfig } from 'app/constants/realtime'
@@ -20,21 +20,25 @@ export const useRealtimeChannel = (
   const enabled = options?.enabled ?? true
   const config = options?.config ?? defaultRealtimeChannelConfig
   const onError = options?.onError
+  const isActiveRef = useRef(false)
 
   useEffect(() => {
     if (!supabase || !channelName || !enabled) return
 
+    isActiveRef.current = true
     const channel = supabase.channel(channelName, config)
     debugRealtimeLog(channelName, 'subscribe')
     configure(channel)
     channel.subscribe((status) => {
       debugRealtimeLog(channelName, `status:${status}`)
-      if (status === 'CHANNEL_ERROR') {
+      if (!isActiveRef.current) return
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         onError?.()
       }
     })
 
     return () => {
+      isActiveRef.current = false
       debugRealtimeLog(channelName, 'unsubscribe')
       supabase
         .removeChannel(channel)

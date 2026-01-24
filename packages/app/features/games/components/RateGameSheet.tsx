@@ -12,6 +12,7 @@ import {
   TextArea,
   XStack,
   YStack,
+  formInputStyle,
   submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
@@ -159,9 +160,7 @@ export const RateGameSheet = ({ open, onOpenChange, gameId, gameName }: RateGame
                   onChangeText={setComment}
                   placeholder="Share a quick note (optional)"
                   placeholderTextColor="$color10"
-                  borderRadius={12}
-                  borderColor="$borderColor"
-                  backgroundColor="$color1"
+                  {...formInputStyle}
                   minHeight={120}
                   maxLength={400}
                 />

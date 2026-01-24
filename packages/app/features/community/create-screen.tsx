@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import * as ImagePicker from 'expo-image-picker'
-import { Check, HelpCircle } from '@tamagui/lucide-icons'
+import { Check } from '@tamagui/lucide-icons'
 import { useController, useFormContext, type FieldPath } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -18,6 +18,8 @@ import {
   Theme,
   XStack,
   YStack,
+  formFieldShell,
+  formInputStyle,
   isWeb,
   submitButtonBaseProps,
   useToastController,
@@ -26,7 +28,7 @@ import {
 import { brandIcon } from 'app/assets'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
 import { InfoPopup } from 'app/components/InfoPopup'
-import { SectionHeading } from 'app/components/SectionHeading'
+import { SectionCard } from 'app/components/SectionCard'
 import { uploadCommunityLogo } from 'app/features/community/community-logo-upload'
 import { StatePicker } from 'app/features/profile/state-picker'
 import { useBrand } from 'app/provider/brand'
@@ -544,9 +546,10 @@ export const CreateCommunityScreen = ({ scrollProps, headerSpacer }: ScrollHeade
                 </YStack>
 
                 {createdCommunityId ? (
-                  <SectionPanel
+                  <SectionCard
                     title={createdArchived ? 'Archived community' : 'My community'}
                     description="You can only create 1 community."
+                    variant="glass"
                     glassBackground={glassBackground}
                     isDark={isDark}
                   >
@@ -585,14 +588,15 @@ export const CreateCommunityScreen = ({ scrollProps, headerSpacer }: ScrollHeade
                         You already created a community.
                       </Button>
                     )}
-                  </SectionPanel>
+                  </SectionCard>
                 ) : (
                   <>
-                    <SectionPanel
+                    <SectionCard
                       title="1. Basics"
                       description="Your identity and location."
                       onInfoPress={() => setBasicsInfoOpen(true)}
                       infoLabel="Basics info"
+                      variant="glass"
                       glassBackground={glassBackground}
                       isDark={isDark}
                     >
@@ -620,13 +624,14 @@ export const CreateCommunityScreen = ({ scrollProps, headerSpacer }: ScrollHeade
                         label="Primary color"
                         primaryColor={primaryColor}
                       />
-                    </SectionPanel>
+                    </SectionCard>
 
-                    <SectionPanel
+                    <SectionCard
                       title="2. Contact (optional)"
                       description="Public ways to reach the community."
                       onInfoPress={() => setContactInfoOpen(true)}
                       infoLabel="Contact info"
+                      variant="glass"
                       glassBackground={glassBackground}
                       isDark={isDark}
                     >
@@ -657,13 +662,14 @@ export const CreateCommunityScreen = ({ scrollProps, headerSpacer }: ScrollHeade
                         placeholder="https://community.com"
                         inputProps={{ autoCapitalize: 'none', autoCorrect: false }}
                       />
-                    </SectionPanel>
+                    </SectionCard>
 
-                    <SectionPanel
+                    <SectionCard
                       title="3. Social (optional)"
                       description="Public social links."
                       onInfoPress={() => setSocialInfoOpen(true)}
                       infoLabel="Social info"
+                      variant="glass"
                       glassBackground={glassBackground}
                       isDark={isDark}
                     >
@@ -691,7 +697,7 @@ export const CreateCommunityScreen = ({ scrollProps, headerSpacer }: ScrollHeade
                         placeholder="https://tiktok.com/@club"
                         inputProps={{ autoCapitalize: 'none', autoCorrect: false }}
                       />
-                    </SectionPanel>
+                    </SectionCard>
                   </>
                 )}
               </YStack>
@@ -772,11 +778,7 @@ const TextInputField = ({
         ref={field.ref}
         placeholder={placeholder}
         placeholderTextColor="$color10"
-        borderRadius={12}
-        borderColor="$color12"
-        borderWidth={1}
-        backgroundColor="$white1"
-        color="$color"
+        {...formInputStyle}
         {...inputProps}
         disabled={disabled}
       />
@@ -801,7 +803,7 @@ const StateField = ({
   return (
     <YStack gap="$2" f={1}>
       <Paragraph fontWeight="600">{label}</Paragraph>
-      <YStack borderWidth={1} borderColor="$color12" borderRadius={12} backgroundColor="$white1">
+      <YStack {...formFieldShell}>
         <StatePicker
           value={value || null}
           onChange={(code) => field.onChange(code)}
@@ -940,69 +942,3 @@ const PrimaryColorField = ({
     </YStack>
   )
 }
-
-const SectionPanel = ({
-  title,
-  description,
-  glassBackground,
-  isDark,
-  onInfoPress,
-  infoLabel,
-  children,
-}: {
-  title: string
-  description: string
-  glassBackground: string
-  isDark: boolean
-  onInfoPress?: () => void
-  infoLabel?: string
-  children: ReactNode
-}) => (
-  <YStack
-    borderWidth={1}
-    borderColor="$color12"
-    borderRadius={20}
-    p={0}
-    bg={glassBackground}
-    overflow="hidden"
-    shadowColor={isDark ? '#00000066' : '#00000022'}
-    shadowOpacity={0.18}
-    shadowRadius={18}
-    elevation={6}
-    style={isWeb ? { backdropFilter: 'blur(14px)' } : undefined}
-  >
-    <Theme inverse>
-      <YStack
-        p="$4"
-        gap="$1"
-        borderBottomWidth={1}
-        borderBottomColor="$color12"
-        backgroundColor="$color1"
-      >
-        <XStack ai="center" jc="space-between" gap="$2">
-          <SectionHeading>{title}</SectionHeading>
-          {onInfoPress ? (
-            <Button
-              chromeless
-              size="$2"
-              p="$1"
-              onPress={onInfoPress}
-              aria-label={infoLabel ?? `${title} info`}
-              pressStyle={{ opacity: 0.7 }}
-            >
-              <Button.Icon>
-                <HelpCircle size={18} color="$color12" />
-              </Button.Icon>
-            </Button>
-          ) : null}
-        </XStack>
-        <Paragraph color="$color12" size="$2">
-          {description}
-        </Paragraph>
-      </YStack>
-    </Theme>
-    <YStack p="$4" gap="$3" backgroundColor="$color1">
-      {children}
-    </YStack>
-  </YStack>
-)

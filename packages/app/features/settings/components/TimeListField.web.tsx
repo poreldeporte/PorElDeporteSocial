@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { Button, FieldError, Input, Label, Paragraph, XStack, YStack } from '@my/ui/public'
+import { Button, FieldError, Input, Label, Paragraph, XStack, YStack, formInputStyle } from '@my/ui/public'
 import { useController, useFormContext } from 'react-hook-form'
 
 import { formatTimeList, parseTimeList } from '../time-list'
@@ -54,6 +54,7 @@ export const TimeListField = ({ name, label, helper }: TimeListFieldProps) => {
                 type="time"
                 value={time}
                 onChangeText={(value) => handleUpdate(index, value)}
+                {...formInputStyle}
               />
               <Button size="$3" theme="red" variant="outlined" onPress={() => handleRemove(index)}>
                 Remove

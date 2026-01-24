@@ -13,6 +13,7 @@ import {
   Theme,
   XStack,
   YStack,
+  formFieldShell,
   useToastController,
 } from '@my/ui/public'
 import { Alert, type ScrollViewProps } from 'react-native'
@@ -22,7 +23,7 @@ import { useBrand } from 'app/provider/brand'
 import { useThemeSetting } from 'app/provider/theme'
 import { CountryPicker } from 'app/components/CountryPicker'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
-import { SectionHeading } from 'app/components/SectionHeading'
+import { SectionCard } from 'app/components/SectionCard'
 import { UserAvatar } from 'app/components/UserAvatar'
 import { SchemaForm } from 'app/utils/SchemaForm'
 import { formatPhoneDisplay, getPhoneCountryOptions, parsePhoneToE164, type PhoneCountryOption } from 'app/utils/phone'
@@ -37,7 +38,6 @@ import { type ReactNode, useRef, useState } from 'react'
 import { createParam } from 'solito'
 import { useController, useFormContext } from 'react-hook-form'
 import { LinearGradient } from '@tamagui/linear-gradient'
-import { HelpCircle } from '@tamagui/lucide-icons'
 
 import { api } from '../../utils/api'
 import {
@@ -348,104 +348,7 @@ const EditProfileForm = ({
     </YStack>
   )
 
-  const SectionPanel = ({
-    title,
-    description,
-    onInfoPress,
-    infoLabel,
-    children,
-  }: {
-    title: string
-    description: string
-    onInfoPress?: () => void
-    infoLabel?: string
-    children: ReactNode
-  }) =>
-    isImmersive ? (
-      <YStack
-        borderWidth={1}
-        borderColor="$color12"
-        borderRadius={20}
-        p={0}
-        bg={glassBackground}
-        overflow="hidden"
-        shadowColor={isDark ? '#00000066' : '#00000022'}
-        shadowOpacity={0.18}
-        shadowRadius={18}
-        elevation={6}
-        style={isWeb ? { backdropFilter: 'blur(14px)' } : undefined}
-      >
-        <Theme inverse>
-          <YStack
-            p="$4"
-            gap="$1"
-            borderBottomWidth={1}
-            borderBottomColor="$color12"
-            backgroundColor="$color1"
-          >
-            <XStack ai="center" jc="space-between" gap="$2">
-              <SectionHeading>{title}</SectionHeading>
-              {onInfoPress ? (
-                <Button
-                  chromeless
-                  size="$2"
-                  p="$1"
-                  onPress={onInfoPress}
-                  aria-label={infoLabel ?? `${title} info`}
-                  pressStyle={{ opacity: 0.7 }}
-                >
-                  <Button.Icon>
-                    <HelpCircle size={18} color="$color12" />
-                  </Button.Icon>
-                </Button>
-              ) : null}
-            </XStack>
-            <Paragraph color="$color12" size="$2">
-              {description}
-            </Paragraph>
-          </YStack>
-        </Theme>
-        <YStack p="$4" gap="$3" backgroundColor="$color1">
-          {children}
-        </YStack>
-      </YStack>
-    ) : (
-      <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
-        <Theme inverse>
-          <YStack
-            p="$4"
-            gap="$1"
-            borderBottomWidth={1}
-            borderBottomColor="$color12"
-            backgroundColor="$color1"
-          >
-            <XStack ai="center" jc="space-between" gap="$2">
-              <SectionHeading>{title}</SectionHeading>
-              {onInfoPress ? (
-                <Button
-                  chromeless
-                  size="$2"
-                  p="$1"
-                  onPress={onInfoPress}
-                  aria-label={infoLabel ?? `${title} info`}
-                  pressStyle={{ opacity: 0.7 }}
-                >
-                  <Button.Icon>
-                    <HelpCircle size={18} color="$color12" />
-                  </Button.Icon>
-                </Button>
-              ) : null}
-            </XStack>
-            <Paragraph color="$color12" size="$2">
-              {description}
-            </Paragraph>
-          </YStack>
-        </Theme>
-        <YStack p="$4" gap="$3" backgroundColor="$color1">
-          {children}
-        </YStack>
-      </Card>
-    )
+  const sectionVariant = isImmersive ? 'glass' : 'solid'
 
   return (
     <YStack f={1} position="relative" bg="$color1">
@@ -477,10 +380,10 @@ const EditProfileForm = ({
           phone: {
             inputMode: 'tel',
             disabled: true,
-            bg: '$white1',
+            bg: '$color2',
             borderColor: '$color8',
             color: '$color10',
-            opacity: 0.7,
+            opacity: 0.6,
           } as any,
           address: {
             autoCapitalize: 'words',
@@ -518,11 +421,14 @@ const EditProfileForm = ({
               {renderHeader()}
               <YStack gap="$4">
                 {topSection}
-                <SectionPanel
+                <SectionCard
                   title="1. Profile"
                   description="Your name, your identity — show up the right way."
                   onInfoPress={() => setProfileInfoOpen(true)}
                   infoLabel="Profile info"
+                  variant={sectionVariant}
+                  glassBackground={glassBackground}
+                  isDark={isDark}
                 >
                   <XStack gap="$3">
                     <YStack f={1}>{fields.firstName}</YStack>
@@ -540,12 +446,15 @@ const EditProfileForm = ({
                       Verified. Ask an admin to change.
                     </Paragraph>
                   </YStack>
-                </SectionPanel>
-                <SectionPanel
+                </SectionCard>
+                <SectionCard
                   title="2. Player"
                   description="Roles, number, and eligibility — your on-field stamp."
                   onInfoPress={() => setPlayerInfoOpen(true)}
                   infoLabel="Player info"
+                  variant={sectionVariant}
+                  glassBackground={glassBackground}
+                  isDark={isDark}
                 >
                   <PositionCheckboxes />
                   <NationalityField />
@@ -563,12 +472,15 @@ const EditProfileForm = ({
                       </Paragraph>
                     </YStack>
                   </XStack>
-                </SectionPanel>
-                <SectionPanel
+                </SectionCard>
+                <SectionCard
                   title="3. Location"
                   description="Represent your city."
                   onInfoPress={() => setLocationInfoOpen(true)}
                   infoLabel="Location info"
+                  variant={sectionVariant}
+                  glassBackground={glassBackground}
+                  isDark={isDark}
                 >
                   <YStack gap="$3">
                     {fields.address}
@@ -579,7 +491,7 @@ const EditProfileForm = ({
                       </YStack>
                     </XStack>
                   </YStack>
-                </SectionPanel>
+                </SectionCard>
                 {isImmersive ? <BrandStamp size={84} /> : null}
               </YStack>
             </FormWrapper.Body>
@@ -935,7 +847,7 @@ const NationalityField = () => {
         <Label color="$color12" size="$3">
           Nationality
         </Label>
-        <YStack borderWidth={1} borderColor="$color12" borderRadius={12} backgroundColor="$white1">
+        <YStack {...formFieldShell} borderColor="$color8">
           <CountryPicker
             value={value}
             onChange={(code) => field.onChange(code)}
@@ -968,7 +880,7 @@ const StateField = () => {
         <Label color="$color12" size="$3">
           State
         </Label>
-        <YStack borderWidth={1} borderColor="$color12" borderRadius={12} backgroundColor="$white1">
+        <YStack {...formFieldShell} borderColor="$color8">
           <StatePicker
             value={value || null}
             onChange={(code) => field.onChange(code)}

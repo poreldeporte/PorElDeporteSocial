@@ -2,27 +2,28 @@ import { StyleSheet, type ScrollViewProps } from 'react-native'
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
 
 import {
+  Button,
   Card,
   ConfirmDialog,
   FullscreenSpinner,
   Paragraph,
   ScrollView,
-  SizableText,
-  Button,
   Separator,
+  SizableText,
   View,
   XStack,
   YStack,
 } from '@my/ui/public'
-import { Calendar, HelpCircle } from '@tamagui/lucide-icons'
+import { Calendar } from '@tamagui/lucide-icons'
 import { BrandStamp } from 'app/components/BrandStamp'
 import { InfoPopup } from 'app/components/InfoPopup'
-import { SectionHeading } from 'app/components/SectionHeading'
+import { SectionCard } from 'app/components/SectionCard'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime, useStatsRealtime } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import { useUser } from 'app/utils/useUser'
 
@@ -44,8 +45,9 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
     { scope: 'upcoming', communityId: activeCommunityId ?? '' },
     { enabled: Boolean(activeCommunityId) }
   )
-  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
-  useStatsRealtime(Boolean(activeCommunityId), activeCommunityId)
+  const realtimeEnabled = useRealtimeEnabled(Boolean(activeCommunityId))
+  useGamesListRealtime(realtimeEnabled, activeCommunityId)
+  useStatsRealtime(realtimeEnabled, activeCommunityId)
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
   const [dropGameId, setDropGameId] = useState<string | null>(null)
@@ -136,85 +138,57 @@ export function HomeScreen({ scrollProps, headerSpacer, topInset }: ScrollHeader
         {draftCardGame ? (
           <QuickJoinCard game={draftCardGame} variant='draft' />
         ) : null}
-        <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
-          <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
-            <XStack ai="center" jc="space-between" gap="$2">
-              <SectionHeading>My games</SectionHeading>
-              <Button
-                chromeless
-                size="$2"
-                p="$1"
-                onPress={() => setMyGamesInfoOpen(true)}
-                aria-label="My games info"
-                pressStyle={{ opacity: 0.7 }}
-              >
-                <Button.Icon>
-                  <HelpCircle size={20} color="$color10" />
-                </Button.Icon>
-              </Button>
-            </XStack>
-            <Paragraph theme="alt2">Your upcoming games and roster spots.</Paragraph>
-          </YStack>
-          <YStack p="$0" gap="$0" backgroundColor="$color1">
-            {myUpcomingGames.length ? (
-              <YStack>
-                {myUpcomingGames.map((game, index) => (
-                  <Fragment key={game.id}>
-                    <GameCard
-                      game={game}
-                      onJoin={join}
-                      onLeave={handleDropRequest}
-                      onGrabOpenSpot={grabOpenSpot}
-                      onConfirmAttendance={confirmAttendance}
-                      isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
-                      isConfirming={isConfirming}
-                      variant="list"
-                    />
-                    {index < myUpcomingGames.length - 1 ? (
-                      <Separator bw="$0.5" boc="$color12" />
-                    ) : null}
-                  </Fragment>
-                ))}
-              </YStack>
-            ) : (
-              <MyGamesEmptyState />
-            )}
-          </YStack>
-        </Card>
+        <SectionCard
+          title="My games"
+          description="Your upcoming games and roster spots."
+          onInfoPress={() => setMyGamesInfoOpen(true)}
+          infoLabel="My games info"
+          bodyProps={{ p: '$0', gap: '$0', backgroundColor: '$color1' }}
+        >
+          {myUpcomingGames.length ? (
+            <YStack>
+              {myUpcomingGames.map((game, index) => (
+                <Fragment key={game.id}>
+                  <GameCard
+                    game={game}
+                    onJoin={join}
+                    onLeave={handleDropRequest}
+                    onGrabOpenSpot={grabOpenSpot}
+                    onConfirmAttendance={confirmAttendance}
+                    isPending={Boolean(isPending && pendingGameId && game.id === pendingGameId)}
+                    isConfirming={isConfirming}
+                    variant="list"
+                  />
+                  {index < myUpcomingGames.length - 1 ? (
+                    <Separator bw="$0.5" boc="$color12" />
+                  ) : null}
+                </Fragment>
+              ))}
+            </YStack>
+          ) : (
+            <MyGamesEmptyState />
+          )}
+        </SectionCard>
         {nextAvailableGame ? (
-          <Card bordered bw={1} boc="$color12" br="$5" p={0} overflow="hidden" backgroundColor="$color2">
-            <YStack p="$4" gap="$1" borderBottomWidth={1} borderBottomColor="$color12">
-              <XStack ai="center" jc="space-between" gap="$2">
-                <SectionHeading>Next available game</SectionHeading>
-                <Button
-                  chromeless
-                  size="$2"
-                  p="$1"
-                  onPress={() => setNextGameInfoOpen(true)}
-                  aria-label="Next available game info"
-                  pressStyle={{ opacity: 0.7 }}
-                >
-                  <Button.Icon>
-                    <HelpCircle size={20} color="$color10" />
-                  </Button.Icon>
-                </Button>
-              </XStack>
-              <Paragraph theme="alt2">First open spot across the community.</Paragraph>
-            </YStack>
-            <YStack p="$0" gap="$0" backgroundColor="$color1">
-              <QuickJoinCard
-                game={nextAvailableGame}
-                onJoin={join}
-                onLeave={handleDropRequest}
-                onGrabOpenSpot={grabOpenSpot}
-                onConfirmAttendance={confirmAttendance}
-                isPending={isPending}
-                pendingGameId={pendingGameId}
-                isConfirming={isConfirming}
-                gameCardVariant="list"
-              />
-            </YStack>
-          </Card>
+          <SectionCard
+            title="Next available game"
+            description="First open spot across the community."
+            onInfoPress={() => setNextGameInfoOpen(true)}
+            infoLabel="Next available game info"
+            bodyProps={{ p: '$0', gap: '$0', backgroundColor: '$color1' }}
+          >
+            <QuickJoinCard
+              game={nextAvailableGame}
+              onJoin={join}
+              onLeave={handleDropRequest}
+              onGrabOpenSpot={grabOpenSpot}
+              onConfirmAttendance={confirmAttendance}
+              isPending={isPending}
+              pendingGameId={pendingGameId}
+              isConfirming={isConfirming}
+              gameCardVariant="list"
+            />
+          </SectionCard>
         ) : null}
         <BrandStamp />
       </YStack>
@@ -280,26 +254,28 @@ const MyGamesEmptyState = () => {
         boc="$color12"
         br="$5"
         p="$4"
-        gap="$2"
+        gap="$3"
         alignItems="center"
-        maxWidth={280}
+        maxWidth={320}
         width="100%"
       >
         <YStack w={72} h={72} br={999} bg="$color2" ai="center" jc="center">
           <Calendar size={32} color={primaryColor} />
         </YStack>
-        <SizableText
-          size="$3"
-          fontWeight="700"
-          textTransform="uppercase"
-          letterSpacing={1.2}
-          textAlign="center"
-        >
-          No upcoming games yet
-        </SizableText>
-        <Paragraph theme="alt2" textAlign="center">
-          Your next run awaits. Join the next game with the crew.
-        </Paragraph>
+        <YStack gap="$1" ai="center">
+          <SizableText
+            size="$3"
+            fontWeight="700"
+            textTransform="uppercase"
+            letterSpacing={1.2}
+            textAlign="center"
+          >
+            No upcoming games yet
+          </SizableText>
+          <Paragraph theme="alt2" textAlign="center">
+            Your next run awaits. Join the next game with the crew.
+          </Paragraph>
+        </YStack>
       </Card>
     </YStack>
   )

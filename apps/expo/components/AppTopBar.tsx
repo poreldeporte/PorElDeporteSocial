@@ -18,6 +18,8 @@ type AppTopBarProps = {
   title: string
   onPressLeft?: () => void
   onPressRight?: () => void
+  onPressTitle?: () => void
+  titleIcon?: IconComponent
   leftIcon?: IconComponent
   rightIcon?: IconComponent
   rightVariant?: 'light' | 'dark'
@@ -77,6 +79,8 @@ export const AppTopBar = ({
   title,
   onPressLeft,
   onPressRight,
+  onPressTitle,
+  titleIcon: TitleIcon,
   leftIcon,
   rightIcon,
   rightVariant = 'dark',
@@ -87,6 +91,7 @@ export const AppTopBar = ({
   const chromeTokens = useChromeTokens()
   const theme = useTheme()
   const titleColor = theme.color?.val ?? chromeTokens.textPrimary
+  const titlePressable = Boolean(onPressTitle)
   return (
     <YStack
       pt={insets.top + chromeTokens.headerPadTop}
@@ -97,10 +102,34 @@ export const AppTopBar = ({
     >
       <XStack ai="center" jc="space-between" position="relative">
         <CircleButton icon={leftIcon} onPress={onPressLeft} variant="dark" tokens={chromeTokens} />
-        <XStack position="absolute" left={0} right={0} jc="center" pointerEvents="none">
-          <SizableText size={chromeTokens.headerTitleSize} fontWeight="600" color={titleColor}>
-            {title}
-          </SizableText>
+        <XStack
+          position="absolute"
+          left={0}
+          right={0}
+          jc="center"
+          pointerEvents={titlePressable ? 'box-none' : 'none'}
+        >
+          <YStack
+            ai="center"
+            onPress={onPressTitle}
+            accessibilityRole={titlePressable ? 'button' : undefined}
+            accessibilityLabel={titlePressable ? title : undefined}
+            pressStyle={titlePressable ? { opacity: 0.86 } : undefined}
+            cursor={titlePressable ? 'pointer' : undefined}
+            px="$2"
+            py="$1"
+          >
+            <XStack ai="center" gap="$1.5">
+              <SizableText size={chromeTokens.headerTitleSize} fontWeight="600" color={titleColor}>
+                {title}
+              </SizableText>
+              {TitleIcon ? (
+                <YStack opacity={0.6}>
+                  <TitleIcon size={14} color={titleColor} />
+                </YStack>
+              ) : null}
+            </XStack>
+          </YStack>
         </XStack>
         {rightActions && rightActions.length > 0 ? (
           <XStack ai="center" gap="$2">

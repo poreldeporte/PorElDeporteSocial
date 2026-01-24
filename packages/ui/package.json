@@ -48,7 +48,11 @@
     "tamagui": "^1.132.7",
     "zod": "^3.22.2"
   },
+  "peerDependencies": {
+    "@rehookify/datepicker": "^6.6.6"
+  },
   "devDependencies": {
+    "@rehookify/datepicker": "^6.6.6",
     "@tamagui/build": "^1.132.7",
     "eslint": "^8.46.0",
     "eslint-config-custom": "*",

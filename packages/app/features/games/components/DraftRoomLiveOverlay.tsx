@@ -60,6 +60,7 @@ const avatarPalette = [
 type DraftRoomLiveOverlayProps = {
   gameId: string
   enabled?: boolean
+  visible?: boolean
   collapsedMessageLimit?: number
   expandedMessageLimit?: number
 }
@@ -75,6 +76,7 @@ type LiveReaction = {
 export const DraftRoomLiveOverlay = ({
   gameId,
   enabled = true,
+  visible = true,
   collapsedMessageLimit,
   expandedMessageLimit,
 }: DraftRoomLiveOverlayProps) => {
@@ -245,7 +247,7 @@ export const DraftRoomLiveOverlay = ({
     }
   }, [broadcastMessage, chatEnabled, draft, expandChat, isSending, roomId, sendMutation, toast])
 
-  if (!chatEnabled) return null
+  if (!chatEnabled || !visible) return null
 
   const bottomInset = insets.bottom ?? 0
   const keyboardInset = Math.max(0, keyboardHeight - bottomInset)
