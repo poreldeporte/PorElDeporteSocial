@@ -6,6 +6,7 @@ import {
   Button,
   FieldError,
   Input,
+  LinearGradient,
   Paragraph,
   Select,
   Separator,
@@ -16,7 +17,6 @@ import {
   YStack,
 } from '@my/ui/public'
 import { Check, ChevronDown } from '@tamagui/lucide-icons'
-import { LinearGradient } from 'tamagui/linear-gradient'
 
 import { DatePickerExample } from '@my/ui/src/components/elements/datepicker/DatePicker'
 import { useBrand } from 'app/provider/brand'

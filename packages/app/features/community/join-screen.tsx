@@ -2,7 +2,6 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
 import { Search } from '@tamagui/lucide-icons'
-import { LinearGradient } from 'tamagui/linear-gradient'
 
 import {
   Avatar,
@@ -10,6 +9,7 @@ import {
   Card,
   FullscreenSpinner,
   Input,
+  LinearGradient,
   Paragraph,
   ScrollView,
   SizableText,

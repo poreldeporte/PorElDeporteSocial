@@ -11,6 +11,7 @@ import {
   Button,
   FieldError,
   Input,
+  LinearGradient,
   Paragraph,
   ScrollView,
   SizableText,
@@ -21,7 +22,6 @@ import {
   submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
-import { LinearGradient } from 'tamagui/linear-gradient'
 
 import { brandIcon } from 'app/assets'
 import { FloatingCtaDock } from 'app/components/FloatingCtaDock'
