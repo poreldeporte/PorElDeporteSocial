@@ -1,25 +1,26 @@
+import type { ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
+
 import type { DatePickerProviderProps } from '@rehookify/datepicker'
-import {
-  DatePickerProvider as _DatePickerProvider,
-  useDatePickerContext,
-} from '@rehookify/datepicker'
+import { DatePickerProvider, useDatePickerContext } from '@rehookify/datepicker'
 import { Calendar, ChevronLeft, ChevronRight, X } from '@tamagui/lucide-icons'
 import type { GestureReponderEvent } from '@tamagui/web'
-import type { PopoverProps } from 'tamagui'
+import type { PopoverProps, ViewProps } from 'tamagui'
 import {
-  Adapt,
   AnimatePresence,
   Button,
   Popover,
   SizableText,
   View,
+  YStack,
   createStyledContext,
+  isWeb,
   styled,
   withStaticProperties,
 } from 'tamagui'
 
-import { useDateAnimation } from './datePickerUtils'
 import { Input } from '../../../forms/inputs/components/inputsParts'
+import { useDateAnimation } from './datePickerUtils'
 
 /** rehookify internally return `onClick` and that's incompatible with native */
 
@@ -29,40 +30,61 @@ export function swapOnClick<D>(d: D) {
   return d
 }
 
-const DatePickerProvider = _DatePickerProvider as React.ComponentType<DatePickerProviderProps>
+type DatePickerProps = PopoverProps
 
-type DatePickerProps = PopoverProps & { config: DatePickerProviderProps['config'] }
+export type HeaderType = 'day' | 'month' | 'year'
 
-export const { Provider: HeaderTypeProvider, useStyledContext: useHeaderType } =
-  createStyledContext({ type: 'day', setHeader: (_: 'day' | 'month' | 'year') => {} })
+const HeaderTypeContext = createStyledContext<{
+  type: HeaderType
+  setHeader: (type: HeaderType) => void
+}>({
+  type: 'day',
+  setHeader: (_: HeaderType) => {},
+})
+
+export const useHeaderType = HeaderTypeContext.useStyledContext
+
+export const HeaderTypeProvider = ({
+  config,
+  ...props
+}: {
+  config: DatePickerProviderProps['config']
+  type: HeaderType
+  setHeader: (type: HeaderType) => void
+  children: ReactNode
+}) => {
+  return (
+    <DatePickerProvider config={config}>
+      <HeaderTypeContext.Provider {...props} />
+    </DatePickerProvider>
+  )
+}
 
 const DatePickerImpl = (props: DatePickerProps) => {
-  const { children, config, ...rest } = props
+  const { children, ...rest } = props
+  const popoverRef = useRef<{ close?: () => void } | null>(null)
+
+  useEffect(() => {
+    if (!isWeb) return
+    const controller = new AbortController()
+    document.addEventListener(
+      'scroll',
+      () => {
+        popoverRef.current?.close?.()
+      },
+      { capture: true, signal: controller.signal }
+    )
+    return () => controller.abort()
+  }, [])
 
   return (
-    <Popover keepChildrenMounted size="$5" allowFlip {...rest}>
-      {/* for mobile view */}
-      <Adapt when="sm" platform="touch">
-        <Popover.Sheet modal dismissOnSnapToBottom snapPointsMode="fit">
-          <Popover.Sheet.Frame padding="$2" alignItems="center" borderColor="$color12" borderWidth={1}>
-            <DatePickerProvider config={config}>
-              <Adapt.Contents />
-            </DatePickerProvider>
-          </Popover.Sheet.Frame>
-          <Popover.Sheet.Overlay
-            animation="lazy"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          />
-        </Popover.Sheet>
-      </Adapt>
-
-      {/* for desktop view */}
-      <DatePickerProvider config={config}>{children}</DatePickerProvider>
+    <Popover ref={popoverRef} keepChildrenMounted size="$5" allowFlip {...rest}>
+      {children}
     </Popover>
   )
 }
 
+const Anchor = Popover.Anchor
 const Trigger = Popover.Trigger
 
 const DatePickerContent = styled(Popover.Content, {
@@ -92,6 +114,7 @@ const DatePickerContent = styled(Popover.Content, {
 })
 
 export const DatePicker = withStaticProperties(DatePickerImpl, {
+  Anchor,
   Trigger,
   Content: withStaticProperties(DatePickerContent, {
     Arrow: styled(Popover.Arrow, {
@@ -103,26 +126,38 @@ export const DatePicker = withStaticProperties(DatePickerImpl, {
 
 type DatePickerInputProps = {
   onReset: () => void
-  onButtonPress?: (e: GestureReponderEvent) => void
+  onOpen?: () => void
+  disabled?: boolean
 }
 export const DatePickerInput = Input.Area.styleable<DatePickerInputProps>((props, ref) => {
-  const { value, onButtonPress, size = '$3', onReset, ...rest } = props
+  const { value, onOpen, size = '$3', onReset, disabled, ...rest } = props
+  const handleOpen = () => {
+    if (disabled) return
+    onOpen?.()
+  }
   return (
-    <View $platform-native={{ minWidth: '100%' }}>
+    <YStack $platform-native={{ minWidth: '100%' }}>
       <Input size={size}>
         <Input.Box>
-          <Input.Section>
-            <Input.Area cursor="pointer" value={value} editable={false} ref={ref} {...rest} />
+          <Input.Section flex={1}>
+            <Input.Area
+              pointerEvents="none"
+              value={value}
+              editable={false}
+              ref={ref}
+              {...rest}
+            />
           </Input.Section>
           <Input.Section>
             <Input.Button
-              onPress={(e) => {
+              onPress={(e: GestureReponderEvent) => {
+                if (disabled) return
                 if (value) {
                   e.stopPropagation()
                   onReset()
-                } else {
-                  onButtonPress?.(e)
+                  return
                 }
+                handleOpen()
               }}
             >
               {value ? (
@@ -138,7 +173,7 @@ export const DatePickerInput = Input.Area.styleable<DatePickerInputProps>((props
           </Input.Section>
         </Input.Box>
       </Input>
-    </View>
+    </YStack>
   )
 })
 
@@ -311,6 +346,60 @@ export function YearSlider() {
           <ChevronRight />
         </Button.Icon>
       </Button>
+    </View>
+  )
+}
+
+export const CalendarHeader = ({
+  year,
+  month,
+  setHeader,
+}: {
+  year: string
+  month: string
+  setHeader: (header: 'year' | 'month') => void
+}) => {
+  return (
+    <YStack gap="$1" width="100%" flex={1} alignItems="center">
+      <SizableText
+        onPress={() => setHeader('year')}
+        userSelect="auto"
+        tabIndex={0}
+        size="$4"
+        cursor="pointer"
+        color="$color11"
+        hoverStyle={{
+          color: '$color12',
+        }}
+      >
+        {year}
+      </SizableText>
+      <SizableText
+        onPress={() => setHeader('month')}
+        userSelect="auto"
+        tabIndex={0}
+        cursor="pointer"
+        size="$6"
+        color="$gray12"
+        fontWeight="700"
+        hoverStyle={{
+          color: '$gray10',
+        }}
+      >
+        {month}
+      </SizableText>
+    </YStack>
+  )
+}
+
+export const WeekView = ({ weekDays, ...props }: { weekDays: string[] } & ViewProps) => {
+  return (
+    <View flexDirection="row" gap="$1" {...props}>
+      {weekDays.map((day) => (
+        <SizableText key={day} ta="center" width={45} size="$4" color="$color11">
+          {day}
+        </SizableText>
+      ))}
     </View>
   )
 }

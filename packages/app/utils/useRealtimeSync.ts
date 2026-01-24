@@ -185,7 +185,7 @@ const getQueueDelta = (payload: {
   return { deltaRostered, deltaWaitlisted }
 }
 
-export const useGameRealtimeSync = (gameId?: string | null) => {
+export const useGameRealtimeSync = (gameId?: string | null, enabled = true) => {
   const utils = api.useUtils()
   const scheduleDetailInvalidate = useThrottledInvalidate(() => {
     if (!gameId) return
@@ -342,13 +342,15 @@ export const useGameRealtimeSync = (gameId?: string | null) => {
 
   const channelName = gameId ? `games:${gameId}` : null
 
+  const realtimeEnabled = Boolean(gameId && enabled)
+
   useRealtimeChannel(channelName ? `${channelName}:detail` : null, detailChannelHandler, {
-    enabled: Boolean(gameId),
+    enabled: realtimeEnabled,
     onError: scheduleDetailInvalidate,
   })
 
   useRealtimeChannel(channelName ? `${channelName}:queue` : null, queueChannelHandler, {
-    enabled: Boolean(gameId),
+    enabled: realtimeEnabled,
     onError: scheduleDetailInvalidate,
   })
 }
@@ -416,6 +418,11 @@ export const useGamesListRealtime = (enabled: boolean, communityId?: string | nu
             scheduleInvalidate()
           }
         )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'games' },
+          scheduleInvalidate
+        )
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_captains' }, scheduleInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_queue' }, (payload) => {
           const row = payload.new as { game_id?: string | null; status?: Database['public']['Enums']['game_queue_status'] | null }
@@ -461,6 +468,7 @@ export const useStatsRealtime = (enabled: boolean, communityId?: string | null) 
     void utils.stats.leaderboard.invalidate({ communityId })
     void utils.stats.myCommunityRating.invalidate({ communityId })
   }, 200)
+  const communityFilter = communityId ? `community_id=eq.${communityId}` : undefined
 
   const statsChannelHandler = useCallback(
     (channel: RealtimeChannel) => {
@@ -472,13 +480,41 @@ export const useStatsRealtime = (enabled: boolean, communityId?: string | null) 
         'postgres_changes',
         { event: '*', schema: 'public', table: 'game_queue' },
         scheduleInvalidate
+      ).on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_ratings', ...(communityFilter ? { filter: communityFilter } : {}) },
+        scheduleInvalidate
       )
     },
-    [scheduleInvalidate]
+    [communityFilter, scheduleInvalidate]
   )
 
   useRealtimeChannel('games:results', statsChannelHandler, {
     enabled,
+    onError: scheduleInvalidate,
+  })
+}
+
+export const useGameReviewsRealtime = (enabled: boolean, gameId?: string | null) => {
+  const utils = api.useUtils()
+  const scheduleInvalidate = useThrottledInvalidate(() => {
+    if (!gameId) return
+    void utils.reviews.listByGame.invalidate({ gameId })
+  }, 200)
+
+  const reviewsChannelHandler = useCallback(
+    (channel: RealtimeChannel) => {
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'game_reviews', filter: `game_id=eq.${gameId}` },
+        scheduleInvalidate
+      )
+    },
+    [gameId, scheduleInvalidate]
+  )
+
+  useRealtimeChannel(gameId ? `game:${gameId}:reviews` : null, reviewsChannelHandler, {
+    enabled: Boolean(gameId && enabled),
     onError: scheduleInvalidate,
   })
 }

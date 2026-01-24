@@ -7,9 +7,10 @@ import { useUser } from './useUser'
 
 type TeamsStateProps = {
   gameId?: string
+  enabled?: boolean
 }
 
-export const useTeamsState = ({ gameId }: TeamsStateProps = {}) => {
+export const useTeamsState = ({ gameId, enabled = true }: TeamsStateProps = {}) => {
   const utils = api.useUtils()
   const { user, isAdmin } = useUser()
   const query = api.teams.state.useQuery(
@@ -93,10 +94,12 @@ export const useTeamsState = ({ gameId }: TeamsStateProps = {}) => {
     [gameId, scheduleRefetch]
   )
 
+  const realtimeEnabled = Boolean(gameId && enabled)
+
   useRealtimeChannel(
     gameId ? `game:${gameId}:draft-meta` : null,
     draftMetaHandler,
-    { enabled: Boolean(gameId), onError: scheduleRefetch }
+    { enabled: realtimeEnabled, onError: scheduleRefetch }
   )
 
   const membersFilter = useMemo(() => {
@@ -119,7 +122,7 @@ export const useTeamsState = ({ gameId }: TeamsStateProps = {}) => {
   useRealtimeChannel(
     membersFilter ? `game:${gameId}:team-members` : null,
     membersHandler,
-    { enabled: Boolean(gameId && membersFilter), onError: scheduleRefetch }
+    { enabled: Boolean(membersFilter && realtimeEnabled), onError: scheduleRefetch }
   )
 
   const eventsHandler = useCallback(
@@ -136,7 +139,7 @@ export const useTeamsState = ({ gameId }: TeamsStateProps = {}) => {
   useRealtimeChannel(
     gameId ? `game:${gameId}:draft-events` : null,
     eventsHandler,
-    { enabled: Boolean(gameId), onError: scheduleRefetch }
+    { enabled: realtimeEnabled, onError: scheduleRefetch }
   )
 
   return {

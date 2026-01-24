@@ -38,7 +38,7 @@ export const navRoutes: Record<NavigationRoute['id'], NavigationRoute> = {
   },
   games: {
     id: 'games',
-    label: 'Schedule',
+    label: 'Games',
     href: '/games',
     nativeSegment: 'games/index',
     icon: Calendar,
@@ -66,7 +66,7 @@ export const navRoutes: Record<NavigationRoute['id'], NavigationRoute> = {
   },
   leaderboard: {
     id: 'leaderboard',
-    label: 'Leaders',
+    label: 'Stats',
     href: '/leaderboard',
     nativeSegment: 'leaderboard',
     icon: Trophy,
@@ -81,7 +81,7 @@ export const navRoutes: Record<NavigationRoute['id'], NavigationRoute> = {
 }
 
 export const webTabRouteIds = ['home', 'games', 'leaderboard'] as const
-export const nativeTabRouteIds = ['home', 'games', 'leaderboard'] as const
+export const nativeTabRouteIds = ['home', 'games', 'leaderboard', 'profile'] as const
 export const profileMenuRouteIds = ['profile', 'profileEdit', 'settings'] as const
 
 type RouteId = typeof webTabRouteIds[number] | typeof nativeTabRouteIds[number] | typeof profileMenuRouteIds[number]

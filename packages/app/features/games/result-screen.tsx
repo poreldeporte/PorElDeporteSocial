@@ -12,6 +12,7 @@ import {
   Spinner,
   XStack,
   YStack,
+  formInputStyle,
   isWeb,
   submitButtonBaseProps,
   useToastController,
@@ -24,6 +25,8 @@ import { api } from 'app/utils/api'
 import { formatProfileName } from 'app/utils/profileName'
 import { useTeamsState } from 'app/utils/useTeamsState'
 import { useAppRouter } from 'app/utils/useAppRouter'
+import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 
 import { useCtaButtonStyles } from './cta-styles'
 
@@ -49,8 +52,10 @@ export const GameResultScreen = ({
   const { primaryColor } = useBrand()
   const ctaButtonStyles = useCtaButtonStyles()
   const utils = api.useUtils()
-  const { teams, query, isAdmin } = useTeamsState({ gameId })
+  const realtimeEnabled = useRealtimeEnabled(Boolean(gameId))
+  const { teams, query, isAdmin } = useTeamsState({ gameId, enabled: realtimeEnabled })
   const { data: gameDetail } = api.games.byId.useQuery({ id: gameId }, { enabled: !!gameId })
+  useGameRealtimeSync(gameId, realtimeEnabled)
   const toast = useToastController()
   const [scoreByTeamId, setScoreByTeamId] = useState<Record<string, string>>({})
   const [hasPrefilledScores, setHasPrefilledScores] = useState(false)
@@ -366,6 +371,7 @@ const ResultScoreCard = ({
           fontSize={28}
           fontWeight="900"
           color={tone.scoreColor as any}
+          {...formInputStyle}
           borderColor={tone.borderColor as any}
           backgroundColor="$background"
         />

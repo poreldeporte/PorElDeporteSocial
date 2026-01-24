@@ -15,10 +15,11 @@ import {
   Switch,
   XStack,
   YStack,
+  useDatePickerField,
+  formInputStyle,
 } from '@my/ui/public'
 import { Check, ChevronDown } from '@tamagui/lucide-icons'
 
-import { DatePickerExample } from '@my/ui/src/components/elements/datepicker/DatePicker'
 import { useBrand } from 'app/provider/brand'
 
 const SECTION_LETTER_SPACING = 1.6
@@ -122,10 +123,12 @@ const SettingRow = ({
   label,
   children,
   error,
+  below,
 }: {
   label: string
   children: ReactNode
   error?: string
+  below?: ReactNode
 }) => {
   return (
     <YStack>
@@ -135,6 +138,7 @@ const SettingRow = ({
         </SizableText>
         {children}
       </XStack>
+      {below ? <YStack pb="$2">{below}</YStack> : null}
       <FieldError message={error} />
     </YStack>
   )
@@ -234,10 +238,7 @@ export const SettingRowText = <T extends FieldValues>({
         maxWidth="60%"
         fontSize={15}
         color="$color"
-        borderWidth={0}
-        backgroundColor="transparent"
-        px={0}
-        py={0}
+        {...formInputStyle}
         opacity={disabled ? 0.6 : 1}
       />
     </SettingRow>
@@ -286,10 +287,7 @@ export const SettingRowNumber = <T extends FieldValues>({
         width={width}
         fontSize={15}
         color="$color"
-        borderWidth={0}
-        backgroundColor="transparent"
-        px={0}
-        py={0}
+        {...formInputStyle}
         opacity={disabled ? 0.6 : 1}
       />
     </SettingRow>
@@ -358,10 +356,7 @@ export const SettingRowTime = <T extends FieldValues>({
           width={width}
           fontSize={15}
           color="$color"
-          borderWidth={0}
-          backgroundColor="transparent"
-          px={0}
-          py={0}
+          {...formInputStyle}
           opacity={disabled ? 0.6 : 1}
         />
         <XStack gap="$1">
@@ -426,10 +421,7 @@ export const SettingRowSelect = <T extends FieldValues>({
           disabled={disabled}
           minWidth={width}
           maxWidth="60%"
-          backgroundColor="transparent"
-          borderWidth={0}
-          px={0}
-          py={0}
+          {...formInputStyle}
           jc="flex-end"
           opacity={disabled ? 0.6 : 1}
         >
@@ -448,6 +440,30 @@ export const SettingRowSelect = <T extends FieldValues>({
     </SettingRow>
   )
 }
+
+const useSettingRowDatePicker = ({
+  disabled,
+  placeholderTextColor,
+  safeDateValue,
+  onChangeText,
+  onBlur,
+  id,
+}: {
+  disabled: boolean
+  placeholderTextColor?: string
+  safeDateValue: Date | undefined
+  onChangeText: (dateValue: string) => void
+  onBlur: () => void
+  id: string
+}) =>
+  useDatePickerField({
+    disabled,
+    placeholderTextColor,
+    value: safeDateValue ? safeDateValue.toISOString() : undefined,
+    onChangeText,
+    onBlur,
+    id,
+  })
 
 export const SettingRowDate = <T extends FieldValues>({
   name,
@@ -468,27 +484,30 @@ export const SettingRowDate = <T extends FieldValues>({
     (fieldState.error as { dateValue?: { message?: string } } | undefined)?.dateValue?.message ??
     fieldState.error?.message
 
+  const picker = useSettingRowDatePicker({
+    disabled,
+    placeholderTextColor: '$color10',
+    safeDateValue,
+    onChangeText: (dateValue) => {
+      if (!dateValue) {
+        field.onChange({ ...(value ?? {}), dateValue: undefined })
+        return
+      }
+      const next = new Date(dateValue)
+      if (!Number.isFinite(next.getTime())) {
+        field.onChange({ ...(value ?? {}), dateValue: undefined })
+        return
+      }
+      field.onChange({ ...(value ?? {}), dateValue: next })
+    },
+    onBlur: field.onBlur,
+    id: `date-${String(name)}`,
+  })
+
   return (
-    <SettingRow label={label} error={errorMessage}>
+    <SettingRow label={label} error={errorMessage} below={picker.panel}>
       <YStack width={width} maxWidth="60%">
-        <DatePickerExample
-          disabled={disabled}
-          value={safeDateValue ? safeDateValue.toISOString() : undefined}
-          onChangeText={(dateValue) => {
-            if (!dateValue) {
-              field.onChange({ ...(value ?? {}), dateValue: undefined })
-              return
-            }
-            const next = new Date(dateValue)
-            if (!Number.isFinite(next.getTime())) {
-              field.onChange({ ...(value ?? {}), dateValue: undefined })
-              return
-            }
-            field.onChange({ ...(value ?? {}), dateValue: next })
-          }}
-          onBlur={field.onBlur}
-          id={`date-${String(name)}`}
-        />
+        {picker.trigger}
       </YStack>
     </SettingRow>
   )

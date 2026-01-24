@@ -23,6 +23,8 @@ type FloatingHeaderLayoutProps = {
   title: string
   onPressLeft?: () => void
   onPressRight?: () => void
+  onPressTitle?: () => void
+  titleIcon?: IconComponent
   leftIcon?: IconComponent
   rightIcon?: IconComponent
   rightVariant?: 'light' | 'dark'
@@ -38,6 +40,8 @@ export const FloatingHeaderLayout = ({
   title,
   onPressLeft,
   onPressRight,
+  onPressTitle,
+  titleIcon,
   leftIcon,
   rightIcon,
   rightVariant = 'dark',
@@ -125,6 +129,8 @@ export const FloatingHeaderLayout = ({
           onPressLeft={onPressLeft}
           rightIcon={rightIcon}
           onPressRight={onPressRight}
+          onPressTitle={onPressTitle}
+          titleIcon={titleIcon}
           rightVariant={rightVariant}
           rightActions={rightActions}
           backgroundColor={headerBackground}

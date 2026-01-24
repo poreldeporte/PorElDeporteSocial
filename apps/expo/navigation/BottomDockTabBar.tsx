@@ -35,7 +35,7 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
   const translateX = useSharedValue(0)
   const pillWidth = useSharedValue(0)
   const activeColor = theme.color1?.val ?? '#fff'
-  const pillBackground = toRgba(primaryColor, 0.12)
+  const pillBackground = primaryColor
 
   const visibleRoutes = useMemo(
     () => state.routes.filter((route) => navRoutesBySegment[route.name]),
@@ -156,14 +156,22 @@ export const BottomDockTabBar = ({ state, descriptors, navigation }: BottomTabBa
               <XStack
                 ai="center"
                 jc="center"
-                gap="$2"
+                gap={isFocused ? '$1' : '$2'}
                 px={activeItemPaddingX}
                 opacity={isFocused ? 1 : 0.7}
+                flexDirection={isFocused ? 'column' : 'row'}
                 onLayout={handleItemLayout(route.key)}
               >
                 {Icon ? <Icon size={iconSize} color={iconColor} /> : null}
                 {isFocused ? (
-                  <SizableText size="$3" fontWeight="600" color={labelColor}>
+                  <SizableText
+                    size="$2"
+                    fontWeight="600"
+                    color={labelColor}
+                    numberOfLines={1}
+                    ellipsizeMode="clip"
+                    textAlign="center"
+                  >
                     {label}
                   </SizableText>
                 ) : null}

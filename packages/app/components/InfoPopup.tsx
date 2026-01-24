@@ -8,7 +8,7 @@ type InfoPopupProps = {
   onOpenChange: (open: boolean) => void
   title: string
   description: string
-  bullets: string[]
+  bullets?: string[]
   footer?: string
 }
 
@@ -17,9 +17,10 @@ export const InfoPopup = ({
   onOpenChange,
   title,
   description,
-  bullets,
+  bullets = [],
   footer,
 }: InfoPopupProps) => {
+  const hasBullets = bullets.length > 0
   return (
     <Dialog modal open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -81,31 +82,33 @@ export const InfoPopup = ({
               <Paragraph theme="alt2" color="$color12" lineHeight={22}>
                 {description}
               </Paragraph>
-              <YStack bw={1} boc="$color12" br="$4" p="$3" gap="$2.5">
-                <XStack ai="center" gap="$2">
-                  <YStack f={1} h={1} bg="$color12" opacity={0.35} />
-                  <Paragraph
-                    size="$2"
-                    theme="alt2"
-                    textTransform="uppercase"
-                    letterSpacing={1.2}
-                    color="$color12"
-                    textAlign="right"
-                  >
-                    How it works
-                  </Paragraph>
-                </XStack>
-                <YStack gap="$2.5">
-                  {bullets.map((text) => (
-                    <XStack key={text} gap="$2" ai="flex-start">
-                      <YStack w={6} h={6} br={999} bg="$color10" mt={6} />
-                      <Paragraph theme="alt2" lineHeight={22}>
-                        {text}
-                      </Paragraph>
-                    </XStack>
-                  ))}
+              {hasBullets ? (
+                <YStack bw={1} boc="$color12" br="$4" p="$3" gap="$2.5">
+                  <XStack ai="center" gap="$2">
+                    <YStack f={1} h={1} bg="$color12" opacity={0.35} />
+                    <Paragraph
+                      size="$2"
+                      theme="alt2"
+                      textTransform="uppercase"
+                      letterSpacing={1.2}
+                      color="$color12"
+                      textAlign="right"
+                    >
+                      How it works
+                    </Paragraph>
+                  </XStack>
+                  <YStack gap="$2.5">
+                    {bullets.map((text) => (
+                      <XStack key={text} gap="$2" ai="flex-start">
+                        <YStack w={6} h={6} br={999} bg="$color10" mt={6} />
+                        <Paragraph theme="alt2" lineHeight={22}>
+                          {text}
+                        </Paragraph>
+                      </XStack>
+                    ))}
+                  </YStack>
                 </YStack>
-              </YStack>
+              ) : null}
               {footer ? (
                 <Paragraph theme="alt2" color="$color12" lineHeight={22}>
                   {footer}

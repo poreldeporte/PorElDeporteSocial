@@ -24,6 +24,7 @@ import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useUser } from 'app/utils/useUser'
 import { formatPhoneDisplay } from 'app/utils/phone'
 import { useAppRouter } from 'app/utils/useAppRouter'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 
 import { useMemberApprovalsRealtime } from './member-approvals-realtime'
 
@@ -63,7 +64,7 @@ export const MemberApprovalsScreen = ({
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const realtimeEnabled = isAdmin && !isLoading && Boolean(activeCommunityId)
+  const realtimeEnabled = useRealtimeEnabled(isAdmin && !isLoading && Boolean(activeCommunityId))
   const scheduleInvalidate = useCallback(() => {
     if (!activeCommunityId) return
     void utils.members.pending.invalidate({ communityId: activeCommunityId })

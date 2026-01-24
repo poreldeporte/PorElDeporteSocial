@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { StyleSheet, type ScrollViewProps } from 'react-native'
 
+import { Calendar } from '@tamagui/lucide-icons'
 import {
   Button,
   Card,
@@ -17,11 +18,15 @@ import { screenContentContainerStyle } from 'app/constants/layout'
 import { api } from 'app/utils/api'
 import { useBrand } from 'app/provider/brand'
 import { useActiveCommunity } from 'app/utils/useActiveCommunity'
+import { useAppRouter } from 'app/utils/useAppRouter'
 import { useGamesListRealtime } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import type { GameListItem } from 'app/features/games/types'
+import { useCtaButtonStyles } from 'app/features/games/cta-styles'
 import { WatermarkLogo } from 'app/components/WatermarkLogo'
 import { useUser } from 'app/utils/useUser'
+import { navRoutes } from 'app/navigation/routes'
 
 import { GameCard } from './components/game-card'
 
@@ -42,11 +47,13 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
   const { primaryColor } = useBrand()
   const { isAdmin } = useUser()
   const { activeCommunityId } = useActiveCommunity()
+  const router = useAppRouter()
   const { data, isLoading, error, refetch } = api.games.list.useQuery(
     { scope: 'upcoming', communityId: activeCommunityId ?? '' },
     { enabled: Boolean(activeCommunityId) }
   )
-  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
+  const realtimeEnabled = useRealtimeEnabled(Boolean(activeCommunityId))
+  useGamesListRealtime(realtimeEnabled, activeCommunityId)
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
   const [dropGameId, setDropGameId] = useState<string | null>(null)
@@ -115,6 +122,8 @@ export const ScheduleScreen = ({ scrollProps, headerSpacer }: ScrollHeaderProps 
             isLoading={isLoading}
             error={Boolean(error)}
             onRetry={refetch}
+            isAdmin={isAdmin}
+            onCreate={() => router.push(navRoutes.create.href)}
             join={join}
             leave={handleDropRequest}
             grabOpenSpot={grabOpenSpot}
@@ -146,6 +155,8 @@ const GameListSection = ({
   isLoading,
   error,
   onRetry,
+  isAdmin,
+  onCreate,
   join,
   leave,
   grabOpenSpot,
@@ -158,6 +169,8 @@ const GameListSection = ({
   isLoading: boolean
   error: boolean
   onRetry: () => void
+  isAdmin: boolean
+  onCreate: () => void
   join: (id: string) => void
   leave: (id: string) => void
   grabOpenSpot: (id: string) => void
@@ -189,9 +202,7 @@ const GameListSection = ({
 
   if (!games.length) {
     return (
-      <Card bordered px="$4" py="$4" $platform-native={{ borderWidth: 0 }}>
-        <Paragraph theme="alt1">No games scheduled yet. Check back soon.</Paragraph>
-      </Card>
+      <ScheduleEmptyState isAdmin={isAdmin} onCreate={onCreate} />
     )
   }
 
@@ -234,6 +245,69 @@ const GameListSection = ({
           </YStack>
         </XStack>
       ))}
+    </YStack>
+  )
+}
+
+const ScheduleEmptyState = ({
+  isAdmin,
+  onCreate,
+}: {
+  isAdmin: boolean
+  onCreate: () => void
+}) => {
+  const { primaryColor } = useBrand()
+  const ctaButtonStyles = useCtaButtonStyles()
+  return (
+    <YStack ai="center" jc="center" py="$6" position="relative" overflow="hidden">
+      <YStack position="absolute" top={0} left={0} right={0} bottom={0} opacity={0.2} gap="$3">
+        {[0, 1].map((row) => (
+          <YStack
+            key={`ghost-schedule-${row}`}
+            h={96}
+            br="$5"
+            bg="$color2"
+            borderWidth={1}
+            borderColor="$color12"
+          />
+        ))}
+      </YStack>
+      <Card
+        bordered
+        bw={1}
+        boc="$color12"
+        br="$5"
+        p="$4"
+        gap="$3"
+        alignItems="center"
+        maxWidth={320}
+        width="100%"
+      >
+        <YStack w={72} h={72} br={999} bg="$color2" ai="center" jc="center">
+          <Calendar size={32} color={primaryColor} />
+        </YStack>
+        <YStack gap="$1" ai="center">
+          <SizableText
+            size="$3"
+            fontWeight="700"
+            textTransform="uppercase"
+            letterSpacing={1.2}
+            textAlign="center"
+          >
+            No games scheduled
+          </SizableText>
+          <Paragraph theme="alt2" textAlign="center">
+            New games will appear here as they’re posted.
+          </Paragraph>
+        </YStack>
+        {isAdmin ? (
+          <YStack gap="$1" ai="center" width="100%">
+            <Button size="$3" br="$10" onPress={onCreate} {...ctaButtonStyles.brandSolid}>
+              Schedule a game
+            </Button>
+          </YStack>
+        ) : null}
+      </Card>
     </YStack>
   )
 }

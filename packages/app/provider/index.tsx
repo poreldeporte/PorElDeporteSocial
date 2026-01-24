@@ -1,4 +1,3 @@
-import { DatePickerProvider } from '@rehookify/datepicker'
 import { Session } from '@supabase/supabase-js'
 import React from 'react'
 
@@ -22,12 +21,9 @@ export function Provider({
   children: React.ReactNode
 }) {
   return (
-    // Note: DatePickerProvider Conflicted with Popover so this is just a temporary solution
-    <DatePickerProvider config={{ selectedDates: [], onDatesChange: () => {} }}>
-      <AuthProvider initialSession={initialSession}>
-        <Providers>{children}</Providers>
-      </AuthProvider>
-    </DatePickerProvider>
+    <AuthProvider initialSession={initialSession}>
+      <Providers>{children}</Providers>
+    </AuthProvider>
   )
 }
 

@@ -15,6 +15,8 @@ import {
   TextArea,
   XStack,
   YStack,
+  formFieldShell,
+  formInputStyle,
   submitButtonBaseProps,
   useToastController,
 } from '@my/ui/public'
@@ -241,9 +243,8 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
                       placeholder="First name"
                       placeholderTextColor="$color10"
                       autoCapitalize="words"
-                      borderRadius={12}
-                      borderColor={firstNameError ? '$red10' : '$borderColor'}
-                      backgroundColor="$color1"
+                      {...formInputStyle}
+                      borderColor={firstNameError ? '$red10' : '$color8'}
                       returnKeyType="done"
                       onBlur={() => setTouched((prev) => ({ ...prev, firstName: true }))}
                       onSubmitEditing={Keyboard.dismiss}
@@ -258,9 +259,8 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
                       placeholder="Last name"
                       placeholderTextColor="$color10"
                       autoCapitalize="words"
-                      borderRadius={12}
-                      borderColor={lastNameError ? '$red10' : '$borderColor'}
-                      backgroundColor="$color1"
+                      {...formInputStyle}
+                      borderColor={lastNameError ? '$red10' : '$color8'}
                       returnKeyType="done"
                       onBlur={() => setTouched((prev) => ({ ...prev, lastName: true }))}
                       onSubmitEditing={Keyboard.dismiss}
@@ -273,12 +273,11 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
                   <XStack
                     ai="center"
                     gap="$2"
-                    borderRadius={12}
-                    borderColor={phoneError ? '$red10' : '$borderColor'}
-                    borderWidth={1}
-                    backgroundColor="$color1"
+                    {...formFieldShell}
+                    borderColor={phoneError ? '$red10' : '$color8'}
                     px="$3"
-                    py="$2"
+                    py="$3"
+                    minHeight={48}
                   >
                     <Text fontSize={16} fontWeight="700">
                       +1
@@ -303,9 +302,7 @@ export const AddGuestSheet = ({ open, onOpenChange, gameId }: AddGuestSheetProps
                     onChangeText={setNotes}
                     placeholder="Quick notes for the draft"
                     placeholderTextColor="$color10"
-                    borderRadius={12}
-                    borderColor="$borderColor"
-                    backgroundColor="$color1"
+                    {...formInputStyle}
                     minHeight={100}
                     maxLength={280}
                   />

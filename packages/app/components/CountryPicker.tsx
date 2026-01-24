@@ -10,6 +10,7 @@ import {
   Text,
   XStack,
   YStack,
+  formInputStyle,
   type ColorTokens,
 } from '@my/ui/public'
 import { ChevronDown } from '@tamagui/lucide-icons'
@@ -165,9 +166,7 @@ export const CountryPicker = ({
               autoCapitalize="none"
               autoCorrect={false}
               inputMode="search"
-              borderRadius={12}
-              borderColor="$borderColor"
-              backgroundColor="$background"
+              {...formInputStyle}
               selectionColor={primaryColor}
               caretColor={primaryColor}
               color="$color"

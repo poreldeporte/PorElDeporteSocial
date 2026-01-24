@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 import { FieldError } from '../FieldError'
 import { Shake } from '../Shake'
-import { DatePickerExample } from '../elements/datepicker/DatePicker'
+import { DatePickerField } from '../elements/datepicker/DatePicker'
 
 export const DateSchema = z.object({
   dateValue: z.coerce.date(),
@@ -47,7 +47,7 @@ export const DateField = (props: Pick<InputProps, 'size'>) => {
         <Theme name={errorMessage ? 'red' : null} forceClassName>
           <Fieldset $gtSm={{ fb: 0 }} f={1}>
             <Shake shakeKey={error?.dateValue?.errorMessage}>
-              <DatePickerExample
+              <DatePickerField
                 disabled={disabled}
                 placeholderTextColor="$color10"
                 value={safeDateValue ? safeDateValue.toISOString() : undefined}

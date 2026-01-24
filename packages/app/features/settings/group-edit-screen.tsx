@@ -14,6 +14,7 @@ import {
   Theme,
   XStack,
   YStack,
+  formInputStyle,
   isWeb,
   submitButtonBaseProps,
   useToastController,
@@ -234,10 +235,7 @@ export const GroupEditScreen = ({
                   placeholderTextColor="$color10"
                   autoCapitalize="words"
                   autoCorrect={false}
-                  borderRadius={12}
-                  borderColor="$borderColor"
-                  backgroundColor="$background"
-                  color="$color"
+                  {...formInputStyle}
                 />
               </YStack>
             </Card>

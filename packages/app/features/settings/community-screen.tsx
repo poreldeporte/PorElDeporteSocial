@@ -12,6 +12,8 @@ import {
   Button,
   Input,
   Paragraph,
+  formFieldShell,
+  formInputStyle,
   ScrollView,
   Separator,
   SizableText,
@@ -784,10 +786,7 @@ const SettingRowText = ({
         maxWidth="60%"
         fontSize={15}
         color="$color"
-        borderWidth={0}
-        backgroundColor="transparent"
-        px={0}
-        py={0}
+        {...formInputStyle}
         opacity={disabled ? 0.6 : 1}
       />
     </SettingRow>
@@ -811,22 +810,24 @@ const SettingRowState = ({
 
   return (
     <SettingRow label={label} description={description} error={fieldState.error?.message}>
-      <StatePicker
-        value={value || null}
-        onChange={(code) => field.onChange(code)}
-        disabled={disabled}
-        placeholder="Select state"
-        title="Select state"
-        triggerTextColor={triggerTextColor}
-        triggerIconColor="$color10"
-        triggerProps={{
-          px: 0,
-          py: 0,
-          minHeight: 0,
-          width: 140,
-          alignSelf: 'flex-end',
-        }}
-      />
+      <YStack width={140} maxWidth="60%" alignSelf="flex-end" {...formFieldShell}>
+        <StatePicker
+          value={value || null}
+          onChange={(code) => field.onChange(code)}
+          disabled={disabled}
+          placeholder="Select state"
+          title="Select state"
+          triggerTextColor={triggerTextColor}
+          triggerIconColor="$color10"
+          triggerProps={{
+            px: '$3',
+            py: '$3',
+            minHeight: 48,
+            width: '100%',
+            alignSelf: 'stretch',
+          }}
+        />
+      </YStack>
     </SettingRow>
   )
 }
@@ -879,10 +880,7 @@ const SettingRowNumber = ({
         width={width}
         fontSize={15}
         color="$color"
-        borderWidth={0}
-        backgroundColor="transparent"
-        px={0}
-        py={0}
+        {...formInputStyle}
         opacity={disabled ? 0.6 : 1}
       />
     </SettingRow>

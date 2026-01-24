@@ -1,5 +1,5 @@
 import { StyleSheet, type ScrollViewProps } from 'react-native'
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 
 import {
   Button,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   SizableText,
   Separator,
+  submitButtonBaseProps,
   XStack,
   YStack,
   isWeb,
@@ -22,10 +23,12 @@ import {
   Heart,
   Plus,
   UserPlus,
+  Swords,
   ShieldCheck,
   Zap,
 } from '@tamagui/lucide-icons'
 import { BrandStamp } from 'app/components/BrandStamp'
+import { InfoPopup } from 'app/components/InfoPopup'
 import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
@@ -33,6 +36,7 @@ import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useRefreshOnFocus } from 'app/utils/react-query/useRefreshOnFocus'
 import { useQueueActions } from 'app/utils/useQueueActions'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 import { useUser } from 'app/utils/useUser'
 import { useAppRouter } from 'app/utils/useAppRouter'
 import { useLink } from 'solito/link'
@@ -113,6 +117,7 @@ export const GameDetailScreen = ({
   const ctaButtonStyles = useCtaButtonStyles()
   const utils = api.useUtils()
   const { activeCommunityId } = useActiveCommunity()
+  const realtimeEnabled = useRealtimeEnabled(Boolean(gameId))
   const { join, leave, grabOpenSpot, confirmAttendance, pendingGameId, isPending, isConfirming } =
     useQueueActions()
   const { isAdmin, membershipStatus, user } = useUser()
@@ -129,11 +134,13 @@ export const GameDetailScreen = ({
   const [markingConfirmedId, setMarkingConfirmedId] = useState<string | null>(null)
   const [dropConfirmOpen, setDropConfirmOpen] = useState(false)
   const [menuCloseTick, setMenuCloseTick] = useState(0)
+  const [draftInfoOpen, setDraftInfoOpen] = useState(false)
   const closeMenus = useCallback(() => {
     setMenuCloseTick((prev) => prev + 1)
   }, [])
 
   useRefreshOnFocus(refetch)
+  useGameRealtimeSync(gameId, realtimeEnabled)
   const invalidateLists = async () => {
     if (!activeCommunityId) return
     await Promise.all([
@@ -223,8 +230,6 @@ export const GameDetailScreen = ({
         year: 'numeric',
       })
     : ''
-  useGameRealtimeSync(data?.id)
-
   const canManage = !!data && isAdmin
   const isApprovedMember = membershipStatus === 'approved'
   const canAddGuest =
@@ -234,11 +239,11 @@ export const GameDetailScreen = ({
     (canManage || (isApprovedMember && !view.isLocked))
   const draftEnabled = !!data && data.draftModeEnabled !== false
   const draftVisibility = data ? resolveDraftVisibility(data.draftVisibility) : 'public'
-  const canPlayerSeeDraftRoom = data ? canPlayerAccessDraftRoom(data) : false
+  const canPlayerOpenDraftRoom = data ? canPlayerAccessDraftRoom(data) : false
   const showDraftCard = data
     ? canManage
       ? !view.isUnreleased && draftEnabled && canAdminAccessDraftRoom(data)
-      : canPlayerSeeDraftRoom
+      : !view.isUnreleased && draftEnabled && draftVisibility === 'public'
     : false
   const showDraftHelper = canManage && !!data && data.draftModeEnabled === false && !view.isUnreleased
   const resultActionLabel = data && canManage ? getResultActionLabel(data) : null
@@ -426,32 +431,43 @@ export const GameDetailScreen = ({
             status={displayStatus}
           />
 
-          <YStack gap="$2">
-            {isWeb ? (
-              <AttendanceCard
-                message={resolvedUserStateMessage}
-                ctaLabel={view.ctaLabel}
-                onCta={handleCta}
-                disabled={view.ctaDisabled}
-                theme={view.ctaTheme}
-                isLoading={view.isGamePending}
-                canConfirmAttendance={view.canConfirmAttendance}
-                onConfirmAttendance={() => confirmAttendance(data.id)}
-                confirmationWindowStart={view.confirmationWindowStart}
-              />
-            ) : null}
-            {showDraftCard ? (
+          {isWeb || showDraftCard || showDraftHelper ? (
+            <YStack gap="$2">
+              {isWeb ? (
+                <AttendanceCard
+                  message={resolvedUserStateMessage}
+                  ctaLabel={view.ctaLabel}
+                  onCta={handleCta}
+                  disabled={view.ctaDisabled}
+                  theme={view.ctaTheme}
+                  isLoading={view.isGamePending}
+                  canConfirmAttendance={view.canConfirmAttendance}
+                  onConfirmAttendance={() => confirmAttendance(data.id)}
+                  confirmationWindowStart={view.confirmationWindowStart}
+                />
+              ) : null}
+              {showDraftCard ? (
               <DraftStatusCard
                 draftStatus={data.draftStatus}
                 canManage={canManage}
-                draftVisibility={draftVisibility}
                 result={data.result}
                 draftLink={draftLink}
+                ctaStyle={ctaButtonStyles.brandSolid}
+                accentColor={primaryColor}
+                rosterConfirmed={
+                  view.rosteredCount >= data.capacity &&
+                  (!data.confirmationEnabled ||
+                    view.rosteredPlayers.every((entry) => entry.attendanceConfirmedAt))
+                }
+                confirmationEnabled={data.confirmationEnabled}
+                canOpenDraftRoom={canManage ? canAdminAccessDraftRoom(data) : canPlayerOpenDraftRoom}
+                onInfoPress={() => setDraftInfoOpen(true)}
               />
-            ) : showDraftHelper ? (
-              <DraftModeDisabledCard />
-            ) : null}
-          </YStack>
+              ) : showDraftHelper ? (
+                <DraftModeDisabledCard />
+              ) : null}
+            </YStack>
+          ) : null}
 
           {shouldShowMatchSummary({
             draftEnabled,
@@ -551,6 +567,18 @@ export const GameDetailScreen = ({
         onOpenChange={setRateOpen}
         gameId={data.id}
         gameName={data.name}
+      />
+      <InfoPopup
+        open={draftInfoOpen}
+        onOpenChange={setDraftInfoOpen}
+        title="Draft room"
+        description="The draft room is where captains are chosen and teams are built together."
+        bullets={[
+          'Vote for captains when the roster is confirmed.',
+          'Watch picks live and chat with the community.',
+          'Teams can still be adjusted before kickoff.',
+        ]}
+        footer="Live activity appears here as it happens."
       />
       {canAddGuest ? (
         <AddGuestSheet open={addGuestOpen} onOpenChange={setAddGuestOpen} gameId={data.id} />
@@ -713,49 +741,168 @@ const AttendanceCard = ({
 const DraftStatusCard = ({
   draftStatus,
   canManage,
-  draftVisibility,
   result,
   draftLink,
+  ctaStyle,
+  rosterConfirmed,
+  canOpenDraftRoom,
+  accentColor,
+  onInfoPress,
+  confirmationEnabled,
 }: {
   draftStatus: GameDetail['draftStatus']
   canManage: boolean
-  draftVisibility: ReturnType<typeof resolveDraftVisibility>
   result: GameDetail['result']
   draftLink: ReturnType<typeof useLink>
+  ctaStyle: ReturnType<typeof useCtaButtonStyles>['brandSolid']
+  rosterConfirmed: boolean
+  canOpenDraftRoom: boolean
+  accentColor: string
+  onInfoPress: () => void
+  confirmationEnabled: boolean
 }) => {
-  const content = getDraftStatusContent(draftStatus, canManage, result)
+  const phase = resolveDraftPhase({ draftStatus, rosterConfirmed })
+  const content = getDraftStatusContent(phase, canManage, result)
+  const statusLabel = getDraftStatusLabel(phase)
+  const ctaLabel = getDraftCtaLabel(phase, canManage)
+  const showLive = phase === 'captain_voting' || phase === 'in_progress'
+  const canOpen = canOpenDraftRoom && phase !== 'awaiting_roster'
+  const handleOpen = (event?: any) => {
+    if (!canOpen) return
+    event?.stopPropagation?.()
+    draftLink.onPress?.(event)
+  }
+  const detailLine = content.subline ?? content.headline
+  const supportLine = content.note ?? content.hint
+  const linkProps = canOpen ? draftLink : undefined
+  if (phase === 'awaiting_roster') {
+    return (
+      <Card bordered bw={1} boc="$color12" px="$4" py="$4">
+        <YStack gap="$3">
+          <XStack ai="center" jc="space-between" gap="$2">
+            <SizableText size="$4" fontWeight="700" textTransform="uppercase" letterSpacing={1.4}>
+              Draft Room
+            </SizableText>
+            <YStack
+              w={28}
+              h={28}
+              br={999}
+              bg="$color12"
+              ai="center"
+              jc="center"
+              onPress={(event) => {
+                event?.stopPropagation?.()
+                onInfoPress()
+              }}
+              pressStyle={{ opacity: 0.85 }}
+              accessibilityRole="button"
+              accessibilityLabel="Draft room info"
+            >
+              <SizableText size="$1" fontWeight="700" color="$color1">
+                ?
+              </SizableText>
+            </YStack>
+          </XStack>
+          <YStack ai="center" gap="$3">
+            <YStack w={88} h={88} br={999} bg="$color2" ai="center" jc="center">
+              <Swords size={44} color={accentColor} />
+            </YStack>
+            <YStack gap="$1" ai="center">
+              <SizableText
+                size="$3"
+                fontWeight="700"
+                textTransform="uppercase"
+                letterSpacing={1.2}
+                textAlign="center"
+              >
+                Opens shortly
+              </SizableText>
+              <Paragraph theme="alt2" textAlign="center">
+                {confirmationEnabled ? 'Once everyone is confirmed.' : 'Once roster is full.'}
+              </Paragraph>
+            </YStack>
+          </YStack>
+        </YStack>
+      </Card>
+    )
+  }
   return (
     <Card
       bordered
       bw={1}
       boc="$color12"
-      px="$3"
-      py="$3"
-      {...draftLink}
-      onPress={(event) => {
-        event?.stopPropagation?.()
-        draftLink.onPress?.(event)
-      }}
-      pressStyle={{ backgroundColor: '$color2' }}
+      px="$4"
+      py="$4"
+      {...linkProps}
+      onPress={handleOpen}
+      pressStyle={canOpen ? { backgroundColor: '$color2' } : undefined}
     >
-      <YStack gap="$1.5">
+      <YStack gap="$3">
         <XStack ai="center" jc="space-between" gap="$2">
-          <SizableText fontWeight="600">{content.headline}</SizableText>
-          <ArrowRight />
+          <SizableText size="$4" fontWeight="700" textTransform="uppercase" letterSpacing={1.4}>
+            Draft Room
+          </SizableText>
+          <XStack ai="center" gap="$2">
+            {showLive ? <LivePill /> : null}
+            <YStack
+              w={28}
+              h={28}
+              br={999}
+              bg="$color12"
+              ai="center"
+              jc="center"
+              onPress={(event) => {
+                event?.stopPropagation?.()
+                onInfoPress()
+              }}
+              pressStyle={{ opacity: 0.85 }}
+              accessibilityRole="button"
+              accessibilityLabel="Draft room info"
+            >
+              <SizableText size="$1" fontWeight="700" color="$color1">
+                ?
+              </SizableText>
+            </YStack>
+          </XStack>
         </XStack>
-        {content.subline ? (
-          <Paragraph theme="alt2" size="$2">
-            {content.subline}
-          </Paragraph>
+        <YStack gap="$1.5">
+          {statusLabel ? (
+            <SizableText
+              size="$2"
+              fontWeight="700"
+              textTransform="uppercase"
+              letterSpacing={1.4}
+              color="$color12"
+            >
+              {statusLabel}
+            </SizableText>
+          ) : null}
+          {detailLine ? (
+            <Paragraph size="$3" color="$color12">
+              {detailLine}
+            </Paragraph>
+          ) : null}
+        </YStack>
+        {ctaLabel && canOpen ? (
+          <Button
+            {...submitButtonBaseProps}
+            {...ctaStyle}
+            {...linkProps}
+            onPress={handleOpen}
+            icon={Heart}
+          >
+            {ctaLabel}
+          </Button>
         ) : null}
-        {content.note ? (
-          <Paragraph theme="alt2" size="$2">
-            {content.note}
-          </Paragraph>
-        ) : null}
-        {content.hint ? (
-          <Paragraph theme="alt2" size="$2">
-            {content.hint}
+        {supportLine ? (
+          <Paragraph
+            size="$2"
+            fontWeight="500"
+            color="$color12"
+            opacity={0.85}
+            textAlign="center"
+          >
+            {supportLine}
           </Paragraph>
         ) : null}
       </YStack>
@@ -774,8 +921,53 @@ const DraftModeDisabledCard = () => (
   </Card>
 )
 
+const LivePill = () => {
+  const [blinkOn, setBlinkOn] = useState(true)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBlinkOn((prev) => !prev)
+    }, 600)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <XStack
+      ai="center"
+      gap="$1"
+      px="$2"
+      py="$0.5"
+      br="$10"
+      bg="$red2"
+      borderWidth={1}
+      borderColor="$red7"
+    >
+      <YStack w={6} h={6} br="$10" bg="$red9" opacity={blinkOn ? 1 : 0.25} />
+      <SizableText size="$1" fontWeight="700" letterSpacing={1} color="$red10">
+        LIVE
+      </SizableText>
+    </XStack>
+  )
+}
+
+type DraftPhase = 'awaiting_roster' | 'captain_voting' | 'in_progress' | 'completed'
+
+const resolveDraftPhase = ({
+  draftStatus,
+  rosterConfirmed,
+}: {
+  draftStatus: GameDetail['draftStatus']
+  rosterConfirmed: boolean
+}): DraftPhase => {
+  if (draftStatus === 'completed') return 'completed'
+  if (!rosterConfirmed) return 'awaiting_roster'
+  if (draftStatus === 'pending') return 'captain_voting'
+  if (draftStatus === 'ready' || draftStatus === 'in_progress') return 'in_progress'
+  return 'captain_voting'
+}
+
 const getDraftStatusContent = (
-  draftStatus: GameDetail['draftStatus'],
+  phase: DraftPhase,
   canManage: boolean,
   result: GameDetail['result']
 ): {
@@ -800,7 +992,14 @@ const getDraftStatusContent = (
       hint: resultHint,
     }
   }
-  switch (draftStatus) {
+  switch (phase) {
+    case 'awaiting_roster':
+      return {
+        headline: 'Draft room opens once the roster is confirmed.',
+        note: canManage
+          ? 'Confirm attendance to unlock captain voting.'
+          : 'We’ll open voting once the roster is confirmed.',
+      }
     case 'in_progress':
       return {
         headline: canManage ? 'Captains are drafting' : 'Draft happening now',
@@ -814,22 +1013,35 @@ const getDraftStatusContent = (
         subline: 'Teams are set. Review squads before kickoff.',
         hint: 'Tap to review teams',
       }
-    case 'ready':
-      return {
-        headline: canManage ? 'Captains set' : 'Draft starting now',
-        subline: canManage ? 'Ready when you are.' : 'Captains are ready to pick.',
-        hint: canManage ? undefined : 'Tap to enter the draft room',
-      }
-    case 'pending':
+    case 'captain_voting':
     default:
       return {
-        headline: canManage ? 'Select captains to start the draft' : 'Captains coming soon',
+        headline: canManage ? 'Select captains to start the draft' : 'Draft room is open',
         subline: canManage
           ? 'Select rostered captains. Votes are advisory.'
-          : 'We’ll draft as soon as captains are announced.',
-        hint: canManage ? 'Tap to select captains' : 'Captains coming soon',
+          : 'Enter the draft room to vote for captains and chat with the community.',
+        note: canManage ? undefined : 'Your vote helps choose captains.',
+        hint: canManage ? 'Tap to select captains' : 'Tap to open draft room',
       }
   }
+}
+
+const getDraftStatusLabel = (phase: DraftPhase) => {
+  if (phase === 'in_progress') return 'Draft live'
+  if (phase === 'completed') return 'Teams set'
+  return ''
+}
+
+const getDraftCtaLabel = (phase: DraftPhase, canManage: boolean) => {
+  if (phase === 'awaiting_roster') return null
+  if (canManage) {
+    if (phase === 'captain_voting') return 'Pick captains'
+    if (phase === 'in_progress') return 'Open draft room'
+    return 'Manage teams'
+  }
+  if (phase === 'captain_voting') return 'Vote for captains'
+  if (phase === 'in_progress') return 'Join live draft'
+  return 'View teams'
 }
 
 const getResultActionLabel = (game: GameDetail) => {

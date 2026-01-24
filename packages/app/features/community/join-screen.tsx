@@ -11,6 +11,7 @@ import {
   Input,
   LinearGradient,
   Paragraph,
+  formFieldShell,
   ScrollView,
   SizableText,
   XStack,
@@ -266,11 +267,9 @@ export const JoinCommunitiesScreen = ({ scrollProps, headerSpacer }: ScrollHeade
               ai="center"
               gap="$2"
               px="$3"
-              py="$2"
-              br="$6"
-              bg="$background"
-              borderColor="$color12"
-              borderWidth={1}
+              py="$3"
+              minHeight={48}
+              {...formFieldShell}
             >
               <Search size={18} color="$color10" />
               <Input
@@ -282,7 +281,6 @@ export const JoinCommunitiesScreen = ({ scrollProps, headerSpacer }: ScrollHeade
                 placeholderTextColor="$color10"
                 autoCorrect={false}
                 inputMode="search"
-                borderRadius={0}
                 borderWidth={0}
                 paddingHorizontal={0}
                 backgroundColor="transparent"

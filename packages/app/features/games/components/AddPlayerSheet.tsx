@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  formInputStyle,
   useToastController,
 } from '@my/ui/public'
 import { X } from '@tamagui/lucide-icons'
@@ -178,11 +179,7 @@ export const AddPlayerSheet = ({
                 autoCapitalize="none"
                 autoCorrect={false}
                 inputMode="search"
-                borderRadius={12}
-                borderColor="$color12"
-                borderWidth={1}
-                backgroundColor="$background"
-                color="$color"
+                {...formInputStyle}
               />
               <YStack gap="$2">
                 {membersQuery.isLoading ? (

@@ -8,6 +8,8 @@ import { screenContentContainerStyle } from 'app/constants/layout'
 import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { useUser } from 'app/utils/useUser'
+import { useGameReviewsRealtime } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 
 type ScrollHeaderProps = {
   scrollProps?: ScrollViewProps
@@ -24,10 +26,12 @@ export const GameReviewsScreen = ({
 }: { gameId: string } & ScrollHeaderProps) => {
   const { isAdmin, isLoading: isLoadingUser } = useUser()
   const { primaryColor } = useBrand()
+  const realtimeEnabled = useRealtimeEnabled(isAdmin && !isLoadingUser && Boolean(gameId))
   const { data, isLoading, error, refetch } = api.reviews.listByGame.useQuery(
     { gameId },
     { enabled: isAdmin && !isLoadingUser && Boolean(gameId) }
   )
+  useGameReviewsRealtime(realtimeEnabled, gameId)
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer
     ? { ...screenContentContainerStyle, paddingTop: 0 }

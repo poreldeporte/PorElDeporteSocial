@@ -25,6 +25,7 @@ import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { formatProfileName } from 'app/utils/profileName'
 import { useGameRealtimeSync } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 import { useTeamsState } from 'app/utils/useTeamsState'
 import { useUser } from 'app/utils/useUser'
 import { useAppRouter } from 'app/utils/useAppRouter'
@@ -80,6 +81,7 @@ export const GameDraftScreen = ({
   const [selectedCaptainIds, setSelectedCaptainIds] = useState<string[]>([])
   const [draftStyle, setDraftStyle] = useState<'snake' | 'original'>('snake')
   const [draftStyleTouched, setDraftStyleTouched] = useState(false)
+  const realtimeEnabled = useRealtimeEnabled(Boolean(gameId))
   const { data: gameDetail, isLoading: gameLoading } = api.games.byId.useQuery(
     { id: gameId },
     { enabled: !!gameId }
@@ -98,8 +100,9 @@ export const GameDraftScreen = ({
     refetch,
   } = useTeamsState({
     gameId,
+    enabled: realtimeEnabled,
   })
-  useGameRealtimeSync(gameId)
+  useGameRealtimeSync(gameId, realtimeEnabled)
   const resetDraftMutation = api.teams.resetDraft.useMutation({
     onSuccess: async () => {
       setResetConfirmOpen(false)
@@ -610,7 +613,8 @@ export const GameDraftScreen = ({
       </ScrollView>
       <DraftRoomLiveOverlay
         gameId={gameId}
-        enabled={showChatOverlay}
+        enabled={draftChatEnabled && realtimeEnabled}
+        visible={showChatOverlay}
         collapsedMessageLimit={canPick ? 0 : undefined}
       />
     </YStack>

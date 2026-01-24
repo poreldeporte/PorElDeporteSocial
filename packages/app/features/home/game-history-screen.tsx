@@ -9,6 +9,7 @@ import { useBrand } from 'app/provider/brand'
 import { api } from 'app/utils/api'
 import { useActiveCommunity } from 'app/utils/useActiveCommunity'
 import { useGamesListRealtime } from 'app/utils/useRealtimeSync'
+import { useRealtimeEnabled } from 'app/utils/useRealtimeEnabled'
 
 type ScrollHeaderProps = {
   scrollProps?: ScrollViewProps
@@ -23,7 +24,8 @@ export const GameHistoryScreen = ({ scrollProps, headerSpacer }: ScrollHeaderPro
     { scope: 'past', communityId: activeCommunityId ?? '' },
     { enabled: Boolean(activeCommunityId) }
   )
-  useGamesListRealtime(Boolean(activeCommunityId), activeCommunityId)
+  const realtimeEnabled = useRealtimeEnabled(Boolean(activeCommunityId))
+  useGamesListRealtime(realtimeEnabled, activeCommunityId)
   const games = data ?? []
   const { contentContainerStyle, ...scrollViewProps } = scrollProps ?? {}
   const baseContentStyle = headerSpacer

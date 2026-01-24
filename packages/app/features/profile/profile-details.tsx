@@ -9,6 +9,8 @@ import {
   SizableText,
   XStack,
   YStack,
+  formFieldShell,
+  formInputStyle,
 } from '@my/ui/public'
 import { Check, PenSquare } from '@tamagui/lucide-icons'
 
@@ -462,11 +464,9 @@ const BackgroundEditor = ({
   )
 }
 
-const inlineInputStyle = {
-  borderWidth: 1,
-  borderColor: '$color12',
-  backgroundColor: '$white1',
-  borderRadius: 0,
+const inlinePickerShell = {
+  ...formFieldShell,
+  minHeight: 48,
 }
 
 const InlineInput = ({
@@ -488,14 +488,13 @@ const InlineInput = ({
     value={value}
     onChangeText={onChangeText}
     placeholder={placeholder}
-    placeholderTextColor="$black9"
+    placeholderTextColor="$color10"
     disabled={disabled}
     inputMode={inputMode}
     autoCapitalize={autoCapitalize}
     size="$3"
-    {...inlineInputStyle}
+    {...formInputStyle}
     textAlign="left"
-    fontWeight="600"
     color="$color12"
     alignSelf="stretch"
     flex={1}
@@ -521,7 +520,7 @@ const InlineBirthDateInputs = ({
         flex={1}
         minWidth={0}
         placeholder="MM"
-        placeholderTextColor="$black9"
+        placeholderTextColor="$color10"
         inputMode="numeric"
         keyboardType="number-pad"
         maxLength={2}
@@ -529,15 +528,14 @@ const InlineBirthDateInputs = ({
         onChangeText={(text) => update('month', text, 2)}
         textAlign="left"
         size="$3"
-        {...inlineInputStyle}
-        fontWeight="600"
+        {...formInputStyle}
         color="$color12"
       />
       <Input
         flex={1}
         minWidth={0}
         placeholder="DD"
-        placeholderTextColor="$black9"
+        placeholderTextColor="$color10"
         inputMode="numeric"
         keyboardType="number-pad"
         maxLength={2}
@@ -545,15 +543,14 @@ const InlineBirthDateInputs = ({
         onChangeText={(text) => update('day', text, 2)}
         textAlign="left"
         size="$3"
-        {...inlineInputStyle}
-        fontWeight="600"
+        {...formInputStyle}
         color="$color12"
       />
       <Input
         flex={1.4}
         minWidth={0}
         placeholder="YYYY"
-        placeholderTextColor="$black9"
+        placeholderTextColor="$color10"
         inputMode="numeric"
         keyboardType="number-pad"
         maxLength={4}
@@ -561,8 +558,7 @@ const InlineBirthDateInputs = ({
         onChangeText={(text) => update('year', text, 4)}
         textAlign="left"
         size="$3"
-        {...inlineInputStyle}
-        fontWeight="600"
+        {...formInputStyle}
         color="$color12"
       />
     </XStack>
@@ -578,10 +574,10 @@ const InlineNationalityPicker = ({
 }) => {
   const options = getPhoneCountryOptions()
   const selected = value ? options.find((option) => option.code === value) ?? null : null
-  const triggerTextColor = selected ? '$color12' : '$black9'
+  const triggerTextColor = selected ? '$color12' : '$color10'
 
   return (
-    <XStack {...inlineInputStyle} w="100%" alignSelf="stretch" ai="center">
+    <XStack {...inlinePickerShell} w="100%" alignSelf="stretch" ai="center">
       <CountryPicker
         value={(value || null) as PhoneCountryOption['code'] | null}
         onChange={(code) => onChange(code)}
@@ -593,7 +589,7 @@ const InlineNationalityPicker = ({
         popularCountries={['US', 'AR', 'BR', 'GB', 'DE', 'ES']}
         triggerTextColor={triggerTextColor}
         triggerIconColor="$color12"
-        triggerProps={{ px: '$2', py: '$1.5', minHeight: 40, width: '100%' }}
+        triggerProps={{ px: '$3', py: '$3', minHeight: 48, width: '100%' }}
       />
     </XStack>
   )
@@ -606,10 +602,10 @@ const InlineStatePicker = ({
   value: string
   onChange: (value: string) => void
 }) => {
-  const triggerTextColor = value ? '$color12' : '$black9'
+  const triggerTextColor = value ? '$color12' : '$color10'
 
   return (
-    <XStack {...inlineInputStyle} w="100%" alignSelf="stretch" ai="center">
+    <XStack {...inlinePickerShell} w="100%" alignSelf="stretch" ai="center">
       <StatePicker
         value={value || null}
         onChange={onChange}
@@ -617,7 +613,7 @@ const InlineStatePicker = ({
         placeholder={profileFieldCopy.state.placeholder}
         triggerTextColor={triggerTextColor}
         triggerIconColor="$color12"
-        triggerProps={{ px: '$2', py: '$1.5', minHeight: 40, width: '100%' }}
+        triggerProps={{ px: '$3', py: '$3', minHeight: 48, width: '100%' }}
       />
     </XStack>
   )
